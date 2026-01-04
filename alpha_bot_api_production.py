@@ -20,13 +20,8 @@ sys.path.insert(0, backend_path)
 
 app = Flask(__name__)
 
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["https://alphadolar.online", "http://localhost:*"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"]
-    }
-})
+# CORS - Liberar TODAS as origens
+CORS(app)
 
 # ==================== IMPORTAR CONFIG PRIMEIRO ====================
 
