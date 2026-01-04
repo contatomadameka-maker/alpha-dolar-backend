@@ -37,3 +37,14 @@ class BotConfig:
             raise ValueError("STAKE_INICIAL deve ser maior que zero")
         
         return True
+
+# Função fora da classe
+def validate_config():
+    """Valida se as configurações estão corretas"""
+    if not BotConfig.DERIV_TOKEN:
+        raise ValueError("DERIV_TOKEN não configurado!")
+    
+    if BotConfig.STAKE_INICIAL <= 0:
+        raise ValueError("STAKE_INICIAL deve ser maior que zero")
+    
+    return True
