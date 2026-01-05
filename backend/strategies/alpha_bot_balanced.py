@@ -7,16 +7,13 @@ Frequência: 2-5 trades/hora
 from .base_strategy import BaseStrategy
 from ..config import BotConfig
 import statistics
-
 class AlphaBotBalanced(BaseStrategy):
     """Estratégia balanceada - nem muito lenta, nem muito agressiva"""
-
     def __init__(self):
         super().__init__(name="Alpha Bot Balanced")
         self.min_history = 20  # Só precisa de 20 ticks (vs 100+ do AlphaBot1)
         self.last_signal_tick = 0
         self.cooldown_ticks = 8  # Espera 8 ticks entre sinais
-
     def should_enter(self, tick_data):
         """
         Estratégia baseada em:
@@ -25,20 +22,18 @@ class AlphaBotBalanced(BaseStrategy):
         - Volatilidade moderada
         """
         self.update_tick(tick_data)
-
         # Precisa de histórico mínimo
-        if len(self.history) < self.min_history:
+        if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-
         # Cooldown entre operações
-        ticks_since_last = len(self.history) - self.last_signal_tick
+        ticks_since_last = len(self.ticks_history) - self.last_signal_tick
         if ticks_since_last < self.cooldown_ticks:
             return False, None, 0.0
-
         try:
             # Pega últimos ticks
-            recent_10 = self.history[-10:]  # Curtíssimo prazo
-            recent_20 = self.history[-20:]  # Curto prazo
+            min_conditions = 3
+            recent_10 = self.ticks_history[-10:]  # Curtíssimo prazo
+            recent_20 = self.ticks_history[-20:]  # Curto prazo
 
             current_price = recent_10[-1]
 
@@ -82,12 +77,12 @@ class AlphaBotBalanced(BaseStrategy):
 
             if call_score >= min_conditions:
                 confidence = (call_score / 4) * 0.85 + 0.15  # 65-85%
-                self.last_signal_tick = len(self.history)
+                self.last_signal_tick = len(self.ticks_history)
                 return True, "CALL", confidence
 
             if put_score >= min_conditions:
                 confidence = (put_score / 4) * 0.85 + 0.15  # 65-85%
-                self.last_signal_tick = len(self.history)
+                self.last_signal_tick = len(self.ticks_history)
                 return True, "PUT", confidence
 
             # Nenhum sinal forte
