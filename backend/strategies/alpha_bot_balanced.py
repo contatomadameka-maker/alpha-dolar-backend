@@ -42,8 +42,8 @@ class AlphaBotBalanced(BaseStrategy):
         
         try:
             # Pega últimos ticks - CONVERTER DEQUE PARA LISTA!
-            recent_10 = list(self.ticks_history)[-10:]  # Curtíssimo prazo
-            recent_20 = list(self.ticks_history)[-20:]  # Curto prazo
+            recent_10 = [tick['quote'] if isinstance(tick, dict) else tick for tick in list(self.ticks_history)[-10:]]
+            recent_20 = [tick['quote'] if isinstance(tick, dict) else tick for tick in list(self.ticks_history)[-20:]]
             
             current_price = recent_10[-1]
             
