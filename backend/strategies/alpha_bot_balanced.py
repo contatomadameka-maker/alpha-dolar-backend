@@ -118,7 +118,3 @@ class AlphaBotBalanced(BaseStrategy):
             'indicators': 'MA10, MA20, Momentum, Volatilidade',
             'risk_level': 'Médio'
         }
-
-## 📝 **COMMIT:**
-```
-Fix: Resolve infinite cooldown bug using independent tick counter
