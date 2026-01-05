@@ -26,13 +26,18 @@ class AlphaBotBalanced(BaseStrategy):
         """
         self.update_tick(tick_data)
         
+        # DEBUG: Log para ver se está sendo chamado
+        print(f"[DEBUG] should_enter chamado! Histórico: {len(self.ticks_history)}/{self.min_history}")
+        
         # Precisa de histórico mínimo
         if len(self.ticks_history) < self.min_history:
+            print(f"[DEBUG] Aguardando histórico completo...")
             return False, None, 0.0
         
         # Cooldown entre operações
         ticks_since_last = len(self.ticks_history) - self.last_signal_tick
         if ticks_since_last < self.cooldown_ticks:
+            print(f"[DEBUG] Cooldown ativo: {ticks_since_last}/{self.cooldown_ticks} ticks")
             return False, None, 0.0
         
         try:
@@ -54,6 +59,8 @@ class AlphaBotBalanced(BaseStrategy):
             
             # Distância da média de 20
             distance_from_ma = ((current_price - ma_20) / ma_20) * 100
+            
+            print(f"[DEBUG] Análise: preço={current_price:.2f}, ma20={ma_20:.2f}, momentum={momentum:.4f}%, vol={volatility:.4f}")
             
             # ==== LÓGICA DE ENTRADA ====
             
@@ -77,20 +84,25 @@ class AlphaBotBalanced(BaseStrategy):
             call_score = sum(call_conditions)
             put_score = sum(put_conditions)
             
+            print(f"[DEBUG] Scores: CALL={call_score}/4, PUT={put_score}/4")
+            
             # Precisa de pelo menos 3 de 4 condições
             min_conditions = 3
             
             if call_score >= min_conditions:
                 confidence = (call_score / 4) * 0.85 + 0.15  # 65-85%
                 self.last_signal_tick = len(self.ticks_history)
+                print(f"🎯 SINAL DETECTADO! CALL com {confidence*100:.1f}% confiança")
                 return True, "CALL", confidence
             
             if put_score >= min_conditions:
                 confidence = (put_score / 4) * 0.85 + 0.15  # 65-85%
                 self.last_signal_tick = len(self.ticks_history)
+                print(f"🎯 SINAL DETECTADO! PUT com {confidence*100:.1f}% confiança")
                 return True, "PUT", confidence
             
             # Nenhum sinal forte
+            print(f"[DEBUG] Nenhum sinal (precisa 3/4)")
             return False, None, 0.0
             
         except Exception as e:
@@ -119,3 +131,22 @@ class AlphaBotBalanced(BaseStrategy):
             'indicators': 'MA10, MA20, Momentum, Volatilidade',
             'risk_level': 'Médio'
         }
+```
+
+---
+
+## 🔑 **ADICIONEI VÁRIOS LOGS:**
+
+- Linha 29: Mostra histórico atual
+- Linha 33: Avisa quando aguardando histórico
+- Linha 39: Mostra cooldown
+- Linha 55: Mostra análise dos indicadores
+- Linha 79: Mostra scores CALL/PUT
+- Linhas 87/94: Confirma quando detecta sinal
+- Linha 100: Avisa quando não há sinal
+
+---
+
+## 📝 **COMMIT:**
+```
+Add comprehensive debug logging
