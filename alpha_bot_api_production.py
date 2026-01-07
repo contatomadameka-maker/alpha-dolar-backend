@@ -283,15 +283,47 @@ def stop_bot():
             print(f"✅ Bot {bot_type} parado")
 
             return jsonify({
-                'success': True,
-                'message': f'Bot {bot_type} parado com sucesso!',
-                'stats': stats
-            })
+        bot_type = data.get('bot_type', 'ia')
+
+        print(f"🛑 Parando bot: {bot_type}")
+
+        if bot_type not in bots_state:
+            return jsonify({
+                'success': False,
+                'error': f'Bot {bot_type} não encontrado'
+            }), 400
+
+        # ✅ REMOVIDO: Verificação se bot está rodando
+        # Permite parar mesmo se já estiver parado (mais permissivo)
+
+        bot = bots_state[bot_type].get('instance')
+
+        if bot:
+            if hasattr(bot, 'stop'):
+                try:
+                    bot.stop()
+                except:
+                    pass
+            elif hasattr(bot, 'running'):
+                bot.running = False
+
+        # ✅ SEMPRE marca como parado
+        bots_state[bot_type]['running'] = False
+
+        stats = {}
+        if bot and BOTS_AVAILABLE and hasattr(bot, 'stop_loss'):
+            try:
+                stats = bot.stop_loss.get_estatisticas()
+            except:
+                pass
+
+        print(f"✅ Bot {bot_type} parado")
 
         return jsonify({
-            'success': False,
-            'error': 'Instância do bot não encontrada'
-        }), 500
+            'success': True,
+            'message': f'Bot {bot_type} parado com sucesso!',
+            'stats': stats
+        })
 
     except Exception as e:
         print(f"❌ ERRO em stop_bot: {e}")
@@ -299,20 +331,6 @@ def stop_bot():
             'success': False,
             'error': f'Erro interno: {str(e)}'
         }), 500
-
-@app.route('/api/balance')
-def get_balance():
-    """Retorna saldo atual da conta Deriv"""
-    for bot_type, state in bots_state.items():
-        bot = state.get('instance')
-        if bot and BOTS_AVAILABLE and hasattr(bot, 'api'):
-            try:
-                balance = bot.api.balance
-                currency = bot.api.currency
-                return jsonify({
-                    'success': True,
-                    'balance': balance,
-                    'currency': currency,
                     'formatted': f"${balance:,.2f}"
                 })
             except:
