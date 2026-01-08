@@ -23,7 +23,7 @@ class BotConfig:
 
     # ===== API DERIV =====
     # COLE SEU TOKEN AQUI ENTRE AS ASPAS ↓
-    API_TOKEN = "6ERlrkXsO23Egc5"
+    API_TOKEN = "vPu2lzCDshSNKIp"
     APP_ID = "1089"
 
     # ===== MERCADO =====
