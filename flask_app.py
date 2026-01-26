@@ -151,6 +151,23 @@ def health():
         'status': 'ok',
         'message': 'Alpha Dolar API Running on Render'
     })
+@app.route('/api/bot/trades/<bot_type>', methods=['GET', 'OPTIONS'])
+def bot_trades(bot_type):
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    if bot_type not in bot_states:
+        return jsonify({'success': False, 'error': 'Bot não encontrado'}), 404
+
+    stats = bot_states[bot_type].get('stats', {})
+    trades = stats.get('trades', [])
+
+    return jsonify({
+        'success': True,
+        'bot_type': bot_type,
+        'total_trades': len(trades),
+        'trades': trades
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
