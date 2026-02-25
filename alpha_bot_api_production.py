@@ -23,6 +23,7 @@ CORS(app)
 
 bots_state = {
     'manual':      {'running': False, 'instance': None},
+    'ia':          {'running': False, 'instance': None},
     'ia_simples':  {'running': False, 'instance': None},
     'ia_avancado': {'running': False, 'instance': None}
 }
