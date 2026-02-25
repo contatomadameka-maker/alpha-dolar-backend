@@ -22,7 +22,9 @@ app = Flask(__name__, static_folder='web', static_url_path='')
 CORS(app)
 
 bots_state = {
-    'manual':      {'running': False, 'instance': None},
+    'manual':      {'running': False, 'instance': None, 'thread': None},
+    'ia':          {'running': False, 'instance': None, 'thread': None},
+    'ia_simples':  {'running': False, 'instance': None, 'thread': None},,
     'ia_simples':  {'running': False, 'instance': None},
     'ia_avancado': {'running': False, 'instance': None}
 }
