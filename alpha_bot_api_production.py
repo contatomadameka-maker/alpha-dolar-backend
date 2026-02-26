@@ -807,6 +807,10 @@ def get_balance():
     return jsonify({'balance': current_stats['saldo_atual'], 'type': tipo})
 
 
+@app.route('/api/balance')
+def get_balance2():
+    return jsonify({'balance': current_stats['saldo_atual']})
+
 if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 ALPHA DOLAR 2.0 — API COM ESTRATÉGIAS COMPLETAS")
