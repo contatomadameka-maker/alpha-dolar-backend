@@ -185,9 +185,13 @@ def start_bot():
             max_losses     = int(config.get('max_losses', 5))
             print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id} | StopLoss: {stop_loss_type}")
 
-            # ✅ Aplica tipo de stop loss no BotConfig
+            # ✅ Aplica TODOS os valores do frontend no BotConfig ANTES de criar o bot
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
             BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
+            BotConfig.STAKE_INICIAL          = float(config.get('stake', BotConfig.STAKE_INICIAL))
+            BotConfig.LUCRO_ALVO             = float(config.get('target', BotConfig.LUCRO_ALVO))
+            BotConfig.LIMITE_PERDA           = float(config.get('stop', BotConfig.LIMITE_PERDA))
+            print(f"💰 stake={BotConfig.STAKE_INICIAL} target={BotConfig.LUCRO_ALVO} stop={BotConfig.LIMITE_PERDA}")
 
             try:
                 factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
@@ -425,6 +429,9 @@ def emergency_reset():
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION")
+    print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
+    print("="*70 + "\n")
+    app.run(host='0.0.0.0', port=5000, debug=True)
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
