@@ -214,16 +214,15 @@ def start_bot():
                 wins   = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
                 wr     = round((wins / total) * 100, 1) if total > 0 else 0
 
-                # Próximo stake — usa perda acumulada do bot se disponível
+                # ✅ Próximo stake — usa martingale inteligente do bot
                 step_atual = getattr(strategy, 'step_atual', 0)
                 max_steps  = getattr(strategy, 'max_steps', 3)
-                # Pega o próximo stake calculado pelo bot (martingale inteligente)
-                if hasattr(bot, '_calcular_stake_recuperacao'):
+                # Após registrar o resultado, calcula próximo stake
+                perda_acum = getattr(bot, 'perda_acumulada', 0)
+                if perda_acum > 0 and hasattr(bot, '_calcular_stake_recuperacao'):
                     next_stake = bot._calcular_stake_recuperacao()
-                elif hasattr(strategy, 'stake_atual'):
-                    next_stake = strategy.stake_atual
                 else:
-                    next_stake = getattr(strategy, 'stake_inicial', BotConfig.STAKE_INICIAL)
+                    next_stake = BotConfig.STAKE_INICIAL
 
                 trade = {
                     'id':           int(time.time() * 1000),
@@ -254,10 +253,16 @@ def start_bot():
                 if status in ['won', 'lost']:
                     profit = float(contract_data.get('profit', 0))
                     won    = status == 'won'
-                    # Descobre stake e direção do último trade
-                    stake_used = getattr(strategy, 'stake_atual', BotConfig.STAKE_INICIAL)
-                    direction  = contract_data.get('contract_type', 'CALL/PUT')
+                    direction = contract_data.get('contract_type', 'CALL/PUT')
+                    stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
                     on_trade_completed(direction, won, profit, stake_used, BotConfig.DEFAULT_SYMBOL)
+
+                    # ✅ Garante liberação AQUI — independente do bot.on_contract_update
+                    bot.waiting_contract = False
+                    bot.current_contract_id = None
+                    bot._ultimo_trade_time = time.time()
+                    print(f"[patched] ✅ waiting_contract liberado — status: {status}")
+
                 original_contract_update(contract_data)
             bot.on_contract_update = patched_contract_update
             bot.api.set_contract_callback(patched_contract_update)
