@@ -214,12 +214,16 @@ def start_bot():
                 wins   = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
                 wr     = round((wins / total) * 100, 1) if total > 0 else 0
 
-                # Próximo stake e step do martingale
-                next_stake = getattr(strategy, 'stake_inicial', BotConfig.STAKE_INICIAL)
+                # Próximo stake — usa perda acumulada do bot se disponível
                 step_atual = getattr(strategy, 'step_atual', 0)
                 max_steps  = getattr(strategy, 'max_steps', 3)
-                if hasattr(strategy, 'stake_atual'):
-                    next_stake = strategy.stake_atual  # já foi atualizado pelo on_trade_result
+                # Pega o próximo stake calculado pelo bot (martingale inteligente)
+                if hasattr(bot, '_calcular_stake_recuperacao'):
+                    next_stake = bot._calcular_stake_recuperacao()
+                elif hasattr(strategy, 'stake_atual'):
+                    next_stake = strategy.stake_atual
+                else:
+                    next_stake = getattr(strategy, 'stake_inicial', BotConfig.STAKE_INICIAL)
 
                 trade = {
                     'id':           int(time.time() * 1000),
@@ -429,9 +433,6 @@ def emergency_reset():
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION")
-    print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
-    print("="*70 + "\n")
-    app.run(host='0.0.0.0', port=5000, debug=True)
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
