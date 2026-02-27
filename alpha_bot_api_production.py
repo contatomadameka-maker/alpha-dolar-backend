@@ -204,14 +204,32 @@ def start_bot():
 
             # ✅ Callback para salvar cada trade na lista
             def on_trade_completed(direction, won, profit, stake, symbol_used):
+                # Calcula win rate atualizado
+                trades_ate_agora = bots_state[bot_type]['trades']
+                total  = len(trades_ate_agora) + 1
+                wins   = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
+                wr     = round((wins / total) * 100, 1) if total > 0 else 0
+
+                # Próximo stake e step do martingale
+                next_stake = getattr(strategy, 'stake_inicial', BotConfig.STAKE_INICIAL)
+                step_atual = getattr(strategy, 'step_atual', 0)
+                max_steps  = getattr(strategy, 'max_steps', 3)
+                if hasattr(strategy, 'stake_atual'):
+                    next_stake = strategy.stake_atual  # já foi atualizado pelo on_trade_result
+
                 trade = {
-                    'id':          int(time.time() * 1000),
-                    'direction':   direction,
-                    'result':      'win' if won else 'loss',
-                    'profit':      round(profit, 2),
-                    'stake':       round(stake, 2),
-                    'symbol':      symbol_used,
-                    'timestamp':   datetime.now().strftime('%H:%M:%S')
+                    'id':           int(time.time() * 1000),
+                    'direction':    direction,
+                    'result':       'win' if won else 'loss',
+                    'profit':       round(profit, 2),
+                    'stake':        round(stake, 2),
+                    'symbol':       symbol_used,
+                    'timestamp':    datetime.now().strftime('%H:%M:%S'),
+                    'next_stake':   round(next_stake, 2),
+                    'step':         step_atual,
+                    'max_steps':    max_steps,
+                    'win_rate':     wr,
+                    'total_trades': total
                 }
                 bots_state[bot_type]['trades'].append(trade)
                 # Mantém só últimos 100 trades em memória
