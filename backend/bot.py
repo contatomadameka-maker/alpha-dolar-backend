@@ -178,6 +178,7 @@ class AlphaDolar:
         if barrier is not None:
             proposal_params['barrier'] = barrier
 
+        self._ultimo_stake_usado = stake  # ✅ salva para o patched_contract_update
         self.api.get_proposal(**proposal_params)
         self.waiting_contract = True
         self.trades_hoje += 1
