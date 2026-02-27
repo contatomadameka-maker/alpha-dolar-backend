@@ -246,6 +246,13 @@ class DerivAPI:
             elif msg_type == "proposal":
                 if "error" in data:
                     self.log(f"Erro proposta: {data['error']['message']}", "ERROR")
+                    # ✅ Libera waiting_contract se proposta falhou
+                    self._clear_contract()
+                    if self.on_contract_callback:
+                        self.on_contract_callback({
+                            "status": "lost", "profit": 0,
+                            "contract_id": None, "_proposal_error": True
+                        })
                 else:
                     proposal    = data.get("proposal", {})
                     proposal_id = proposal.get("id")
