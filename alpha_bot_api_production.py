@@ -147,14 +147,20 @@ def start_bot():
 
             print(f"📡 Subscrevendo: {BotConfig.DEFAULT_SYMBOL}")
 
+            # ✅ Parâmetros do frontend
+            trading_mode = config.get('trading_mode', 'faster')
+            risk_mode    = config.get('risk_mode', 'conservative')
+            strategy_id  = config.get('strategy', 'alpha_bot_balanced')
+            print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id}")
+
             try:
-                strategy = AlphaBotBalanced()
-                print(f"✅ Estratégia: {strategy.name}")
+                strategy = AlphaBotBalanced(trading_mode=trading_mode, risk_mode=risk_mode)
+                print(f"✅ Estratégia: {strategy.name} | Confiança: {strategy.min_confidence:.0%} | Martingale: {strategy.usar_martingale}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
-                bot = AlphaDolar(strategy=strategy, use_martingale=config.get('martingale', False))
+                bot = AlphaDolar(strategy=strategy, use_martingale=strategy.usar_martingale)
                 print(f"✅ Bot: {bot.bot_name}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
