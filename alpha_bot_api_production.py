@@ -196,6 +196,40 @@ def start_bot():
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
+            # ✅ Callback para salvar cada trade na lista
+            def on_trade_completed(direction, won, profit, stake, symbol_used):
+                trade = {
+                    'id':          int(time.time() * 1000),
+                    'direction':   direction,
+                    'result':      'win' if won else 'loss',
+                    'profit':      round(profit, 2),
+                    'stake':       round(stake, 2),
+                    'symbol':      symbol_used,
+                    'timestamp':   datetime.now().strftime('%H:%M:%S')
+                }
+                bots_state[bot_type]['trades'].append(trade)
+                # Mantém só últimos 100 trades em memória
+                if len(bots_state[bot_type]['trades']) > 100:
+                    bots_state[bot_type]['trades'].pop(0)
+
+            # Injeta callback no bot
+            bot._on_trade_completed = on_trade_completed
+
+            # Monkey-patch no on_contract_update para capturar resultado
+            original_contract_update = bot.on_contract_update
+            def patched_contract_update(contract_data):
+                status = contract_data.get('status')
+                if status in ['won', 'lost']:
+                    profit = float(contract_data.get('profit', 0))
+                    won    = status == 'won'
+                    # Descobre stake e direção do último trade
+                    stake_used = getattr(strategy, 'stake_atual', BotConfig.STAKE_INICIAL)
+                    direction  = contract_data.get('contract_type', 'CALL/PUT')
+                    on_trade_completed(direction, won, profit, stake_used, BotConfig.DEFAULT_SYMBOL)
+                original_contract_update(contract_data)
+            bot.on_contract_update = patched_contract_update
+            bot.api.set_contract_callback(patched_contract_update)
+
             def run_bot():
                 try:
                     print(f"🚀 Thread bot [{account_type.upper()}] iniciada!")
@@ -334,8 +368,9 @@ def get_bot_stats(bot_type):
 @app.route('/api/bot/trades/<bot_type>')
 def get_bot_trades(bot_type):
     if bot_type not in bots_state:
-        return jsonify([])
-    return jsonify(bots_state[bot_type].get('trades', []))
+        return jsonify({'success': True, 'trades': []})
+    trades = bots_state[bot_type].get('trades', [])
+    return jsonify({'success': True, 'trades': trades, 'total': len(trades)})
 
 @app.route('/api/balance')
 @app.route('/api/account/balance')
@@ -366,9 +401,6 @@ def emergency_reset():
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION")
-    print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
-    print("="*70 + "\n")
-    app.run(host='0.0.0.0', port=5000, debug=True)
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
