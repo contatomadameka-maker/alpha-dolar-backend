@@ -1,12 +1,11 @@
-# VERSÃO CORRIGIDA 2026-02-27
+# VERSÃO CORRIGIDA 2026-02-27 v2
 """
 ALPHA DOLAR 2.0 - API PRODUCTION INTEGRADA
 FIXES:
-  ✅ Símbolo correto repassado ao BotConfig.DEFAULT_SYMBOL
+  ✅ Símbolo convertido para código Deriv (resolve_symbol)
   ✅ Token real repassado ao BotConfig.API_TOKEN
-  ✅ Validação de saldo antes de iniciar
-  ✅ Rota /api/bot/trades/<bot_type> adicionada (resolvia 404)
-  ✅ Mapa de nomes de mercado para códigos Deriv
+  ✅ Validação de saldo REMOVIDA (Render free bloqueia WebSocket externo)
+  ✅ Rota /api/bot/trades/<bot_type> adicionada
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -16,6 +15,7 @@ import time
 from datetime import datetime
 import sys
 import os
+import traceback as _tb
 
 project_path = os.path.dirname(os.path.abspath(__file__))
 backend_path = os.path.join(project_path, 'backend')
@@ -26,15 +26,13 @@ app = Flask(__name__, static_folder='web', static_url_path='')
 CORS(app)
 
 # ==================== IMPORTAR BOTS ====================
-import traceback as _tb
 print(f"📁 project_path: {project_path}")
 print(f"📁 backend_path: {backend_path}")
+print(f"📁 sys.path: {sys.path[:3]}")
 
 try:
     from backend.bot import AlphaDolar
     from backend.config import BotConfig
-    from backend.strategies.alpha_bot_1 import AlphaBot1
-    from backend.strategies.test_strategy import TestStrategy
     from backend.strategies.alpha_bot_balanced import AlphaBotBalanced
     BOTS_AVAILABLE = True
     print("✅ Bots Python carregados com sucesso!")
@@ -98,53 +96,6 @@ def serve_static(path):
 def health():
     return jsonify({'status': 'ok', 'message': 'Alpha Dolar API Running', 'bots_available': BOTS_AVAILABLE})
 
-# ==================== HELPER SALDO REAL ====================
-def get_deriv_balance(token):
-    try:
-        import websocket, json
-        result = {'balance': None, 'currency': None, 'done': False, 'error': None}
-
-        def on_message(ws, message):
-            data = json.loads(message)
-            if data.get('msg_type') == 'authorize':
-                if 'error' in data:
-                    result['error'] = data['error']['message']
-                    result['done'] = True
-                    ws.close()
-                else:
-                    ws.send(json.dumps({"balance": 1, "subscribe": 0}))
-            elif data.get('msg_type') == 'balance':
-                if 'error' in data:
-                    result['error'] = data['error']['message']
-                else:
-                    result['balance']  = data['balance']['balance']
-                    result['currency'] = data['balance']['currency']
-                result['done'] = True
-                ws.close()
-
-        def on_open(ws):  ws.send(json.dumps({"authorize": token}))
-        def on_error(ws, error):
-            result['error'] = str(error)
-            result['done'] = True
-
-        ws = websocket.WebSocketApp("wss://ws.binaryws.com/websockets/v3?app_id=1089",
-            on_message=on_message, on_open=on_open, on_error=on_error)
-        t = threading.Thread(target=ws.run_forever)
-        t.daemon = True
-        t.start()
-
-        start = time.time()
-        while not result['done'] and (time.time() - start) < 8:
-            time.sleep(0.1)
-
-        if result['error']:
-            print(f"❌ Erro saldo Deriv: {result['error']}")
-            return None, None
-        return result['balance'], result['currency']
-    except Exception as e:
-        print(f"❌ Exceção saldo Deriv: {e}")
-        return None, None
-
 # ==================== START BOT ====================
 @app.route('/api/bot/start', methods=['POST'])
 def start_bot():
@@ -172,17 +123,6 @@ def start_bot():
         print(f"🔑 Token: {'✅ SIM' if token else '❌ NÃO'}")
         print(f"{'='*60}\n")
 
-        # Validação saldo real
-        if account_type == 'real' and token:
-            balance, currency = get_deriv_balance(token)
-            if balance is None:
-                return jsonify({'success': False, 'error': 'Não foi possível verificar o saldo. Token inválido?', 'error_code': 'BALANCE_CHECK_FAILED'}), 400
-            print(f"💰 Saldo real: {currency} {balance:.2f}")
-            if stake_inicial > balance:
-                return jsonify({'success': False, 'error': f'Quantia inicial (${stake_inicial:.2f}) maior que saldo (${balance:.2f}).', 'error_code': 'STAKE_EXCEEDS_BALANCE'}), 400
-            if limite_perda > balance:
-                return jsonify({'success': False, 'error': f'Limite de perda (${limite_perda:.2f}) maior que saldo (${balance:.2f}).', 'error_code': 'STOP_EXCEEDS_BALANCE'}), 400
-
         if bot_type not in bots_state:
             bots_state[bot_type] = {'running': False, 'instance': None, 'thread': None, 'trades': []}
 
@@ -201,7 +141,7 @@ def start_bot():
 
             if account_type == 'real' and token:
                 BotConfig.API_TOKEN = token
-                print(f"🔑 Token real: {token[:8]}...")
+                print(f"🔑 Token real: {token[:10]}...")
             else:
                 print(f"🎮 Token demo padrão")
 
@@ -249,7 +189,10 @@ def start_bot():
             class SimulatedBot:
                 def __init__(self):
                     self.running = True
-                    self.stats = {'total_trades': 0, 'vitorias': 0, 'derrotas': 0, 'lucro_liquido': 0.0, 'saldo_atual': 10000.0, 'win_rate': 0.0}
+                    self.stats = {
+                        'total_trades': 0, 'vitorias': 0, 'derrotas': 0,
+                        'lucro_liquido': 0.0, 'saldo_atual': 10000.0, 'win_rate': 0.0
+                    }
                 def run(self):
                     import random
                     while self.running:
@@ -259,9 +202,9 @@ def start_bot():
                             profit = stake_inicial * 0.95 if won else -stake_inicial
                             self.stats['total_trades'] += 1
                             if won: self.stats['vitorias'] += 1
-                            else: self.stats['derrotas'] += 1
+                            else:   self.stats['derrotas'] += 1
                             self.stats['lucro_liquido'] += profit
-                            self.stats['saldo_atual'] += profit
+                            self.stats['saldo_atual']   += profit
                             self.stats['win_rate'] = (self.stats['vitorias'] / self.stats['total_trades']) * 100
                             print(f"{'✅' if won else '❌'} Sim: ${profit:+.2f}")
                 def stop(self): self.running = False
@@ -305,7 +248,7 @@ def stop_bot():
 
             bots_state[bot_type]['running'] = False
             print(f"✅ Bot {bot_type} parado")
-            return jsonify({'success': True, 'message': f'Bot parado!', 'stats': stats})
+            return jsonify({'success': True, 'message': 'Bot parado!', 'stats': stats})
 
         return jsonify({'success': False, 'error': 'Instância não encontrada'}), 500
 
@@ -335,9 +278,22 @@ def get_bot_stats(bot_type):
                 stats['currency'] = bot.api.currency
             except: pass
 
-    return jsonify({'success': True, 'bot_type': bot_type, 'running': state.get('running', False), 'stats': stats})
+    return jsonify({
+        'success': True,
+        'bot_type': bot_type,
+        'running': state.get('running', False),
+        'stats': stats,
+        # campos diretos para compatibilidade com frontend antigo
+        'bot_running':   state.get('running', False),
+        'saldo_atual':   stats.get('balance', 0),
+        'lucro_liquido': stats.get('saldo_liquido', 0),
+        'total_trades':  stats.get('total_trades', 0),
+        'win_rate':      stats.get('win_rate', 0),
+        'vitorias':      stats.get('vitorias', 0),
+        'derrotas':      stats.get('derrotas', 0),
+    })
 
-# ✅ ROTA QUE FALTAVA — resolvia 404 no frontend
+# ✅ ROTA QUE FALTAVA
 @app.route('/api/bot/trades/<bot_type>')
 def get_bot_trades(bot_type):
     if bot_type not in bots_state:
@@ -353,9 +309,10 @@ def get_balance():
             try:
                 b = bot.api.balance
                 c = bot.api.currency
-                return jsonify({'success': True, 'balance': b, 'currency': c, 'formatted': f"${b:,.2f}"})
+                if b and b != 0:
+                    return jsonify({'success': True, 'balance': b, 'currency': c, 'formatted': f"${b:,.2f}"})
             except: pass
-    return jsonify({'success': True, 'balance': 9999.00, 'currency': 'USD', 'formatted': "$9,999.00"})
+    return jsonify({'success': True, 'balance': 0, 'currency': 'USD', 'formatted': "$0.00"})
 
 @app.route('/api/emergency/reset', methods=['POST'])
 def emergency_reset():
