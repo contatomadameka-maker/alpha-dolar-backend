@@ -163,7 +163,7 @@ class AlphaDolar:
             contract_type = params.get("contract_type", direction)
             barrier = None
 
-        log_msg = f"🎯 Executando {contract_type} | Stake: ${stake:.2f}"
+        log_msg = f"🎯 Executando {contract_type} | Stake: ${stake:.2f} | Perda acum: ${self.perda_acumulada:.2f}"
         if barrier is not None:
             log_msg += f" | Barreira: {barrier}"
         self.log(log_msg, "TRADE")
@@ -202,12 +202,18 @@ class AlphaDolar:
         contract_id = contract_data.get("contract_id")
         vitoria = status == "won"
 
+        # ✅ Libera IMEDIATAMENTE — antes de qualquer processamento
+        self.waiting_contract = False
+        self.current_contract_id = None
+        if hasattr(self, '_ultimo_trade_time'):
+            self._ultimo_trade_time = time.time()
+
         if vitoria:
             self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
-            self.perda_acumulada = 0.0  # ✅ reseta após vitória
+            self.perda_acumulada = 0.0
         else:
             self.log(f"😞 DERROTA! Perda: ${profit:.2f} | ID: {contract_id}", "LOSS")
-            self.perda_acumulada += abs(profit)  # ✅ acumula perda
+            self.perda_acumulada += abs(profit)
 
         # ✅ Atualiza martingale da estratégia
         if hasattr(self.strategy, 'on_trade_result'):
@@ -222,9 +228,6 @@ class AlphaDolar:
         self.stop_loss.registrar_trade(profit, vitoria)
         stats = self.stop_loss.get_estatisticas()
         self.log(f"📈 Líquido: ${stats['saldo_liquido']:+.2f} | Win Rate: {stats['win_rate']:.1f}% | Trades: {stats['total_trades']}", "INFO")
-
-        self.waiting_contract = False
-        self.current_contract_id = None
 
         deve_parar, motivo = self.stop_loss.deve_parar()
         if deve_parar:
@@ -268,8 +271,23 @@ class AlphaDolar:
             self.is_running = True
             self.log("🚀 Bot iniciado! Aguardando sinais...", "SUCCESS")
 
+            # ✅ Watchdog: libera waiting_contract se ficar preso > 45s
+            self._ultimo_trade_time = time.time()
+            WATCHDOG_TIMEOUT = 45  # segundos
+
             while self.is_running:
                 time.sleep(1)
+
+                if self.waiting_contract:
+                    tempo_preso = time.time() - self._ultimo_trade_time
+                    if tempo_preso > WATCHDOG_TIMEOUT:
+                        self.log(f"⏰ WATCHDOG: waiting_contract preso por {tempo_preso:.0f}s — liberando!", "WARNING")
+                        self.waiting_contract = False
+                        self.current_contract_id = None
+                        self.perda_acumulada = 0.0  # segurança: reseta perda
+                        self._ultimo_trade_time = time.time()
+                else:
+                    self._ultimo_trade_time = time.time()
 
             return True
 
