@@ -127,15 +127,16 @@ class AlphaDolar:
         Onde payout_rate = 0.88 (88% de retorno na Deriv)
         """
         if self.perda_acumulada <= 0:
-            return BotConfig.STAKE_INICIAL
+            return round(BotConfig.STAKE_INICIAL, 2)
         
         stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
-        # Arredonda para 2 casas e garante mínimo
-        stake = max(BotConfig.STAKE_INICIAL, round(stake_ideal, 2))
+        # ✅ Trunca para 2 casas decimais (não arredonda — evita rejeição da Deriv)
+        stake = int(stake_ideal * 100) / 100.0
+        stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
         
         # Segurança: não arrisca mais que 30% do saldo
         max_stake = self.api.balance * 0.30
-        return min(stake, max_stake)
+        return round(min(stake, max_stake), 2)
 
     def executar_trade(self, direction, signal_data=None):
         # ✅ Martingale inteligente: calcula stake para recuperar perda acumulada
@@ -186,6 +187,14 @@ class AlphaDolar:
 
     def on_contract_update(self, contract_data):
         status = contract_data.get("status")
+
+        # ✅ Libera waiting_contract em caso de erro interno (timeout, reconexão, erro de proposta)
+        if contract_data.get("_timeout") or contract_data.get("_reconnect") or            contract_data.get("_buy_error") or contract_data.get("_proposal_error"):
+            self.log("⚠️ Operação interrompida — liberando bot para próximo sinal", "WARNING")
+            self.waiting_contract = False
+            self.current_contract_id = None
+            return
+
         if status not in ["won", "lost"]:
             return
 
