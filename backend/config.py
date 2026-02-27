@@ -24,7 +24,7 @@ class BotConfig:
     # ===== API DERIV =====
     # COLE SEU TOKEN AQUI ENTRE AS ASPAS ↓
     API_TOKEN = "vPu2lzCDshSNKIp"
-    APP_ID = "1089"
+    APP_ID = "128988"
 
     # ===== MERCADO =====
     DEFAULT_SYMBOL = "R_100"  # Volatility 100 Index
