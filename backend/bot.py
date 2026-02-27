@@ -40,6 +40,10 @@ class AlphaDolar:
         self.waiting_contract = False
         self.current_contract_id = None
 
+        # ✅ Martingale inteligente: rastreia perda acumulada para cálculo exato
+        self.perda_acumulada = 0.0
+        self.PAYOUT_RATE = 0.88  # retorno médio Deriv (88%)
+
         self.tick_history = []
         self.max_tick_history = 200
 
@@ -116,9 +120,28 @@ class AlphaDolar:
                 }
         return None
 
+    def _calcular_stake_recuperacao(self):
+        """
+        Calcula stake para recuperar perda acumulada + lucro mínimo.
+        Fórmula: stake = (perda_acumulada + lucro_alvo) / payout_rate
+        Onde payout_rate = 0.88 (88% de retorno na Deriv)
+        """
+        if self.perda_acumulada <= 0:
+            return BotConfig.STAKE_INICIAL
+        
+        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
+        # Arredonda para 2 casas e garante mínimo
+        stake = max(BotConfig.STAKE_INICIAL, round(stake_ideal, 2))
+        
+        # Segurança: não arrisca mais que 30% do saldo
+        max_stake = self.api.balance * 0.30
+        return min(stake, max_stake)
+
     def executar_trade(self, direction, signal_data=None):
-        # ✅ Usa stake da estratégia se disponível (martingale dinâmico)
-        if hasattr(self.strategy, 'get_stake'):
+        # ✅ Martingale inteligente: calcula stake para recuperar perda acumulada
+        if self.martingale and self.perda_acumulada > 0:
+            stake = self._calcular_stake_recuperacao()
+        elif hasattr(self.strategy, 'get_stake'):
             stake = self.strategy.get_stake()
         elif self.martingale:
             stake = self.martingale.stake_atual
@@ -172,8 +195,10 @@ class AlphaDolar:
 
         if vitoria:
             self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
+            self.perda_acumulada = 0.0  # ✅ reseta após vitória
         else:
             self.log(f"😞 DERROTA! Perda: ${profit:.2f} | ID: {contract_id}", "LOSS")
+            self.perda_acumulada += abs(profit)  # ✅ acumula perda
 
         # ✅ Atualiza martingale da estratégia
         if hasattr(self.strategy, 'on_trade_result'):
@@ -182,7 +207,8 @@ class AlphaDolar:
         if self.martingale:
             self.martingale.calcular_proximo_stake(vitoria)
             info = self.martingale.get_info()
-            self.log(f"📊 Próximo stake: ${info['stake_atual']:.2f} | Step: {info['step_atual']}/{info['max_steps']}", "INFO")
+            proximo = self._calcular_stake_recuperacao() if self.perda_acumulada > 0 else info['stake_atual']
+            self.log(f"📊 Próximo stake: ${proximo:.2f} | Perda acum: ${self.perda_acumulada:.2f} | Step: {info['step_atual']}/{info['max_steps']}", "INFO")
 
         self.stop_loss.registrar_trade(profit, vitoria)
         stats = self.stop_loss.get_estatisticas()
