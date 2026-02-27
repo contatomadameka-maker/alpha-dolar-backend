@@ -178,10 +178,16 @@ def start_bot():
             print(f"📡 Subscrevendo: {BotConfig.DEFAULT_SYMBOL}")
 
             # ✅ Parâmetros do frontend
-            trading_mode = config.get('trading_mode', 'faster')
-            risk_mode    = config.get('risk_mode', 'conservative')
-            strategy_id  = config.get('strategy', 'alpha_bot_1')
-            print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id}")
+            trading_mode   = config.get('trading_mode', 'faster')
+            risk_mode      = config.get('risk_mode', 'conservative')
+            strategy_id    = config.get('strategy', 'alpha_bot_1')
+            stop_loss_type = config.get('stop_loss_type', 'value')
+            max_losses     = int(config.get('max_losses', 5))
+            print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id} | StopLoss: {stop_loss_type}")
+
+            # ✅ Aplica tipo de stop loss no BotConfig
+            BotConfig.STOP_LOSS_TYPE         = stop_loss_type
+            BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
 
             try:
                 factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
