@@ -34,12 +34,42 @@ try:
     from backend.bot import AlphaDolar
     from backend.config import BotConfig
     from backend.strategies.alpha_bot_balanced import AlphaBotBalanced
+    from backend.strategies.alpha_bot_1 import AlphaBot1
+    from backend.strategies.alpha_bot_2 import AlphaBot2
+    from backend.strategies.alpha_bot_3 import AlphaBot3
+    from backend.strategies.alpha_mind import AlphaMind
+    from backend.strategies.quantum_trader import QuantumTrader
+    from backend.strategies.titan_core import TitanCore
+    from backend.strategies.alpha_pulse import AlphaPulse
+    from backend.strategies.alpha_smart import AlphaSmart
+    from backend.strategies.alpha_analytics_sniper import AlphaAnalytics, AlphaSniper
+    from backend.strategies.premium_strategies import MegaAlpha1, MegaAlpha2, MegaAlpha3, AlphaElite, AlphaNexus
     BOTS_AVAILABLE = True
-    print("✅ Bots Python carregados com sucesso!")
+    print("✅ Todas as 15 estratégias carregadas!")
 except ImportError as e:
     BOTS_AVAILABLE = False
     print(f"⚠️ Erro ao importar bots: {e}")
     _tb.print_exc()
+
+# Mapa de estratégias por ID
+STRATEGY_MAP = {
+    'alpha_bot_1':      lambda tm, rm: AlphaBot1(tm, rm),
+    'alpha_bot_2':      lambda tm, rm: AlphaBot2(tm, rm),
+    'alpha_bot_3':      lambda tm, rm: AlphaBot3(tm, rm),
+    'alpha_bot_balanced': lambda tm, rm: AlphaBotBalanced(tm, rm),
+    'alpha_mind':       lambda tm, rm: AlphaMind(tm, rm),
+    'quantum_trader':   lambda tm, rm: QuantumTrader(tm, rm),
+    'titan_core':       lambda tm, rm: TitanCore(tm, rm),
+    'alpha_pulse':      lambda tm, rm: AlphaPulse(tm, rm),
+    'alpha_smart':      lambda tm, rm: AlphaSmart(tm, rm),
+    'alpha_analytics':  lambda tm, rm: AlphaAnalytics(tm, rm),
+    'alpha_sniper':     lambda tm, rm: AlphaSniper(tm, rm),
+    'mega_alpha_1':     lambda tm, rm: MegaAlpha1(tm, rm),
+    'mega_alpha_2':     lambda tm, rm: MegaAlpha2(tm, rm),
+    'mega_alpha_3':     lambda tm, rm: MegaAlpha3(tm, rm),
+    'alpha_elite':      lambda tm, rm: AlphaElite(tm, rm),
+    'alpha_nexus':      lambda tm, rm: AlphaNexus(tm, rm),
+}
 
 # ==================== MAPA DE SÍMBOLOS ====================
 SYMBOL_MAP = {
@@ -150,11 +180,12 @@ def start_bot():
             # ✅ Parâmetros do frontend
             trading_mode = config.get('trading_mode', 'faster')
             risk_mode    = config.get('risk_mode', 'conservative')
-            strategy_id  = config.get('strategy', 'alpha_bot_balanced')
+            strategy_id  = config.get('strategy', 'alpha_bot_1')
             print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id}")
 
             try:
-                strategy = AlphaBotBalanced(trading_mode=trading_mode, risk_mode=risk_mode)
+                factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
+                strategy = factory(trading_mode, risk_mode)
                 print(f"✅ Estratégia: {strategy.name} | Confiança: {strategy.min_confidence:.0%} | Martingale: {strategy.usar_martingale}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
@@ -335,6 +366,9 @@ def emergency_reset():
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION")
+    print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
+    print("="*70 + "\n")
+    app.run(host='0.0.0.0', port=5000, debug=True)
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
