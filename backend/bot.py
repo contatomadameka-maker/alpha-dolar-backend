@@ -2,6 +2,7 @@
 ALPHA DOLAR 2.0 - Bot de Trading Automatizado
 Motor Principal do Bot
 ATUALIZADO: Integração com 15 estratégias novas
+PATCH 28/02: Fix travamento Martingale step 2/3
 """
 import time
 import sys
@@ -40,7 +41,7 @@ class AlphaDolar:
         self.waiting_contract = False
         self.current_contract_id = None
 
-        # ✅ Martingale inteligente: rastreia perda acumulada para cálculo exato
+        # Martingale inteligente: rastreia perda acumulada para cálculo exato
         self.perda_acumulada = 0.0
         self.PAYOUT_RATE = 0.88  # retorno médio Deriv (88%)
 
@@ -49,6 +50,14 @@ class AlphaDolar:
 
         self.trades_hoje = 0
         self.inicio_sessao = datetime.now()
+
+        # ── FIX: controle de estado para detectar travamento ──────────────────
+        self._ultimo_trade_time   = time.time()
+        self._ultimo_tick_time    = time.time()
+        self._ultimo_sinal_time   = time.time()   # FIX: rastreia último sinal gerado
+        self._aguardando_sinal    = False          # FIX: flag explícita de espera de sinal
+        self._sem_sinal_streak    = 0             # FIX: quantos ticks consecutivos sem sinal
+        # ──────────────────────────────────────────────────────────────────────
 
     def print_header(self):
         print("\n" + "="*70)
@@ -76,6 +85,9 @@ class AlphaDolar:
         print(f"[{timestamp}] {emoji} {message}")
 
     def on_tick(self, tick_data):
+        # ── FIX: sempre atualizar timestamp de tick ────────────────────────────
+        self._ultimo_tick_time = time.time()
+
         if self.waiting_contract:
             return
 
@@ -100,8 +112,17 @@ class AlphaDolar:
         if signal_data and signal_data.get('signal'):
             direction = signal_data['signal']
             confidence = signal_data.get('confidence', 0)
+
+            # FIX: resetar streak e registrar timestamp do sinal
+            self._sem_sinal_streak = 0
+            self._ultimo_sinal_time = time.time()
+            self._aguardando_sinal = False
+
             self.log(f"📊 Sinal detectado: {direction} | Confiança: {confidence:.1f}%", "TRADE")
             self.executar_trade(direction, signal_data)
+        else:
+            # FIX: contar ticks sem sinal para detectar trava
+            self._sem_sinal_streak += 1
 
     def analyze_strategy(self, tick_data):
         if hasattr(self.strategy, 'analyze'):
@@ -127,12 +148,12 @@ class AlphaDolar:
         """
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
-        
+
         stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
-        # ✅ Trunca para 2 casas decimais (não arredonda — evita rejeição da Deriv)
+        # Trunca para 2 casas decimais (não arredonda — evita rejeição da Deriv)
         stake = int(stake_ideal * 100) / 100.0
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
-        
+
         # Segurança: não arrisca mais que 30% do saldo
         max_stake = self.api.balance * 0.30
         return round(min(stake, max_stake), 2)
@@ -142,14 +163,12 @@ class AlphaDolar:
         stats = self.stop_loss.get_estatisticas() if hasattr(self, 'stop_loss') else {}
         perda = abs(stats.get('saldo_liquido', 0))
         limite = BotConfig.LIMITE_PERDA
-
-        # Loga em vermelho intenso para o dashboard captar como STOP_LOSS
         self.log(f"🛑 STOP LOSS ATINGIDO! Perda: ${perda:.2f} / Limite: ${limite:.2f}", "STOP_LOSS")
         self.log(f"🛑 Bot encerrado automaticamente por proteção de capital", "STOP_LOSS")
         self.stop()
 
     def executar_trade(self, direction, signal_data=None):
-        # ✅ Martingale inteligente: calcula stake para recuperar perda acumulada
+        # Martingale inteligente: calcula stake para recuperar perda acumulada
         if self.martingale and self.perda_acumulada > 0:
             stake = self._calcular_stake_recuperacao()
         elif hasattr(self.strategy, 'get_stake'):
@@ -161,6 +180,12 @@ class AlphaDolar:
 
         if self.api.balance < stake:
             self.log(f"Saldo insuficiente! Necessário: ${stake:.2f} | Disponível: ${self.api.balance:.2f}", "ERROR")
+            # FIX: resetar perda acumulada se saldo insuficiente para evitar trava permanente
+            if stake > self.api.balance * 0.50:
+                self.log("⚠️ Stake muito alto para saldo! Resetando martingale para continuar.", "WARNING")
+                self.perda_acumulada = 0.0
+                if self.martingale:
+                    self.martingale.reset()
             return
 
         if signal_data and signal_data.get('parameters'):
@@ -188,10 +213,13 @@ class AlphaDolar:
         if barrier is not None:
             proposal_params['barrier'] = barrier
 
-        self._ultimo_stake_usado = stake  # ✅ salva para o patched_contract_update
+        self._ultimo_stake_usado = stake
         self.api.get_proposal(**proposal_params)
         self.waiting_contract = True
         self.trades_hoje += 1
+
+        # FIX: registrar tempo de início do contrato para watchdog
+        self._ultimo_trade_time = time.time()
 
         if self.martingale:
             self.martingale.registrar_trade(stake)
@@ -199,11 +227,15 @@ class AlphaDolar:
     def on_contract_update(self, contract_data):
         status = contract_data.get("status")
 
-        # ✅ Libera waiting_contract em caso de erro interno (timeout, reconexão, erro de proposta)
-        if contract_data.get("_timeout") or contract_data.get("_reconnect") or            contract_data.get("_buy_error") or contract_data.get("_proposal_error"):
+        # Libera waiting_contract em caso de erro interno
+        if (contract_data.get("_timeout") or contract_data.get("_reconnect") or
+                contract_data.get("_buy_error") or contract_data.get("_proposal_error")):
             self.log("⚠️ Operação interrompida — liberando bot para próximo sinal", "WARNING")
             self.waiting_contract = False
             self.current_contract_id = None
+            # FIX: resetar timers para evitar watchdog falso positivo
+            self._ultimo_trade_time = time.time()
+            self._ultimo_sinal_time = time.time()
             return
 
         if status not in ["won", "lost"]:
@@ -213,11 +245,13 @@ class AlphaDolar:
         contract_id = contract_data.get("contract_id")
         vitoria = status == "won"
 
-        # ✅ Libera IMEDIATAMENTE — antes de qualquer processamento
+        # Libera IMEDIATAMENTE — antes de qualquer processamento
         self.waiting_contract = False
         self.current_contract_id = None
-        if hasattr(self, '_ultimo_trade_time'):
-            self._ultimo_trade_time = time.time()
+        # FIX: resetar AMBOS os timers após resultado
+        self._ultimo_trade_time = time.time()
+        self._ultimo_sinal_time = time.time()
+        self._sem_sinal_streak  = 0
 
         if vitoria:
             self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
@@ -226,7 +260,7 @@ class AlphaDolar:
             self.log(f"😞 DERROTA! Perda: ${profit:.2f} | ID: {contract_id}", "LOSS")
             self.perda_acumulada += abs(profit)
 
-        # ✅ Atualiza martingale da estratégia
+        # Atualiza martingale da estratégia
         if hasattr(self.strategy, 'on_trade_result'):
             self.strategy.on_trade_result(vitoria)
 
@@ -234,11 +268,20 @@ class AlphaDolar:
             self.martingale.calcular_proximo_stake(vitoria)
             info = self.martingale.get_info()
             proximo = self._calcular_stake_recuperacao() if self.perda_acumulada > 0 else info['stake_atual']
-            self.log(f"📊 Próximo stake: ${proximo:.2f} | Perda acum: ${self.perda_acumulada:.2f} | Step: {info['step_atual']}/{info['max_steps']}", "INFO")
+            self.log(
+                f"📊 Próximo stake: ${proximo:.2f} | Perda acum: ${self.perda_acumulada:.2f} | "
+                f"Step: {info['step_atual']}/{info['max_steps']}",
+                "INFO"
+            )
 
         self.stop_loss.registrar_trade(profit, vitoria)
         stats = self.stop_loss.get_estatisticas()
-        self.log(f"📈 Líquido: ${stats['saldo_liquido']:+.2f} | Win Rate: {stats['win_rate']:.1f}% | Trades: {stats['total_trades']}", "INFO")
+        self.log(
+            f"📈 Líquido: ${stats['saldo_liquido']:+.2f} | "
+            f"Win Rate: {stats['win_rate']:.1f}% | "
+            f"Trades: {stats['total_trades']}",
+            "INFO"
+        )
 
         deve_parar, motivo = self.stop_loss.deve_parar()
         if deve_parar:
@@ -249,7 +292,6 @@ class AlphaDolar:
 
     def start(self):
         try:
-            # ✅ validate_config() só valida parâmetros básicos — não bloqueia por stake
             if not validate_config():
                 return False
 
@@ -267,7 +309,6 @@ class AlphaDolar:
 
             self.log(f"✅ Autorizado! Saldo: ${self.api.balance:.2f} {self.api.currency}", "SUCCESS")
 
-            # ✅ Verifica saldo mínimo só para garantir que conta tem algum saldo
             if self.api.balance <= 0:
                 self.log("Saldo zerado! Impossível operar.", "ERROR")
                 return False
@@ -279,40 +320,105 @@ class AlphaDolar:
             self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
 
             self.is_running = True
-            self.api._bot_ref = self  # ✅ referência para watchdog de ticks
+            self.api._bot_ref = self
             self.log("🚀 Bot iniciado! Aguardando sinais...", "SUCCESS")
 
-            # ✅ Watchdog duplo: ticks + waiting_contract
+            # Inicializar timers
             self._ultimo_trade_time = time.time()
-            self._ultimo_tick_time  = time.time()  # ✅ rastrea último tick recebido
-            WATCHDOG_TIMEOUT = 45   # segundos preso em waiting_contract
-            TICK_TIMEOUT     = 30   # segundos sem receber nenhum tick → reconecta
+            self._ultimo_tick_time  = time.time()
+            self._ultimo_sinal_time = time.time()
+
+            # ── Timeouts ───────────────────────────────────────────────────────
+            WATCHDOG_CONTRATO   = 45   # s preso em waiting_contract → libera
+            TICK_TIMEOUT        = 30   # s sem tick → re-subscribe
+            # FIX: timeout de sinal varia com nível de martingale
+            SINAL_TIMEOUT_NORMAL     = 90   # s sem sinal (step 0) → ok, mercado lento
+            SINAL_TIMEOUT_MARTINGALE = 20   # s sem sinal (step ≥1) → suspeito, força reset
+            # ──────────────────────────────────────────────────────────────────
 
             while self.is_running:
                 time.sleep(1)
                 agora = time.time()
 
-                # ── Watchdog 1: waiting_contract preso ──
+                # ── Watchdog 1: waiting_contract preso ────────────────────────
                 if self.waiting_contract:
                     tempo_preso = agora - self._ultimo_trade_time
-                    if tempo_preso > WATCHDOG_TIMEOUT:
-                        self.log(f"⏰ WATCHDOG contrato: preso {tempo_preso:.0f}s — liberando!", "WARNING")
+                    if tempo_preso > WATCHDOG_CONTRATO:
+                        self.log(
+                            f"⏰ WATCHDOG contrato: preso {tempo_preso:.0f}s — liberando!",
+                            "WARNING"
+                        )
                         self.waiting_contract    = False
                         self.current_contract_id = None
-                        # NÃO reseta perda_acumulada — continua martingale
                         self._ultimo_trade_time  = agora
-                else:
-                    self._ultimo_trade_time = agora
+                        self._ultimo_sinal_time  = agora  # FIX: resetar sinal também
 
-                # ── Watchdog 2: ticks pararam (WebSocket morto) ──
+                # ── Watchdog 2: ticks pararam (WebSocket morto) ───────────────
                 sem_tick = agora - self._ultimo_tick_time
                 if sem_tick > TICK_TIMEOUT and not self.waiting_contract:
-                    self.log(f"⚠️ WATCHDOG ticks: sem tick por {sem_tick:.0f}s — reconectando!", "WARNING")
+                    self.log(
+                        f"⚠️ WATCHDOG ticks: sem tick {sem_tick:.0f}s — reconectando!",
+                        "WARNING"
+                    )
                     try:
                         self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
                         self._ultimo_tick_time = agora
+                        self._ultimo_sinal_time = agora  # FIX: dar tempo para estabilizar
                     except Exception as e_tick:
                         self.log(f"Erro ao re-subscrever ticks: {e_tick}", "ERROR")
+
+                # ── Watchdog 3 (FIX NOVO): bot livre mas sem gerar sinais ─────
+                # Este é o bug principal: após derrota com martingale step ≥1,
+                # o bot fica livre (waiting_contract=False) mas a estratégia
+                # não gera sinal por tempo anormal → watchdog detecta e reseta.
+                if not self.waiting_contract:
+                    sem_sinal = agora - self._ultimo_sinal_time
+
+                    # Determinar timeout baseado em step atual do martingale
+                    if self.martingale:
+                        info_mart = self.martingale.get_info()
+                        step_atual = info_mart.get('step_atual', 0)
+                    else:
+                        step_atual = 0
+
+                    timeout_sinal = (
+                        SINAL_TIMEOUT_MARTINGALE if step_atual >= 1
+                        else SINAL_TIMEOUT_NORMAL
+                    )
+
+                    if sem_sinal > timeout_sinal:
+                        self.log(
+                            f"⚠️ WATCHDOG sinal: {sem_sinal:.0f}s sem sinal | "
+                            f"Step martingale: {step_atual} | "
+                            f"Streak sem sinal: {self._sem_sinal_streak} ticks | "
+                            f"Forçando reset de estado...",
+                            "WARNING"
+                        )
+
+                        # FIX: se step ≥ 2 e tempo > 2x o timeout → situação crítica
+                        # pode ser que a estratégia travou internamente
+                        if step_atual >= 2 and sem_sinal > timeout_sinal * 2:
+                            self.log(
+                                f"🔧 AUTO-FIX crítico: step {step_atual} com "
+                                f"{sem_sinal:.0f}s sem sinal. "
+                                f"Resetando estado completo da estratégia...",
+                                "WARNING"
+                            )
+                            # Resetar estado interno da estratégia se possível
+                            if hasattr(self.strategy, 'reset_state'):
+                                self.strategy.reset_state()
+                            # Limpar histórico de ticks para forçar reacumulação
+                            self.tick_history = []
+
+                        # Sempre: resetar timer para dar nova janela
+                        self._ultimo_sinal_time = agora
+                        self._sem_sinal_streak  = 0
+
+                        # Re-subscrever ticks como medida adicional
+                        try:
+                            self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+                        except Exception:
+                            pass
 
             return True
 
