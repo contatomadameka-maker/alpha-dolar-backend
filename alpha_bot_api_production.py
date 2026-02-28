@@ -199,9 +199,10 @@ def start_bot():
 
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
             BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
-            BotConfig.STAKE_INICIAL          = float(config.get('stake', BotConfig.STAKE_INICIAL))
-            BotConfig.LUCRO_ALVO             = float(config.get('target', BotConfig.LUCRO_ALVO))
-            BotConfig.LIMITE_PERDA           = float(config.get('stop', BotConfig.LIMITE_PERDA))
+            # ✅ FIX: aceita 'stake'/'stake_inicial', 'target'/'lucro_alvo', 'stop'/'limite_perda'
+            BotConfig.STAKE_INICIAL = float(config.get('stake') or config.get('stake_inicial') or BotConfig.STAKE_INICIAL)
+            BotConfig.LUCRO_ALVO    = float(config.get('target') or config.get('lucro_alvo') or BotConfig.LUCRO_ALVO)
+            BotConfig.LIMITE_PERDA  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
             print(f"💰 stake={BotConfig.STAKE_INICIAL} target={BotConfig.LUCRO_ALVO} stop={BotConfig.LIMITE_PERDA}")
 
             try:
