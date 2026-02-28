@@ -87,9 +87,15 @@ class AlphaDolar:
 
         pode_operar, motivo = self.stop_loss.pode_operar(self.api.balance)
         if not pode_operar:
-            self.log(motivo, "WARNING")
-            self.stop()
-            return
+            # ✅ Se há perda acumulada (martingale ativo), permite UMA operação de recuperação
+            # antes de parar — evita travar com perda não recuperada
+            if self.perda_acumulada > 0:
+                self.log(f"⚠️ Stop Loss ativo mas martingale pendente (perda: ${self.perda_acumulada:.2f}) — executando recuperação", "WARNING")
+                # Não retorna — deixa continuar para o sinal
+            else:
+                self.log(motivo, "WARNING")
+                self.stop()
+                return
 
         if self.trades_hoje >= BotConfig.MAX_TRADES_PER_DAY:
             self.log(f"Limite diário de {BotConfig.MAX_TRADES_PER_DAY} trades atingido!", "WARNING")
@@ -232,8 +238,12 @@ class AlphaDolar:
 
         deve_parar, motivo = self.stop_loss.deve_parar()
         if deve_parar:
-            self.log(motivo, "WARNING")
-            self.stop()
+            if self.perda_acumulada > 0:
+                # ✅ Tem martingale pendente — loga aviso mas aguarda recuperação
+                self.log(f"⚠️ {motivo} | Aguardando recuperação martingale (perda: ${self.perda_acumulada:.2f})", "WARNING")
+            else:
+                self.log(motivo, "WARNING")
+                self.stop()
 
     def on_balance_update(self, balance):
         self.log(f"💰 Saldo atualizado: ${balance:.2f}", "INFO")
