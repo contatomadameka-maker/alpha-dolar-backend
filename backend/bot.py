@@ -1,338 +1,351 @@
 """
-Conexão com Deriv API via WebSocket
-Alpha Dolar 2.0 - VERSÃO ULTRA ESTÁVEL COM AUTO-COMPRA + TIMEOUT DE CONTRATO
+ALPHA DOLAR 2.0 - Bot de Trading Automatizado
+Motor Principal do Bot
+ATUALIZADO: Integração com 15 estratégias novas
 """
-import json
 import time
-import websocket
+import sys
 from datetime import datetime
-import threading
 
 try:
-    from .config import BotConfig
+    from .config import BotConfig, validate_config
+    from .deriv_api import DerivAPI
+    from .risk_management.martingale import Martingale
+    from .risk_management.stop_loss import StopLoss
 except ImportError:
-    from config import BotConfig
+    from config import BotConfig, validate_config
+    from deriv_api import DerivAPI
+    from risk_management.martingale import Martingale
+    from risk_management.stop_loss import StopLoss
 
-class DerivAPI:
-    def __init__(self, api_token=None):
-        self.api_token  = api_token or BotConfig.API_TOKEN
-        self.app_id     = BotConfig.APP_ID
-        self.ws         = None
-        self.is_connected  = False
-        self.is_authorized = False
-        self.account_info  = {}
-        self.balance    = 0.0
-        self.currency   = "USD"
 
-        self.on_tick_callback     = None
-        self.on_contract_callback = None
-        self.on_balance_callback  = None
+class AlphaDolar:
+    """Motor principal do bot Alpha Dolar 2.0"""
 
-        self.should_reconnect = True
-        self.ws_thread        = None
-        self.keep_alive_thread = None
-        self.last_message_time = time.time()
+    def __init__(self, strategy=None, use_martingale=True, bot_number=None):
+        self.bot_name = "ALPHA DOLAR 2.0"
+        self.version = "2.0.0"
 
-        # ✅ Controle de timeout de contrato (evita bot travar)
-        self.current_contract_id  = None
-        self.contract_timeout_sec = 30
+        self.api = DerivAPI()
 
-    def log(self, message, level="INFO"):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        emoji = {"INFO":"ℹ️","SUCCESS":"✅","ERROR":"❌","WARNING":"⚠️","TRADE":"💰"}.get(level,"📝")
-        print(f"[{timestamp}] {emoji} {message}")
+        if strategy is None:
+            raise ValueError("Estratégia não pode ser None!")
+        self.strategy = strategy
 
-    # ─── TIMEOUT DE CONTRATO ────────────────────────────────────────────────
-    def _start_contract_timeout(self, contract_id):
-        """Watchdog: se contrato não resolver em 30s, libera o bot"""
-        self.current_contract_id = contract_id
+        self.martingale = Martingale() if use_martingale else None
+        self.stop_loss = StopLoss()
 
-        def _watchdog():
-            time.sleep(self.contract_timeout_sec)
-            if self.current_contract_id == contract_id:
-                self.log(f"⏰ Timeout contrato {contract_id}! Liberando bot...", "WARNING")
-                self.current_contract_id = None
-                if self.on_contract_callback:
-                    self.on_contract_callback({
-                        "status": "lost", "profit": 0,
-                        "contract_id": contract_id, "_timeout": True
-                    })
-
-        threading.Thread(target=_watchdog, daemon=True).start()
-
-    def _clear_contract(self):
+        self.is_running = False
+        self.current_stake = BotConfig.STAKE_INICIAL
+        self.waiting_contract = False
         self.current_contract_id = None
 
-    # ─── KEEP-ALIVE ─────────────────────────────────────────────────────────
-    def _keep_alive_loop(self):
-        while self.should_reconnect and self.ws:
-            try:
-                if self.is_connected:
-                    self._send({"ping": 1})
-                    if time.time() - self.last_message_time > 30:
-                        self.log("⚠️ Sem mensagens há 30s, reconectando...", "WARNING")
-                        self._reconnect()
-                time.sleep(5)
-            except:
-                pass
+        # ✅ Martingale inteligente: rastreia perda acumulada para cálculo exato
+        self.perda_acumulada = 0.0
+        self.PAYOUT_RATE = 0.88  # retorno médio Deriv (88%)
 
-    # ─── CONEXÃO ────────────────────────────────────────────────────────────
-    def connect(self):
-        try:
-            url = f"wss://ws.binaryws.com/websockets/v3?app_id={self.app_id}"
-            self.log("Conectando à Deriv API...", "INFO")
-            self.ws = websocket.WebSocketApp(
-                url,
-                on_open=self._on_open,
-                on_message=self._on_message,
-                on_error=self._on_error,
-                on_close=self._on_close
-            )
-            self.ws_thread = threading.Thread(
-                target=lambda: self.ws.run_forever(
-                    ping_interval=0, ping_timeout=None, skip_utf8_validation=True
-                ), daemon=True
-            )
-            self.ws_thread.start()
+        self.tick_history = []
+        self.max_tick_history = 200
 
-            start = time.time()
-            while not self.is_connected and (time.time() - start) < 10:
-                time.sleep(0.1)
-            if not self.is_connected:
-                raise Exception("Timeout na conexão")
+        self.trades_hoje = 0
+        self.inicio_sessao = datetime.now()
 
-            self.keep_alive_thread = threading.Thread(target=self._keep_alive_loop, daemon=True)
-            self.keep_alive_thread.start()
-            return True
-        except Exception as e:
-            self.log(f"Erro ao conectar: {e}", "ERROR")
-            return False
+    def print_header(self):
+        print("\n" + "="*70)
+        print(f"🤖 {self.bot_name} v{self.version}")
+        print("="*70)
+        strategy_name = getattr(self.strategy, 'name', 'Estratégia Personalizada')
+        print(f"📊 Estratégia: {strategy_name}")
+        if hasattr(self.strategy, 'get_info'):
+            info = self.strategy.get_info()
+            print(f"   Tipo: {info.get('tier', 'N/A')}")
+            print(f"   Contratos: {info.get('contract_type', 'N/A')}")
+            print(f"   Indicadores: {info.get('indicators', 'N/A')}")
+        print(f"💰 Stake Inicial: ${BotConfig.STAKE_INICIAL}")
+        print(f"🎯 Lucro Alvo: ${BotConfig.LUCRO_ALVO}")
+        print(f"🛑 Limite Perda: ${BotConfig.LIMITE_PERDA}")
+        print(f"⚡ Martingale: {'Ativado' if self.martingale else 'Desativado'}")
+        print("="*70 + "\n")
 
-    def _reconnect(self):
-        try:
-            self.log("🔄 Reconectando...", "INFO")
-            if self.ws:
-                try: self.ws.close()
-                except: pass
+    def log(self, message, level="INFO"):
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        emoji = {
+            "INFO": "ℹ️", "SUCCESS": "✅", "ERROR": "❌",
+            "WARNING": "⚠️", "TRADE": "💰", "WIN": "🎉", "LOSS": "😞"
+        }.get(level, "📝")
+        print(f"[{timestamp}] {emoji} {message}")
 
-            self.is_connected  = False
-            self.is_authorized = False
+    def on_tick(self, tick_data):
+        if self.waiting_contract:
+            return
 
-            # ✅ Libera contrato preso ao reconectar
-            if self.current_contract_id:
-                self.log("⚠️ Contrato pendente liberado por reconexão", "WARNING")
-                cid = self.current_contract_id
-                self._clear_contract()
-                if self.on_contract_callback:
-                    self.on_contract_callback({
-                        "status": "lost", "profit": 0,
-                        "contract_id": cid, "_reconnect": True
-                    })
+        if 'quote' in tick_data:
+            price = float(tick_data['quote'])
+            self.tick_history.append(price)
+            if len(self.tick_history) > self.max_tick_history:
+                self.tick_history.pop(0)
 
-            time.sleep(2)
-            if self.connect():
-                if self.authorize():
-                    self.log("✅ Reconexão bem-sucedida!", "SUCCESS")
-                    if hasattr(self, '_subscribed_symbol'):
-                        self.subscribe_ticks(self._subscribed_symbol)
-        except Exception as e:
-            self.log(f"Erro na reconexão: {e}", "ERROR")
+        pode_operar, motivo = self.stop_loss.pode_operar(self.api.balance)
+        if not pode_operar:
+            self._disparar_stop_loss(motivo)
+            return
 
-    def disconnect(self):
-        self.should_reconnect = False
-        if self.ws:
-            self.ws.close()
-        self.is_connected  = False
-        self.is_authorized = False
-        self.log("Desconectado da Deriv API", "INFO")
+        if self.trades_hoje >= BotConfig.MAX_TRADES_PER_DAY:
+            self.log(f"Limite diário de {BotConfig.MAX_TRADES_PER_DAY} trades atingido!", "WARNING")
+            self.stop()
+            return
 
-    def authorize(self):
-        if not self.is_connected:
-            self.log("Não conectado!", "ERROR")
-            return False
-        try:
-            self.log("Autorizando...", "INFO")
-            self._send({"authorize": self.api_token})
-            start = time.time()
-            while not self.is_authorized and (time.time() - start) < 15:
-                time.sleep(0.1)
-            if not self.is_authorized:
-                raise Exception("Timeout na autorização")
-            self.log(f"✅ Autorizado! Saldo: ${self.balance:.2f} {self.currency}", "SUCCESS")
-            return True
-        except Exception as e:
-            self.log(f"Erro na autorização: {e}", "ERROR")
-            return False
+        signal_data = self.analyze_strategy(tick_data)
 
-    def subscribe_ticks(self, symbol):
-        self._subscribed_symbol = symbol
-        self._send({"ticks": symbol, "subscribe": 1})
-        self.log(f"Inscrito em ticks de {symbol}", "INFO")
+        if signal_data and signal_data.get('signal'):
+            direction = signal_data['signal']
+            confidence = signal_data.get('confidence', 0)
+            self.log(f"📊 Sinal detectado: {direction} | Confiança: {confidence:.1f}%", "TRADE")
+            self.executar_trade(direction, signal_data)
 
-    def subscribe_balance(self):
-        self._send({"balance": 1, "subscribe": 1})
+    def analyze_strategy(self, tick_data):
+        if hasattr(self.strategy, 'analyze'):
+            if len(self.tick_history) < 30:
+                return None
+            return self.strategy.analyze(self.tick_history)
+        elif hasattr(self.strategy, 'should_enter'):
+            should_enter, direction, confidence = self.strategy.should_enter(tick_data)
+            if should_enter and direction:
+                return {
+                    'signal': direction,
+                    'confidence': confidence * 100,
+                    'contract_type': direction,
+                    'parameters': None
+                }
+        return None
 
-    def get_proposal(self, contract_type, symbol, amount, duration, duration_unit="t", barrier=None):
-        proposal = {
-            "proposal": 1,
-            "amount": amount,
-            "basis": BotConfig.BASIS,
-            "contract_type": contract_type,
-            "currency": self.currency,
-            "duration": duration,
-            "duration_unit": duration_unit,
-            "symbol": symbol
+    def _calcular_stake_recuperacao(self):
+        """
+        Calcula stake para recuperar perda acumulada + lucro mínimo.
+        Fórmula: stake = (perda_acumulada + lucro_alvo) / payout_rate
+        Onde payout_rate = 0.88 (88% de retorno na Deriv)
+        """
+        if self.perda_acumulada <= 0:
+            return round(BotConfig.STAKE_INICIAL, 2)
+        
+        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
+        # ✅ Trunca para 2 casas decimais (não arredonda — evita rejeição da Deriv)
+        stake = int(stake_ideal * 100) / 100.0
+        stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
+        
+        # Segurança: não arrisca mais que 30% do saldo
+        max_stake = self.api.balance * 0.30
+        return round(min(stake, max_stake), 2)
+
+    def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
+        """Para o bot imediatamente com mensagem vermelha de stop loss."""
+        stats = self.stop_loss.get_estatisticas() if hasattr(self, 'stop_loss') else {}
+        perda = abs(stats.get('saldo_liquido', 0))
+        limite = BotConfig.LIMITE_PERDA
+
+        # Loga em vermelho intenso para o dashboard captar como STOP_LOSS
+        self.log(f"🛑 STOP LOSS ATINGIDO! Perda: ${perda:.2f} / Limite: ${limite:.2f}", "STOP_LOSS")
+        self.log(f"🛑 Bot encerrado automaticamente por proteção de capital", "STOP_LOSS")
+        self.stop()
+
+    def executar_trade(self, direction, signal_data=None):
+        # ✅ Martingale inteligente: calcula stake para recuperar perda acumulada
+        if self.martingale and self.perda_acumulada > 0:
+            stake = self._calcular_stake_recuperacao()
+        elif hasattr(self.strategy, 'get_stake'):
+            stake = self.strategy.get_stake()
+        elif self.martingale:
+            stake = self.martingale.stake_atual
+        else:
+            stake = self.current_stake
+
+        if self.api.balance < stake:
+            self.log(f"Saldo insuficiente! Necessário: ${stake:.2f} | Disponível: ${self.api.balance:.2f}", "ERROR")
+            return
+
+        if signal_data and signal_data.get('parameters'):
+            params = signal_data['parameters'].copy()
+            params['amount'] = stake
+            contract_type = signal_data.get('contract_type', direction)
+            barrier = params.get('barrier')
+        else:
+            params = self.strategy.get_contract_params(direction)
+            contract_type = params.get("contract_type", direction)
+            barrier = None
+
+        log_msg = f"🎯 Executando {contract_type} | Stake: ${stake:.2f} | Perda acum: ${self.perda_acumulada:.2f}"
+        if barrier is not None:
+            log_msg += f" | Barreira: {barrier}"
+        self.log(log_msg, "TRADE")
+
+        proposal_params = {
+            'contract_type': contract_type,
+            'symbol': params.get("symbol", BotConfig.DEFAULT_SYMBOL),
+            'amount': stake,
+            'duration': params.get("duration", 1),
+            'duration_unit': params.get("duration_unit", "t")
         }
         if barrier is not None:
-            proposal["barrier"] = str(barrier)
-        self._send(proposal)
-        self.log(f"Solicitando proposta: {contract_type} {symbol}", "INFO")
+            proposal_params['barrier'] = barrier
 
-    def buy_contract(self, proposal_id, price):
-        self._send({"buy": proposal_id, "price": price})
-        self.log(f"Comprando contrato ID: {proposal_id}", "TRADE")
+        self._ultimo_stake_usado = stake  # ✅ salva para o patched_contract_update
+        self.api.get_proposal(**proposal_params)
+        self.waiting_contract = True
+        self.trades_hoje += 1
 
-    def sell_contract(self, contract_id, price=0):
-        self._send({"sell": contract_id, "price": price})
+        if self.martingale:
+            self.martingale.registrar_trade(stake)
 
-    def get_contract_info(self, contract_id):
-        self._send({"proposal_open_contract": 1, "contract_id": contract_id, "subscribe": 1})
+    def on_contract_update(self, contract_data):
+        status = contract_data.get("status")
 
-    def _send(self, data):
-        if self.ws and self.is_connected:
-            try:
-                self.ws.send(json.dumps(data))
-            except Exception as e:
-                self.log(f"Erro ao enviar: {e}", "ERROR")
-                self._reconnect()
+        # ✅ Libera waiting_contract em caso de erro interno (timeout, reconexão, erro de proposta)
+        if contract_data.get("_timeout") or contract_data.get("_reconnect") or            contract_data.get("_buy_error") or contract_data.get("_proposal_error"):
+            self.log("⚠️ Operação interrompida — liberando bot para próximo sinal", "WARNING")
+            self.waiting_contract = False
+            self.current_contract_id = None
+            return
+
+        if status not in ["won", "lost"]:
+            return
+
+        profit = float(contract_data.get("profit", 0))
+        contract_id = contract_data.get("contract_id")
+        vitoria = status == "won"
+
+        # ✅ Libera IMEDIATAMENTE — antes de qualquer processamento
+        self.waiting_contract = False
+        self.current_contract_id = None
+        if hasattr(self, '_ultimo_trade_time'):
+            self._ultimo_trade_time = time.time()
+
+        if vitoria:
+            self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
+            self.perda_acumulada = 0.0
         else:
-            self.log("WebSocket não conectado!", "ERROR")
+            self.log(f"😞 DERROTA! Perda: ${profit:.2f} | ID: {contract_id}", "LOSS")
+            self.perda_acumulada += abs(profit)
 
-    # ─── CALLBACKS ──────────────────────────────────────────────────────────
-    def _on_open(self, ws):
-        self.is_connected      = True
-        self.last_message_time = time.time()
-        self.log("Conexão WebSocket aberta", "SUCCESS")
+        # ✅ Atualiza martingale da estratégia
+        if hasattr(self.strategy, 'on_trade_result'):
+            self.strategy.on_trade_result(vitoria)
 
-    def _on_message(self, ws, message):
+        if self.martingale:
+            self.martingale.calcular_proximo_stake(vitoria)
+            info = self.martingale.get_info()
+            proximo = self._calcular_stake_recuperacao() if self.perda_acumulada > 0 else info['stake_atual']
+            self.log(f"📊 Próximo stake: ${proximo:.2f} | Perda acum: ${self.perda_acumulada:.2f} | Step: {info['step_atual']}/{info['max_steps']}", "INFO")
+
+        self.stop_loss.registrar_trade(profit, vitoria)
+        stats = self.stop_loss.get_estatisticas()
+        self.log(f"📈 Líquido: ${stats['saldo_liquido']:+.2f} | Win Rate: {stats['win_rate']:.1f}% | Trades: {stats['total_trades']}", "INFO")
+
+        deve_parar, motivo = self.stop_loss.deve_parar()
+        if deve_parar:
+            self._disparar_stop_loss(motivo)
+
+    def on_balance_update(self, balance):
+        self.log(f"💰 Saldo atualizado: ${balance:.2f}", "INFO")
+
+    def start(self):
         try:
-            self.last_message_time = time.time()
-            data     = json.loads(message)
-            msg_type = data.get("msg_type")
+            # ✅ validate_config() só valida parâmetros básicos — não bloqueia por stake
+            if not validate_config():
+                return False
 
-            if msg_type == "ping":
-                self._send({"pong": 1})
+            self.print_header()
 
-            elif msg_type == "authorize":
-                if "error" in data:
-                    self.log(f"Erro autorização: {data['error']['message']}", "ERROR")
+            self.log("Conectando à Deriv API...", "INFO")
+            if not self.api.connect():
+                self.log("Falha na conexão!", "ERROR")
+                return False
+
+            self.log("Autorizando...", "INFO")
+            if not self.api.authorize():
+                self.log("Falha na autorização!", "ERROR")
+                return False
+
+            self.log(f"✅ Autorizado! Saldo: ${self.api.balance:.2f} {self.api.currency}", "SUCCESS")
+
+            # ✅ Verifica saldo mínimo só para garantir que conta tem algum saldo
+            if self.api.balance <= 0:
+                self.log("Saldo zerado! Impossível operar.", "ERROR")
+                return False
+
+            self.api.set_tick_callback(self.on_tick)
+            self.api.set_contract_callback(self.on_contract_update)
+            self.api.set_balance_callback(self.on_balance_update)
+
+            self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+
+            self.is_running = True
+            self.api._bot_ref = self  # ✅ referência para watchdog de ticks
+            self.log("🚀 Bot iniciado! Aguardando sinais...", "SUCCESS")
+
+            # ✅ Watchdog duplo: ticks + waiting_contract
+            self._ultimo_trade_time = time.time()
+            self._ultimo_tick_time  = time.time()  # ✅ rastrea último tick recebido
+            WATCHDOG_TIMEOUT = 45   # segundos preso em waiting_contract
+            TICK_TIMEOUT     = 30   # segundos sem receber nenhum tick → reconecta
+
+            while self.is_running:
+                time.sleep(1)
+                agora = time.time()
+
+                # ── Watchdog 1: waiting_contract preso ──
+                if self.waiting_contract:
+                    tempo_preso = agora - self._ultimo_trade_time
+                    if tempo_preso > WATCHDOG_TIMEOUT:
+                        self.log(f"⏰ WATCHDOG contrato: preso {tempo_preso:.0f}s — liberando!", "WARNING")
+                        self.waiting_contract    = False
+                        self.current_contract_id = None
+                        # NÃO reseta perda_acumulada — continua martingale
+                        self._ultimo_trade_time  = agora
                 else:
-                    self.is_authorized = True
-                    auth = data.get("authorize", {})
-                    self.account_info  = auth
-                    self.balance  = float(auth.get("balance", 0))
-                    self.currency = auth.get("currency", "USD")
-                    self.subscribe_balance()
+                    self._ultimo_trade_time = agora
 
-            elif msg_type == "balance":
-                self.balance = float(data.get("balance", {}).get("balance", 0))
-                if self.on_balance_callback:
-                    self.on_balance_callback(self.balance)
+                # ── Watchdog 2: ticks pararam (WebSocket morto) ──
+                sem_tick = agora - self._ultimo_tick_time
+                if sem_tick > TICK_TIMEOUT and not self.waiting_contract:
+                    self.log(f"⚠️ WATCHDOG ticks: sem tick por {sem_tick:.0f}s — reconectando!", "WARNING")
+                    try:
+                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+                        self._ultimo_tick_time = agora
+                    except Exception as e_tick:
+                        self.log(f"Erro ao re-subscrever ticks: {e_tick}", "ERROR")
 
-            elif msg_type == "tick":
-                # ✅ Atualiza timestamp do último tick para watchdog
-                if hasattr(self, '_bot_ref') and self._bot_ref:
-                    self._bot_ref._ultimo_tick_time = time.time()
-                if self.on_tick_callback:
-                    self.on_tick_callback(data.get("tick", {}))
+            return True
 
-            elif msg_type == "proposal":
-                if "error" in data:
-                    self.log(f"Erro proposta: {data['error']['message']}", "ERROR")
-                    # ✅ Libera waiting_contract se proposta falhou
-                    self._clear_contract()
-                    if self.on_contract_callback:
-                        self.on_contract_callback({
-                            "status": "lost", "profit": 0,
-                            "contract_id": None, "_proposal_error": True
-                        })
-                else:
-                    proposal    = data.get("proposal", {})
-                    proposal_id = proposal.get("id")
-                    price       = proposal.get("ask_price")
-                    longcode    = proposal.get("longcode", "")
-                    self.log(f"Proposta recebida: ID {proposal_id}", "INFO")
-                    # ✅ Salva longcode para o dashboard exibir como DC Bot
-                    self._ultimo_longcode = longcode
-                    if proposal_id and price:
-                        self.log(f"🛒 Comprando automaticamente por ${price}", "TRADE")
-                        self.buy_contract(proposal_id, price)
-
-            elif msg_type == "buy":
-                if "error" in data:
-                    self.log(f"Erro compra: {data['error']['message']}", "ERROR")
-                    # ✅ Libera waiting_contract em caso de erro na compra
-                    self._clear_contract()
-                    if self.on_contract_callback:
-                        self.on_contract_callback({
-                            "status": "lost", "profit": 0,
-                            "contract_id": None, "_buy_error": True
-                        })
-                else:
-                    buy_data    = data.get("buy", {})
-                    contract_id = buy_data.get("contract_id")
-                    self.log(f"✅ Compra realizada! ID: {contract_id}", "SUCCESS")
-                    # ✅ Inicia timeout para este contrato
-                    self._start_contract_timeout(contract_id)
-                    self.get_contract_info(contract_id)
-
-            elif msg_type == "proposal_open_contract":
-                contract = data.get("proposal_open_contract", {})
-                status   = contract.get("status")
-
-                # ✅ Captura tique de saída para o log
-                exit_tick = contract.get("exit_tick") or contract.get("exit_tick_display_value")
-                if exit_tick:
-                    contract["exit_tick_value"] = exit_tick
-
-                if self.on_contract_callback:
-                    self.on_contract_callback(contract)
-
-                if status in ["won", "lost"]:
-                    profit = float(contract.get("profit", 0))
-                    emoji  = "🎉 VITÓRIA" if status == "won" else "😞 DERROTA"
-                    tick_info = f" | Tique: {exit_tick}" if exit_tick else ""
-                    self.log(f"{emoji}! Lucro: ${profit:.2f}{tick_info}", "TRADE")
-                    # ✅ Limpa timeout ao receber resultado
-                    self._clear_contract()
-
-            elif msg_type == "sell":
-                if "error" in data:
-                    self.log(f"Erro venda: {data['error']['message']}", "ERROR")
-                else:
-                    self.log(f"✅ Venda realizada!", "SUCCESS")
-
-        except json.JSONDecodeError:
-            self.log(f"Erro JSON: {message}", "ERROR")
+        except KeyboardInterrupt:
+            self.log("\n⏹️ Bot interrompido pelo usuário", "WARNING")
+            self.stop()
+            return True
         except Exception as e:
-            self.log(f"Erro ao processar mensagem: {e}", "ERROR")
+            self.log(f"Erro fatal: {e}", "ERROR")
+            import traceback
+            traceback.print_exc()
+            return False
 
-    def _on_error(self, ws, error):
-        self.log(f"Erro WebSocket: {error}", "ERROR")
+    def stop(self):
+        self.is_running = False
+        self.exibir_relatorio_final()
+        if self.api:
+            self.api.disconnect()
+        self.log("Bot encerrado", "INFO")
 
-    def _on_close(self, ws, close_status_code, close_msg):
-        self.is_connected  = False
-        self.is_authorized = False
-        self.log(f"Conexão fechada: {close_status_code} - {close_msg}", "WARNING")
-        if self.should_reconnect:
-            time.sleep(2)
-            self._reconnect()
-
-    def set_tick_callback(self, callback):
-        self.on_tick_callback = callback
-
-    def set_contract_callback(self, callback):
-        self.on_contract_callback = callback
-
-    def set_balance_callback(self, callback):
-        self.on_balance_callback = callback
+    def exibir_relatorio_final(self):
+        print("\n" + "="*70)
+        print("📊 RELATÓRIO FINAL DA SESSÃO")
+        print("="*70)
+        stats = self.stop_loss.get_estatisticas()
+        print(f"\n💰 Resultados Financeiros:")
+        print(f"   Saldo Líquido: ${stats['saldo_liquido']:+.2f}")
+        print(f"   Lucro Total: ${stats['lucro_total']:.2f}")
+        print(f"   Perda Total: ${stats['perda_total']:.2f}")
+        print(f"\n📈 Estatísticas:")
+        print(f"   Total de Trades: {stats['total_trades']}")
+        print(f"   Vitórias: {stats['vitorias']}")
+        print(f"   Derrotas: {stats['derrotas']}")
+        print(f"   Win Rate: {stats['win_rate']:.2f}%")
+        print(f"\n⏱️ Tempo de Sessão: {stats['tempo_sessao']}")
+        print("\n" + "="*70 + "\n")
