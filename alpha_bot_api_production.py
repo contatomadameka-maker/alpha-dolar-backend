@@ -31,7 +31,20 @@ print(f"📁 backend_path: {backend_path}")
 print(f"📁 sys.path: {sys.path[:3]}")
 
 try:
-    from backend.bot import AlphaDolar
+    try:
+        from backend.bot import AlphaDolar
+    except ImportError:
+        # Fallback: tenta outros nomes que a classe pode ter
+        import importlib, inspect
+        _bot_module = importlib.import_module('backend.bot')
+        # Pega a primeira classe definida no módulo
+        _classes = [obj for name, obj in inspect.getmembers(_bot_module, inspect.isclass)
+                    if obj.__module__ == 'backend.bot']
+        if _classes:
+            AlphaDolar = _classes[0]
+            print(f"⚠️ AlphaDolar importado como: {AlphaDolar.__name__}")
+        else:
+            raise ImportError("Nenhuma classe encontrada em backend.bot")
     from backend.config import BotConfig
     from backend.strategies.alpha_bot_balanced import AlphaBotBalanced
     from backend.strategies.alpha_bot_1 import AlphaBot1
