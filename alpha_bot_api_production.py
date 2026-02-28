@@ -241,7 +241,8 @@ def start_bot():
                     'max_steps':    max_steps,
                     'win_rate':     wr,
                     'total_trades': total,
-                    'exit_tick':    str(exit_tick) if exit_tick else None
+                    'exit_tick':    str(exit_tick) if exit_tick else None,
+                    'longcode':     getattr(getattr(bot, 'api', None), '_ultimo_longcode', None)
                 }
                 bots_state[bot_type]['trades'].append(trade)
                 # Mantém só últimos 100 trades em memória
