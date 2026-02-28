@@ -287,14 +287,15 @@ def start_bot():
             thread.start()
             bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': [], 'stop_reason': None}
 
-            # ✅ Monkey-patch do log para capturar STOP_LOSS
-            _orig_log = bot.log
-            def _patched_log(message, level="INFO", _bot_type=bot_type, _orig=_orig_log):
-                _orig(message, level)
-                if level == "STOP_LOSS":
-                    bots_state[_bot_type]['stop_reason'] = 'stop_loss'
-                    bots_state[_bot_type]['stop_message'] = message
-            bot.log = _patched_log
+            # ✅ Monkey-patch do log para capturar STOP_LOSS (só se bot real tem log)
+            if hasattr(bot, 'log') and callable(getattr(bot, 'log', None)):
+                _orig_log = bot.log
+                def _patched_log(message, level="INFO", _bot_type=bot_type, _orig=_orig_log):
+                    _orig(message, level)
+                    if level == "STOP_LOSS":
+                        bots_state[_bot_type]['stop_reason'] = 'stop_loss'
+                        bots_state[_bot_type]['stop_message'] = message
+                bot.log = _patched_log
             print(f"✅ Bot {bot_type} iniciado [{account_type.upper()}]!")
 
             return jsonify({
@@ -338,14 +339,7 @@ def start_bot():
             thread.start()
             bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': [], 'stop_reason': None}
 
-            # ✅ Monkey-patch do log para capturar STOP_LOSS
-            _orig_log = bot.log
-            def _patched_log(message, level="INFO", _bot_type=bot_type, _orig=_orig_log):
-                _orig(message, level)
-                if level == "STOP_LOSS":
-                    bots_state[_bot_type]['stop_reason'] = 'stop_loss'
-                    bots_state[_bot_type]['stop_message'] = message
-            bot.log = _patched_log
+            # SimulatedBot não tem log — sem monkey-patch necessário
             return jsonify({'success': True, 'message': 'Bot simulado iniciado', 'mode': 'SIMULATED'})
 
     except Exception as e:
