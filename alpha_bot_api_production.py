@@ -103,10 +103,10 @@ def resolve_symbol(s):
 
 # ==================== ESTADO GLOBAL ====================
 bots_state = {
-    'manual':      {'running': False, 'instance': None, 'thread': None, 'trades': []},
-    'ia':          {'running': False, 'instance': None, 'thread': None, 'trades': []},
-    'ia_simples':  {'running': False, 'instance': None, 'thread': None, 'trades': []},
-    'ia_avancado': {'running': False, 'instance': None, 'thread': None, 'trades': []}
+    'manual':      {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None},
+    'ia':          {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None},
+    'ia_simples':  {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None},
+    'ia_avancado': {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None}
 }
 
 # ==================== ROTAS ESTÁTICAS ====================
@@ -154,7 +154,7 @@ def start_bot():
         print(f"{'='*60}\n")
 
         if bot_type not in bots_state:
-            bots_state[bot_type] = {'running': False, 'instance': None, 'thread': None, 'trades': []}
+            bots_state[bot_type] = {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None, 'stop_message': None}
 
         if bots_state[bot_type].get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} já está rodando'}), 400
@@ -285,7 +285,16 @@ def start_bot():
 
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
-            bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': []}
+            bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': [], 'stop_reason': None}
+
+            # ✅ Monkey-patch do log para capturar STOP_LOSS
+            _orig_log = bot.log
+            def _patched_log(message, level="INFO", _bot_type=bot_type, _orig=_orig_log):
+                _orig(message, level)
+                if level == "STOP_LOSS":
+                    bots_state[_bot_type]['stop_reason'] = 'stop_loss'
+                    bots_state[_bot_type]['stop_message'] = message
+            bot.log = _patched_log
             print(f"✅ Bot {bot_type} iniciado [{account_type.upper()}]!")
 
             return jsonify({
@@ -327,7 +336,16 @@ def start_bot():
             bot = SimulatedBot()
             thread = threading.Thread(target=bot.run, daemon=True)
             thread.start()
-            bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': []}
+            bots_state[bot_type] = {'running': True, 'instance': bot, 'thread': thread, 'trades': [], 'stop_reason': None}
+
+            # ✅ Monkey-patch do log para capturar STOP_LOSS
+            _orig_log = bot.log
+            def _patched_log(message, level="INFO", _bot_type=bot_type, _orig=_orig_log):
+                _orig(message, level)
+                if level == "STOP_LOSS":
+                    bots_state[_bot_type]['stop_reason'] = 'stop_loss'
+                    bots_state[_bot_type]['stop_message'] = message
+            bot.log = _patched_log
             return jsonify({'success': True, 'message': 'Bot simulado iniciado', 'mode': 'SIMULATED'})
 
     except Exception as e:
@@ -398,6 +416,8 @@ def get_bot_stats(bot_type):
         'bot_type': bot_type,
         'running': state.get('running', False),
         'stats': stats,
+        'stop_reason':   state.get('stop_reason', None),
+        'stop_message':  state.get('stop_message', None),
         # campos diretos para compatibilidade com frontend antigo
         'bot_running':   state.get('running', False),
         'saldo_atual':   stats.get('balance', 0),
