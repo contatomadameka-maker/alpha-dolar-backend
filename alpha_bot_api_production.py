@@ -418,15 +418,30 @@ def get_bot_stats(bot_type):
                 stats['currency'] = bot.api.currency
             except: pass
 
+    # ✅ Checa se thread ainda está viva — atualiza estado se morreu
+    thread = state.get('thread')
+    thread_alive = thread is not None and thread.is_alive()
+    if state.get('running') and not thread_alive:
+        bots_state[bot_type]['running'] = False
+        print(f"⚠️ Thread do bot {bot_type} morreu — estado atualizado para running=False")
+
+    is_running = bots_state[bot_type].get('running', False)
+
+    # ✅ Campo waiting_signal — bot rodando mas sem contrato ativo
+    waiting_signal = False
+    if is_running and bot and BOTS_AVAILABLE and hasattr(bot, 'waiting_contract'):
+        waiting_signal = not bot.waiting_contract
+
     return jsonify({
         'success': True,
         'bot_type': bot_type,
-        'running': state.get('running', False),
+        'running': is_running,
         'stats': stats,
         'stop_reason':   state.get('stop_reason', None),
         'stop_message':  state.get('stop_message', None),
         # campos diretos para compatibilidade com frontend antigo
-        'bot_running':   state.get('running', False),
+        'bot_running':   is_running,
+        'waiting_signal': waiting_signal,
         'saldo_atual':   stats.get('balance', 0),
         'lucro_liquido': stats.get('saldo_liquido', 0),
         'total_trades':  stats.get('total_trades', 0),
