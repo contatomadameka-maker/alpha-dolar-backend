@@ -236,6 +236,10 @@ def start_bot():
                 bot.log = _patched_log
                 print(f"✅ Log monkey-patch aplicado em {bot_type}")
 
+            # ── Stop Loss estilo DC Bot: acumula perdas, reseta ao ganhar
+            bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
+            bots_state[bot_type]['_lucro_desde_ultimo_reset'] = 0.0
+
             # ── Callback para salvar cada trade
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 trades_ate_agora = bots_state[bot_type]['trades']
@@ -247,6 +251,30 @@ def start_bot():
                 step_atual = mart_info.get('step_atual', 0)
                 max_steps  = mart_info.get('max_steps', 3)
                 perda_acum = getattr(bot, 'perda_acumulada', 0)
+
+                # ✅ DC Bot logic: acumula perda desde último ganho, reseta ao ganhar
+                if won:
+                    bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
+                    bots_state[bot_type]['_lucro_desde_ultimo_reset'] = round(
+                        bots_state[bot_type]['_lucro_desde_ultimo_reset'] + abs(profit), 2
+                    )
+                else:
+                    bots_state[bot_type]['_perda_desde_ultimo_ganho'] = round(
+                        bots_state[bot_type]['_perda_desde_ultimo_ganho'] + abs(profit), 2
+                    )
+
+                perda_dc = bots_state[bot_type]['_perda_desde_ultimo_ganho']
+                limite   = BotConfig.LIMITE_PERDA
+
+                # Dispara stop loss quando perda acumulada (desde último ganho) >= limite
+                if perda_dc >= limite and bots_state[bot_type].get('running'):
+                    print(f"[api] 🛑 STOP LOSS DC BOT: perda_acumulada=${perda_dc:.2f} >= limite=${limite:.2f}")
+                    bots_state[bot_type]['stop_reason']  = 'stop_loss'
+                    bots_state[bot_type]['stop_message'] = f'Perda acumulada: ${perda_dc:.2f} / Limite: ${limite:.2f}'
+                    bots_state[bot_type]['running']      = False
+                    if hasattr(bot, 'stop'): 
+                        try: bot.stop()
+                        except: pass
 
                 if perda_acum > 0 and hasattr(bot, '_calcular_stake_recuperacao'):
                     next_stake = bot._calcular_stake_recuperacao()
@@ -474,6 +502,8 @@ def get_bot_stats(bot_type):
         'win_rate':       stats.get('win_rate', 0),
         'vitorias':       stats.get('vitorias', 0),
         'derrotas':       stats.get('derrotas', 0),
+        'perda_dc':       bots_state[bot_type].get('_perda_desde_ultimo_ganho', 0),
+        'limite_perda':   BotConfig.LIMITE_PERDA,
     })
 
 # ==================== TRADES ====================
