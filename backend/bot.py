@@ -94,9 +94,12 @@ class AlphaDolar:
             if len(self.tick_history) > self.max_tick_history:
                 self.tick_history.pop(0)
 
+        # ✅ DC Bot: verificação de saldo mínimo apenas (não de limite de perda)
+        # O limite de perda é controlado pela API com lógica DC Bot correta.
         pode_operar, motivo = self.stop_loss.pode_operar(self.api.balance)
-        if not pode_operar:
-            self._disparar_stop_loss(motivo)
+        if not pode_operar and self.api.balance <= BotConfig.STAKE_INICIAL:
+            # Só para se saldo for menor que o stake mínimo
+            self._disparar_stop_loss("Saldo insuficiente para operar")
             return
 
         if self.trades_hoje >= BotConfig.MAX_TRADES_PER_DAY:
@@ -162,10 +165,10 @@ class AlphaDolar:
         return round(min(stake, max_stake), 2)
 
     def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
-        stats = self.stop_loss.get_estatisticas() if hasattr(self, 'stop_loss') else {}
-        perda = abs(stats.get('saldo_liquido', 0))
+        # ✅ FIX: usa perda_acumulada (só perdas reais, não abs do saldo)
+        perda = self.perda_acumulada
         limite = BotConfig.LIMITE_PERDA
-        self.log(f"🛑 STOP LOSS ATINGIDO! Perda: ${perda:.2f} / Limite: ${limite:.2f}", "STOP_LOSS")
+        self.log(f"🛑 STOP LOSS ATINGIDO! Perda acum: ${perda:.2f} / Limite: ${limite:.2f}", "STOP_LOSS")
         self.log(f"🛑 Bot encerrado automaticamente por proteção de capital", "STOP_LOSS")
         self.stop()
 
@@ -276,8 +279,13 @@ class AlphaDolar:
             "INFO"
         )
 
+        # ✅ DC Bot: stop loss gerenciado pela API via _perda_desde_ultimo_ganho
+        # O stop_loss interno é neutralizado aqui para evitar conflito.
+        # A verificação real acontece no alpha_bot_api_production.py após cada trade.
+        # Mantemos apenas como fallback para casos extremos (saldo zerado etc.)
         deve_parar, motivo = self.stop_loss.deve_parar()
-        if deve_parar:
+        if deve_parar and "saldo" in motivo.lower():
+            # Só para se for motivo crítico de saldo (não de limite de perda)
             self._disparar_stop_loss(motivo)
 
     def on_balance_update(self, balance):
