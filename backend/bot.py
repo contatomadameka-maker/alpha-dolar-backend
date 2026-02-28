@@ -270,25 +270,40 @@ class AlphaDolar:
             self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
 
             self.is_running = True
+            self.api._bot_ref = self  # ✅ referência para watchdog de ticks
             self.log("🚀 Bot iniciado! Aguardando sinais...", "SUCCESS")
 
-            # ✅ Watchdog: libera waiting_contract se ficar preso > 45s
+            # ✅ Watchdog duplo: ticks + waiting_contract
             self._ultimo_trade_time = time.time()
-            WATCHDOG_TIMEOUT = 45  # segundos
+            self._ultimo_tick_time  = time.time()  # ✅ rastrea último tick recebido
+            WATCHDOG_TIMEOUT = 45   # segundos preso em waiting_contract
+            TICK_TIMEOUT     = 30   # segundos sem receber nenhum tick → reconecta
 
             while self.is_running:
                 time.sleep(1)
+                agora = time.time()
 
+                # ── Watchdog 1: waiting_contract preso ──
                 if self.waiting_contract:
-                    tempo_preso = time.time() - self._ultimo_trade_time
+                    tempo_preso = agora - self._ultimo_trade_time
                     if tempo_preso > WATCHDOG_TIMEOUT:
-                        self.log(f"⏰ WATCHDOG: waiting_contract preso por {tempo_preso:.0f}s — liberando!", "WARNING")
-                        self.waiting_contract = False
+                        self.log(f"⏰ WATCHDOG contrato: preso {tempo_preso:.0f}s — liberando!", "WARNING")
+                        self.waiting_contract    = False
                         self.current_contract_id = None
-                        self.perda_acumulada = 0.0  # segurança: reseta perda
-                        self._ultimo_trade_time = time.time()
+                        # NÃO reseta perda_acumulada — continua martingale
+                        self._ultimo_trade_time  = agora
                 else:
-                    self._ultimo_trade_time = time.time()
+                    self._ultimo_trade_time = agora
+
+                # ── Watchdog 2: ticks pararam (WebSocket morto) ──
+                sem_tick = agora - self._ultimo_tick_time
+                if sem_tick > TICK_TIMEOUT and not self.waiting_contract:
+                    self.log(f"⚠️ WATCHDOG ticks: sem tick por {sem_tick:.0f}s — reconectando!", "WARNING")
+                    try:
+                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+                        self._ultimo_tick_time = agora
+                    except Exception as e_tick:
+                        self.log(f"Erro ao re-subscrever ticks: {e_tick}", "ERROR")
 
             return True
 
