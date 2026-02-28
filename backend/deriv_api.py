@@ -284,13 +284,19 @@ class DerivAPI:
                 contract = data.get("proposal_open_contract", {})
                 status   = contract.get("status")
 
+                # ✅ Captura tique de saída para o log
+                exit_tick = contract.get("exit_tick") or contract.get("exit_tick_display_value")
+                if exit_tick:
+                    contract["exit_tick_value"] = exit_tick
+
                 if self.on_contract_callback:
                     self.on_contract_callback(contract)
 
                 if status in ["won", "lost"]:
                     profit = float(contract.get("profit", 0))
                     emoji  = "🎉 VITÓRIA" if status == "won" else "😞 DERROTA"
-                    self.log(f"{emoji}! Lucro: ${profit:.2f}", "TRADE")
+                    tick_info = f" | Tique: {exit_tick}" if exit_tick else ""
+                    self.log(f"{emoji}! Lucro: ${profit:.2f}{tick_info}", "TRADE")
                     # ✅ Limpa timeout ao receber resultado
                     self._clear_contract()
 
