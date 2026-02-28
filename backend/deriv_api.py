@@ -240,6 +240,9 @@ class DerivAPI:
                     self.on_balance_callback(self.balance)
 
             elif msg_type == "tick":
+                # ✅ Atualiza timestamp do último tick para watchdog
+                if hasattr(self, '_bot_ref') and self._bot_ref:
+                    self._bot_ref._ultimo_tick_time = time.time()
                 if self.on_tick_callback:
                     self.on_tick_callback(data.get("tick", {}))
 
