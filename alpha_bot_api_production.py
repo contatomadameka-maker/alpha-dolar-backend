@@ -207,7 +207,7 @@ def start_bot():
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
             # ✅ Callback para salvar cada trade na lista
-            def on_trade_completed(direction, won, profit, stake, symbol_used):
+            def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 # Calcula win rate atualizado
                 trades_ate_agora = bots_state[bot_type]['trades']
                 total  = len(trades_ate_agora) + 1
@@ -224,6 +224,10 @@ def start_bot():
                 else:
                     next_stake = BotConfig.STAKE_INICIAL
 
+                # Pega tique de saída do contrato se disponível
+                exit_tick = None
+                trades_list = bots_state[bot_type]['trades']
+
                 trade = {
                     'id':           int(time.time() * 1000),
                     'direction':    direction,
@@ -236,7 +240,8 @@ def start_bot():
                     'step':         step_atual,
                     'max_steps':    max_steps,
                     'win_rate':     wr,
-                    'total_trades': total
+                    'total_trades': total,
+                    'exit_tick':    str(exit_tick) if exit_tick else None
                 }
                 bots_state[bot_type]['trades'].append(trade)
                 # Mantém só últimos 100 trades em memória
@@ -251,11 +256,12 @@ def start_bot():
             def patched_contract_update(contract_data):
                 status = contract_data.get('status')
                 if status in ['won', 'lost']:
-                    profit = float(contract_data.get('profit', 0))
-                    won    = status == 'won'
-                    direction = contract_data.get('contract_type', 'CALL/PUT')
+                    profit     = float(contract_data.get('profit', 0))
+                    won        = status == 'won'
+                    direction  = contract_data.get('contract_type', 'CALL/PUT')
                     stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
-                    on_trade_completed(direction, won, profit, stake_used, BotConfig.DEFAULT_SYMBOL)
+                    exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
+                    on_trade_completed(direction, won, profit, stake_used, BotConfig.DEFAULT_SYMBOL, exit_tick)
 
                     # ✅ Garante liberação AQUI — independente do bot.on_contract_update
                     bot.waiting_contract = False
