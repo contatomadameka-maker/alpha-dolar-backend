@@ -181,7 +181,8 @@ class DerivAPI:
             "currency": self.currency,
             "duration": duration,
             "duration_unit": duration_unit,
-            "symbol": symbol
+            "symbol": symbol,
+            "language": "PT"
         }
         if barrier is not None:
             proposal["barrier"] = str(barrier)
