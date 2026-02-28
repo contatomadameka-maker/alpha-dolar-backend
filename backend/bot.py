@@ -150,8 +150,8 @@ class AlphaDolar:
             return round(BotConfig.STAKE_INICIAL, 2)
 
         stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
-        # Trunca para 2 casas decimais (não arredonda — evita rejeição da Deriv)
-        stake = int(stake_ideal * 100) / 100.0
+        # FIX: round() em vez de int() — evita diferença de centavos que causava stake errado
+        stake = round(stake_ideal, 2)
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
 
         # Segurança: não arrisca mais que 30% do saldo
