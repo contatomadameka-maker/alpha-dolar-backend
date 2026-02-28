@@ -260,7 +260,10 @@ class DerivAPI:
                     proposal    = data.get("proposal", {})
                     proposal_id = proposal.get("id")
                     price       = proposal.get("ask_price")
+                    longcode    = proposal.get("longcode", "")
                     self.log(f"Proposta recebida: ID {proposal_id}", "INFO")
+                    # ✅ Salva longcode para o dashboard exibir como DC Bot
+                    self._ultimo_longcode = longcode
                     if proposal_id and price:
                         self.log(f"🛒 Comprando automaticamente por ${price}", "TRADE")
                         self.buy_contract(proposal_id, price)
