@@ -1,12 +1,11 @@
-# VERSÃO CORRIGIDA 2026-02-28 v3
+# VERSÃO CORRIGIDA 2026-02-28 v4
 """
 ALPHA DOLAR 2.0 - API PRODUCTION INTEGRADA
-FIXES v3:
-  ✅ _patched_log registrado ANTES de sobrescrever bots_state (stop_loss funciona)
-  ✅ stop_reason/stop_message preservados quando thread morre
-  ✅ Campo stop_reason propagado corretamente no get_bot_stats
-  ✅ lucro_alvo atingido também gera stop_reason='take_profit'
-  ✅ Martingale step sincronizado com bot.perda_acumulada no on_trade_completed
+FIXES v4:
+  ✅ Demo agora envia token demo do frontend (igual conta real)
+  ✅ BotConfig.API_TOKEN sempre atualizado antes de criar instância do bot
+  ✅ Log de qual token está sendo usado (demo ou real)
+  ✅ Todos os fixes v3 mantidos
 """
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -146,7 +145,7 @@ def start_bot():
         bot_type     = data.get('bot_type', 'manual')
         config       = data.get('config', {})
         account_type = data.get('account_type', 'demo')
-        token        = data.get('token')
+        token        = data.get('token')  # ✅ recebe token demo OU real do frontend
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake_inicial', 0.35))
@@ -157,8 +156,14 @@ def start_bot():
         print(f"📥 Iniciar bot: {bot_type} | conta: {account_type.upper()}")
         print(f"📊 Símbolo: {config.get('symbol')} → {symbol}")
         print(f"💰 stake={stake_inicial} target={lucro_alvo} stop={limite_perda}")
-        print(f"🔑 Token: {'✅ SIM' if token else '❌ NÃO'}")
+        print(f"🔑 Token recebido: {'✅ SIM (' + account_type.upper() + ')' if token else '❌ NÃO — bot não conseguirá autorizar!'}")
         print(f"{'='*60}\n")
+
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': f'Token não recebido para conta {account_type}. Faça login novamente.'
+            }), 400
 
         if bot_type not in bots_state:
             bots_state[bot_type] = {
@@ -178,12 +183,10 @@ def start_bot():
             BotConfig.LUCRO_ALVO     = lucro_alvo
             BotConfig.LIMITE_PERDA   = limite_perda
 
-            if account_type == 'real' and token:
-                BotConfig.API_TOKEN = token
-                print(f"🔑 Token real: {token[:10]}...")
-            else:
-                print(f"🎮 Token demo padrão")
-
+            # ✅ FIX PRINCIPAL: sempre atualiza o token, seja demo ou real
+            # O token vem do localStorage (deriv_accounts) via frontend
+            BotConfig.API_TOKEN = token
+            print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
             print(f"📡 Subscrevendo: {BotConfig.DEFAULT_SYMBOL}")
 
             trading_mode   = config.get('trading_mode', 'faster')
@@ -214,8 +217,7 @@ def start_bot():
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
-            # ── FIX: Monkey-patch do log registrado AQUI, ANTES de sobrescrever bots_state
-            # Assim stop_reason/stop_message são gravados no dict correto
+            # ── Monkey-patch do log ANTES de sobrescrever bots_state
             if hasattr(bot, 'log') and callable(getattr(bot, 'log', None)):
                 _orig_log = bot.log
                 def _patched_log(message, level="INFO", _bt=bot_type, _orig=_orig_log):
@@ -223,7 +225,7 @@ def start_bot():
                     if level == "STOP_LOSS":
                         bots_state[_bt]['stop_reason']  = 'stop_loss'
                         bots_state[_bt]['stop_message'] = message
-                        bots_state[_bt]['running']      = False   # FIX: marca parado imediatamente
+                        bots_state[_bt]['running']      = False
                         print(f"[api] 🛑 stop_loss capturado → bots_state[{_bt}]")
                     elif level in ("WIN", "SUCCESS") and "LUCRO ALVO" in message.upper():
                         bots_state[_bt]['stop_reason']  = 'take_profit'
@@ -240,7 +242,6 @@ def start_bot():
                 wins  = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
                 wr    = round((wins / total) * 100, 1) if total > 0 else 0
 
-                # FIX: lê step e perda_acumulada diretamente do bot (fonte única de verdade)
                 mart_info  = bot.martingale.get_info() if bot.martingale else {}
                 step_atual = mart_info.get('step_atual', 0)
                 max_steps  = mart_info.get('max_steps', 3)
@@ -305,15 +306,12 @@ def start_bot():
                     print(f"❌ Erro thread bot: {e}")
                     _tb.print_exc()
                 finally:
-                    # FIX: garante que running=False quando thread termina por qualquer motivo
                     bots_state[bot_type]['running'] = False
                     print(f"[api] Thread {bot_type} encerrada — running=False")
 
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
 
-            # FIX: salva estado DEPOIS de tudo configurado
-            # (o _patched_log já foi aplicado antes, então não perde eventos)
             bots_state[bot_type].update({
                 'running':      True,
                 'instance':     bot,
@@ -432,13 +430,11 @@ def get_bot_stats(bot_type):
                 stats['currency'] = bot.api.currency
             except: pass
 
-    # FIX: verifica thread E stop_reason para determinar running real
     thread       = state.get('thread')
     thread_alive = thread is not None and thread.is_alive()
 
     if state.get('running') and not thread_alive:
         bots_state[bot_type]['running'] = False
-        # FIX: se thread morreu sem stop_reason explícito, marca como crashed
         if not bots_state[bot_type].get('stop_reason'):
             bots_state[bot_type]['stop_reason'] = 'crashed'
         print(f"⚠️ Thread do bot {bot_type} morreu — estado atualizado para running=False")
@@ -451,10 +447,13 @@ def get_bot_stats(bot_type):
     if is_running and bot and BOTS_AVAILABLE and hasattr(bot, 'waiting_contract'):
         waiting_signal = not bot.waiting_contract
 
-    # FIX: inclui mart_step para o frontend exibir corretamente
     mart_step = 0
+    mart_max  = 3
     if bot and BOTS_AVAILABLE and hasattr(bot, 'martingale') and bot.martingale:
-        try: mart_step = bot.martingale.get_info().get('step_atual', 0)
+        try:
+            info = bot.martingale.get_info()
+            mart_step = info.get('step_atual', 0)
+            mart_max  = info.get('max_steps', 3)
         except: pass
 
     return jsonify({
@@ -467,6 +466,7 @@ def get_bot_stats(bot_type):
         'bot_running':    is_running,
         'waiting_signal': waiting_signal,
         'mart_step':      mart_step,
+        'mart_max':       mart_max,
         'saldo_atual':    stats.get('balance', 0),
         'lucro_liquido':  stats.get('saldo_liquido', 0),
         'total_trades':   stats.get('total_trades', 0),
@@ -515,7 +515,7 @@ def emergency_reset():
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v3")
+    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v4")
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
