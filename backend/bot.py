@@ -138,25 +138,24 @@ class AlphaDolar:
 
     def _calcular_stake_recuperacao(self):
         """
-        ✅ FIX v2: usa LUCRO_ALVO (não STAKE_INICIAL)
+        Fórmula DC Bot: stake = (perda_acumulada + STAKE_INICIAL) / payout_rate
 
-        Fórmula: stake = (perda_acumulada + LUCRO_ALVO) / payout_rate
+        LUCRO_ALVO da sessão ($20, $50, etc.) é quando a SESSÃO para.
+        O martingale usa STAKE_INICIAL como lucro mínimo por recuperação.
 
-        Exemplo com stake=$0.35, lucro_alvo=$2, perdas=$2.85:
-          stake = ($2.85 + $2.00) / 0.88 = $5.51
-          retorno = $5.51 * 0.88 = $4.85
-          liquido = $4.85 - $2.85 = +$2.00 ✅
-
-        Antes (ERRADO com STAKE_INICIAL=$0.35):
+        Exemplo com stake=$0.35, perdas=$2.85:
           stake = ($2.85 + $0.35) / 0.88 = $3.64
           retorno = $3.64 * 0.88 = $3.20
-          liquido = $3.20 - $2.85 = +$0.35 ← recupera só centavos!
+          liquido = $3.20 - $2.85 = +$0.35 ✅ (recupera tudo + stake inicial)
+
+        Errado com LUCRO_ALVO=$20:
+          stake = ($0.35 + $20) / 0.88 = $23.12 ← stake gigante após 1 loss!
         """
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
 
-        # ✅ CORRIGIDO: LUCRO_ALVO em vez de STAKE_INICIAL
-        stake_ideal = (self.perda_acumulada + BotConfig.LUCRO_ALVO) / self.PAYOUT_RATE
+        # ✅ CORRETO: usa STAKE_INICIAL como lucro mínimo de recuperação
+        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
         stake = round(stake_ideal, 2)
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
 
