@@ -119,11 +119,20 @@ class AlphaDolar:
             self.executar_trade(direction, signal_data)
         else:
             self._sem_sinal_streak += 1
+            # ⚠️ NÃO resetar _ultimo_sinal_time aqui!
+            # Ticks chegando ≠ bot operando.
+            # O watchdog precisa saber quanto tempo sem TRADE, não sem tick.
 
     def analyze_strategy(self, tick_data):
         if hasattr(self.strategy, 'analyze'):
-            if len(self.tick_history) < 30:
-                return None
+            # ✅ FIX anti-travamento: não bloqueia por falta de histórico
+            # Se histórico < 30, preenche com último preço conhecido
+            if len(self.tick_history) > 0 and len(self.tick_history) < 30:
+                ultimo = self.tick_history[-1]
+                while len(self.tick_history) < 30:
+                    self.tick_history.append(ultimo)
+            elif len(self.tick_history) == 0:
+                return None  # sem nenhum tick ainda, aguarda
             return self.strategy.analyze(self.tick_history)
         elif hasattr(self.strategy, 'should_enter'):
             should_enter, direction, confidence = self.strategy.should_enter(tick_data)
@@ -327,15 +336,17 @@ class AlphaDolar:
             self._ultimo_tick_time  = time.time()
             self._ultimo_sinal_time = time.time()
 
-            WATCHDOG_CONTRATO        = 45
-            TICK_TIMEOUT             = 30
-            SINAL_TIMEOUT_NORMAL     = 90
-            SINAL_TIMEOUT_MARTINGALE = 20
+            # ── Timeouts ──────────────────────────────────────────────────────
+            WATCHDOG_CONTRATO = 45   # s preso em waiting_contract → libera
+            TICK_TIMEOUT      = 15   # s sem tick → re-subscribe
+            TRADE_TIMEOUT     = 60   # s sem fazer trade → força operação
+            TRADE_TIMEOUT     = 60   # s sem fazer trade → força operação
 
             while self.is_running:
                 time.sleep(1)
                 agora = time.time()
 
+                # ── Watchdog 1: waiting_contract preso ────────────────────────
                 if self.waiting_contract:
                     tempo_preso = agora - self._ultimo_trade_time
                     if tempo_preso > WATCHDOG_CONTRATO:
@@ -344,58 +355,58 @@ class AlphaDolar:
                         self.current_contract_id = None
                         self._ultimo_trade_time  = agora
                         self._ultimo_sinal_time  = agora
+                    continue  # enquanto aguarda contrato, não verifica outros
 
+                # ── Watchdog 2: WebSocket morto (sem ticks) ───────────────────
                 sem_tick = agora - self._ultimo_tick_time
-                if sem_tick > TICK_TIMEOUT and not self.waiting_contract:
-                    self.log(f"⚠️ WATCHDOG ticks: sem tick {sem_tick:.0f}s — reconectando!", "WARNING")
+                if sem_tick > TICK_TIMEOUT:
+                    self.log(f"⚠️ WATCHDOG: sem tick {sem_tick:.0f}s — reconectando WebSocket!", "WARNING")
                     try:
                         self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
-                        self._ultimo_tick_time = agora
+                        self._ultimo_tick_time  = agora
                         self._ultimo_sinal_time = agora
                     except Exception as e_tick:
-                        self.log(f"Erro ao re-subscrever ticks: {e_tick}", "ERROR")
+                        self.log(f"Erro ao re-subscrever: {e_tick}", "ERROR")
+                    continue
 
-                if not self.waiting_contract:
-                    sem_sinal = agora - self._ultimo_sinal_time
+                # ── Watchdog 3: livre mas sem operar (ANTI-TRAVAMENTO DC Bot) ─
+                # Causa do travamento: estratégia não gera sinal por falta de
+                # histórico ou estado interno travado.
+                # Solução: após timeout força operação diretamente.
+                sem_trade = agora - self._ultimo_sinal_time
+                if sem_trade > TRADE_TIMEOUT:
+                    self.log(f"⚠️ WATCHDOG: {sem_trade:.0f}s sem operar — forçando trade!", "WARNING")
 
-                    if self.martingale:
-                        info_mart = self.martingale.get_info()
-                        step_atual = info_mart.get('step_atual', 0)
-                    else:
-                        step_atual = 0
+                    # Reset do estado da estratégia
+                    if hasattr(self.strategy, 'reset_state'):
+                        self.strategy.reset_state()
 
-                    timeout_sinal = (
-                        SINAL_TIMEOUT_MARTINGALE if step_atual >= 1
-                        else SINAL_TIMEOUT_NORMAL
-                    )
-
-                    if sem_sinal > timeout_sinal:
-                        self.log(
-                            f"⚠️ WATCHDOG sinal: {sem_sinal:.0f}s sem sinal | "
-                            f"Step martingale: {step_atual} | "
-                            f"Streak sem sinal: {self._sem_sinal_streak} ticks | "
-                            f"Forçando reset de estado...",
-                            "WARNING"
-                        )
-
-                        if step_atual >= 2 and sem_sinal > timeout_sinal * 2:
-                            self.log(
-                                f"🔧 AUTO-FIX crítico: step {step_atual} com "
-                                f"{sem_sinal:.0f}s sem sinal. "
-                                f"Resetando estado completo da estratégia...",
-                                "WARNING"
-                            )
-                            if hasattr(self.strategy, 'reset_state'):
-                                self.strategy.reset_state()
-                            self.tick_history = []
-
+                    # Garante histórico mínimo (preenche com último preço conhecido)
+                    if 0 < len(self.tick_history) < 30:
+                        ultimo = self.tick_history[-1]
+                        while len(self.tick_history) < 30:
+                            self.tick_history.append(ultimo)
+                    elif len(self.tick_history) == 0:
+                        # Sem histórico: re-subscribe e aguarda próximo tick
+                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
                         self._ultimo_sinal_time = agora
                         self._sem_sinal_streak  = 0
+                        continue
 
-                        try:
-                            self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
-                        except Exception:
-                            pass
+                    # Tenta obter direção da estratégia; fallback = CALL
+                    try:
+                        direction = "CALL"
+                        if hasattr(self.strategy, 'analyze'):
+                            resultado = self.strategy.analyze(self.tick_history)
+                            if resultado and resultado.get('signal'):
+                                direction = resultado['signal']
+                        self.log(f"🔧 Forçando trade {direction} para desbloquear bot", "WARNING")
+                        self.executar_trade(direction)
+                    except Exception as e_force:
+                        self.log(f"Erro ao forçar trade: {e_force}", "ERROR")
+
+                    self._ultimo_sinal_time = agora
+                    self._sem_sinal_streak  = 0
 
             return True
 
