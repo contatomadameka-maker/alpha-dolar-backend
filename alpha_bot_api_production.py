@@ -1,14 +1,14 @@
-# VERSÃO CORRIGIDA 2026-02-28 v4
+# VERSÃO CORRIGIDA 2026-02-28 v5
 """
 ALPHA DOLAR 2.0 - API PRODUCTION INTEGRADA
-FIXES v4:
-  ✅ Demo agora envia token demo do frontend (igual conta real)
-  ✅ BotConfig.API_TOKEN sempre atualizado antes de criar instância do bot
-  ✅ Log de qual token está sendo usado (demo ou real)
-  ✅ Todos os fixes v3 mantidos
+FIXES v5:
+  ✅ Rotas /home e /dashboard com URLs limpas
+  ✅ Raiz / redireciona para /home
+  ✅ Serve arquivos da raiz do projeto (não mais de 'web/')
+  ✅ Todos os fixes v4 mantidos
 """
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 import threading
 import time
@@ -119,14 +119,40 @@ bots_state = {
 }
 
 # ==================== ROTAS ESTÁTICAS ====================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @app.route('/')
-def index():
-    return send_from_directory('web', 'trading.html')
+def root():
+    return redirect('/home')
+
+@app.route('/home')
+def home():
+    return send_from_directory(BASE_DIR, 'index.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return send_from_directory(BASE_DIR, 'dashboard-fixed.html')
+
+@app.route('/guia')
+def guia():
+    return send_from_directory(BASE_DIR, 'guia-digitos-alpha.html')
+
+@app.route('/css/<path:filename>')
+def css_files(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'css'), filename)
+
+@app.route('/js/<path:filename>')
+def js_files(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'js'), filename)
+
+@app.route('/data/<path:filename>')
+def data_files(filename):
+    return send_from_directory(os.path.join(BASE_DIR, 'data'), filename)
 
 @app.route('/<path:path>')
 def serve_static(path):
     try:
-        return send_from_directory('web', path)
+        return send_from_directory(BASE_DIR, path)
     except:
         return jsonify({'error': 'Not found'}), 404
 
@@ -145,7 +171,7 @@ def start_bot():
         bot_type     = data.get('bot_type', 'manual')
         config       = data.get('config', {})
         account_type = data.get('account_type', 'demo')
-        token        = data.get('token')  # ✅ recebe token demo OU real do frontend
+        token        = data.get('token')
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake_inicial', 0.35))
@@ -182,12 +208,8 @@ def start_bot():
             BotConfig.STAKE_INICIAL  = stake_inicial
             BotConfig.LUCRO_ALVO     = lucro_alvo
             BotConfig.LIMITE_PERDA   = limite_perda
-
-            # ✅ FIX PRINCIPAL: sempre atualiza o token, seja demo ou real
-            # O token vem do localStorage (deriv_accounts) via frontend
-            BotConfig.API_TOKEN = token
+            BotConfig.API_TOKEN      = token
             print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
-            print(f"📡 Subscrevendo: {BotConfig.DEFAULT_SYMBOL}")
 
             trading_mode   = config.get('trading_mode', 'faster')
             risk_mode      = config.get('risk_mode', 'conservative')
@@ -195,30 +217,23 @@ def start_bot():
             stop_loss_type = config.get('stop_loss_type', 'value')
             max_losses     = int(config.get('max_losses', 5))
 
-            print(f"⚡ Modo: {trading_mode} | Risco: {risk_mode} | Estratégia: {strategy_id} | StopLoss: {stop_loss_type}")
-
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
             BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
-            # ✅ FIX: aceita 'stake'/'stake_inicial', 'target'/'lucro_alvo', 'stop'/'limite_perda'
             BotConfig.STAKE_INICIAL = float(config.get('stake') or config.get('stake_inicial') or BotConfig.STAKE_INICIAL)
             BotConfig.LUCRO_ALVO    = float(config.get('target') or config.get('lucro_alvo') or BotConfig.LUCRO_ALVO)
             BotConfig.LIMITE_PERDA  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
-            print(f"💰 stake={BotConfig.STAKE_INICIAL} target={BotConfig.LUCRO_ALVO} stop={BotConfig.LIMITE_PERDA}")
 
             try:
                 factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
                 strategy = factory(trading_mode, risk_mode)
-                print(f"✅ Estratégia: {strategy.name} | Confiança: {strategy.min_confidence:.0%} | Martingale: {strategy.usar_martingale}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
                 bot = AlphaDolar(strategy=strategy, use_martingale=strategy.usar_martingale)
-                print(f"✅ Bot: {bot.bot_name}")
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
-            # ── Monkey-patch do log ANTES de sobrescrever bots_state
             if hasattr(bot, 'log') and callable(getattr(bot, 'log', None)):
                 _orig_log = bot.log
                 def _patched_log(message, level="INFO", _bt=bot_type, _orig=_orig_log):
@@ -227,20 +242,15 @@ def start_bot():
                         bots_state[_bt]['stop_reason']  = 'stop_loss'
                         bots_state[_bt]['stop_message'] = message
                         bots_state[_bt]['running']      = False
-                        print(f"[api] 🛑 stop_loss capturado → bots_state[{_bt}]")
                     elif level in ("WIN", "SUCCESS") and "LUCRO ALVO" in message.upper():
                         bots_state[_bt]['stop_reason']  = 'take_profit'
                         bots_state[_bt]['stop_message'] = message
                         bots_state[_bt]['running']      = False
-                        print(f"[api] 🎯 take_profit capturado → bots_state[{_bt}]")
                 bot.log = _patched_log
-                print(f"✅ Log monkey-patch aplicado em {bot_type}")
 
-            # ── Stop Loss estilo DC Bot: acumula perdas, reseta ao ganhar
             bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
             bots_state[bot_type]['_lucro_desde_ultimo_reset'] = 0.0
 
-            # ── Callback para salvar cada trade
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 trades_ate_agora = bots_state[bot_type]['trades']
                 total = len(trades_ate_agora) + 1
@@ -252,51 +262,37 @@ def start_bot():
                 max_steps  = mart_info.get('max_steps', 3)
                 perda_acum = getattr(bot, 'perda_acumulada', 0)
 
-                # ✅ DC Bot logic: acumula perda desde último ganho, reseta ao ganhar
                 if won:
                     bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
                     bots_state[bot_type]['_lucro_desde_ultimo_reset'] = round(
-                        bots_state[bot_type]['_lucro_desde_ultimo_reset'] + abs(profit), 2
-                    )
+                        bots_state[bot_type]['_lucro_desde_ultimo_reset'] + abs(profit), 2)
                 else:
                     bots_state[bot_type]['_perda_desde_ultimo_ganho'] = round(
-                        bots_state[bot_type]['_perda_desde_ultimo_ganho'] + abs(profit), 2
-                    )
+                        bots_state[bot_type]['_perda_desde_ultimo_ganho'] + abs(profit), 2)
 
                 perda_dc = bots_state[bot_type]['_perda_desde_ultimo_ganho']
                 limite   = BotConfig.LIMITE_PERDA
 
-                # Dispara stop loss quando perda acumulada (desde último ganho) >= limite
                 if perda_dc >= limite and bots_state[bot_type].get('running'):
-                    print(f"[api] 🛑 STOP LOSS DC BOT: perda_acumulada=${perda_dc:.2f} >= limite=${limite:.2f}")
                     bots_state[bot_type]['stop_reason']  = 'stop_loss'
                     bots_state[bot_type]['stop_message'] = f'Perda acumulada: ${perda_dc:.2f} / Limite: ${limite:.2f}'
                     bots_state[bot_type]['running']      = False
-                    if hasattr(bot, 'stop'): 
+                    if hasattr(bot, 'stop'):
                         try: bot.stop()
                         except: pass
 
-                if perda_acum > 0 and hasattr(bot, '_calcular_stake_recuperacao'):
-                    next_stake = bot._calcular_stake_recuperacao()
-                else:
-                    next_stake = BotConfig.STAKE_INICIAL
+                next_stake = bot._calcular_stake_recuperacao() if perda_acum > 0 and hasattr(bot, '_calcular_stake_recuperacao') else BotConfig.STAKE_INICIAL
 
                 trade = {
-                    'id':           int(time.time() * 1000),
-                    'direction':    direction,
-                    'result':       'win' if won else 'loss',
-                    'profit':       round(profit, 2),
-                    'stake':        round(stake, 2),
-                    'symbol':       symbol_used,
-                    'timestamp':    datetime.now().strftime('%H:%M:%S'),
-                    'next_stake':   round(next_stake, 2),
-                    'step':         step_atual,
-                    'max_steps':    max_steps,
-                    'win_rate':     wr,
-                    'total_trades': total,
-                    'exit_tick':    str(exit_tick) if exit_tick else None,
-                    'longcode':     getattr(getattr(bot, 'api', None), '_ultimo_longcode', None),
-                    'perda_acum':   round(perda_acum, 2),
+                    'id': int(time.time() * 1000), 'direction': direction,
+                    'result': 'win' if won else 'loss', 'profit': round(profit, 2),
+                    'stake': round(stake, 2), 'symbol': symbol_used,
+                    'timestamp': datetime.now().strftime('%H:%M:%S'),
+                    'next_stake': round(next_stake, 2), 'step': step_atual,
+                    'max_steps': max_steps, 'win_rate': wr, 'total_trades': total,
+                    'exit_tick': str(exit_tick) if exit_tick else None,
+                    'longcode': getattr(getattr(bot, 'api', None), '_ultimo_longcode', None),
+                    'perda_acum': round(perda_acum, 2),
                 }
                 bots_state[bot_type]['trades'].append(trade)
                 if len(bots_state[bot_type]['trades']) > 100:
@@ -304,7 +300,6 @@ def start_bot():
 
             bot._on_trade_completed = on_trade_completed
 
-            # ── Monkey-patch no on_contract_update
             original_contract_update = bot.on_contract_update
             def patched_contract_update(contract_data):
                 status = contract_data.get('status')
@@ -315,62 +310,44 @@ def start_bot():
                     stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
                     exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
                     on_trade_completed(direction, won, profit, stake_used, BotConfig.DEFAULT_SYMBOL, exit_tick)
-
                     bot.waiting_contract    = False
                     bot.current_contract_id = None
                     bot._ultimo_trade_time  = time.time()
-                    print(f"[patched] ✅ waiting_contract liberado — status: {status}")
-
                 original_contract_update(contract_data)
 
             bot.on_contract_update = patched_contract_update
             bot.api.set_contract_callback(patched_contract_update)
 
-            # ── Thread do bot
             def run_bot():
                 try:
-                    print(f"🚀 Thread bot [{account_type.upper()}] iniciada!")
                     bot.start()
                 except Exception as e:
                     print(f"❌ Erro thread bot: {e}")
                     _tb.print_exc()
                 finally:
                     bots_state[bot_type]['running'] = False
-                    print(f"[api] Thread {bot_type} encerrada — running=False")
 
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
 
             bots_state[bot_type].update({
-                'running':      True,
-                'instance':     bot,
-                'thread':       thread,
-                'trades':       [],
-                'stop_reason':  None,
-                'stop_message': None,
+                'running': True, 'instance': bot, 'thread': thread,
+                'trades': [], 'stop_reason': None, 'stop_message': None,
             })
 
-            print(f"✅ Bot {bot_type} iniciado [{account_type.upper()}]!")
             return jsonify({
-                'success':      True,
-                'message':      'Bot iniciado!',
-                'bot_type':     bot_type,
-                'account_type': account_type,
-                'symbol':       symbol,
-                'mode':         f'REAL BOT - {account_type.upper()}'
+                'success': True, 'message': 'Bot iniciado!',
+                'bot_type': bot_type, 'account_type': account_type,
+                'symbol': symbol, 'mode': f'REAL BOT - {account_type.upper()}'
             })
 
         # ==================== SIMULADO ====================
         else:
-            print("⚠️ Modo simulado...")
-
             class SimulatedBot:
                 def __init__(self):
                     self.running = True
-                    self.stats = {
-                        'total_trades': 0, 'vitorias': 0, 'derrotas': 0,
-                        'lucro_liquido': 0.0, 'saldo_atual': 10000.0, 'win_rate': 0.0
-                    }
+                    self.stats = {'total_trades': 0, 'vitorias': 0, 'derrotas': 0,
+                                  'lucro_liquido': 0.0, 'saldo_atual': 10000.0, 'win_rate': 0.0}
                 def run(self):
                     import random
                     while self.running:
@@ -384,7 +361,6 @@ def start_bot():
                             self.stats['lucro_liquido'] += profit
                             self.stats['saldo_atual']   += profit
                             self.stats['win_rate'] = (self.stats['vitorias'] / self.stats['total_trades']) * 100
-                            print(f"{'✅' if won else '❌'} Sim: ${profit:+.2f}")
                 def stop(self): self.running = False
 
             bot    = SimulatedBot()
@@ -410,14 +386,12 @@ def stop_bot():
             return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
 
         bot_type = data.get('bot_type', 'ia')
-        print(f"🛑 Parando: {bot_type}")
-
         if bot_type not in bots_state or not bots_state[bot_type].get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} não está rodando'}), 400
 
         bot = bots_state[bot_type].get('instance')
         if bot:
-            if hasattr(bot, 'stop'):   bot.stop()
+            if hasattr(bot, 'stop'):      bot.stop()
             elif hasattr(bot, 'running'): bot.running = False
 
             stats = {}
@@ -429,7 +403,6 @@ def stop_bot():
 
             bots_state[bot_type]['running']     = False
             bots_state[bot_type]['stop_reason'] = bots_state[bot_type].get('stop_reason') or 'manual'
-            print(f"✅ Bot {bot_type} parado")
             return jsonify({'success': True, 'message': 'Bot parado!', 'stats': stats})
 
         return jsonify({'success': False, 'error': 'Instância não encontrada'}), 500
@@ -466,7 +439,6 @@ def get_bot_stats(bot_type):
         bots_state[bot_type]['running'] = False
         if not bots_state[bot_type].get('stop_reason'):
             bots_state[bot_type]['stop_reason'] = 'crashed'
-        print(f"⚠️ Thread do bot {bot_type} morreu — estado atualizado para running=False")
 
     is_running   = bots_state[bot_type].get('running', False)
     stop_reason  = bots_state[bot_type].get('stop_reason')
@@ -486,24 +458,15 @@ def get_bot_stats(bot_type):
         except: pass
 
     return jsonify({
-        'success':        True,
-        'bot_type':       bot_type,
-        'running':        is_running,
-        'stats':          stats,
-        'stop_reason':    stop_reason,
-        'stop_message':   stop_message,
-        'bot_running':    is_running,
-        'waiting_signal': waiting_signal,
-        'mart_step':      mart_step,
-        'mart_max':       mart_max,
-        'saldo_atual':    stats.get('balance', 0),
-        'lucro_liquido':  stats.get('saldo_liquido', 0),
-        'total_trades':   stats.get('total_trades', 0),
-        'win_rate':       stats.get('win_rate', 0),
-        'vitorias':       stats.get('vitorias', 0),
-        'derrotas':       stats.get('derrotas', 0),
-        'perda_dc':       bots_state[bot_type].get('_perda_desde_ultimo_ganho', 0),
-        'limite_perda':   BotConfig.LIMITE_PERDA,
+        'success': True, 'bot_type': bot_type, 'running': is_running,
+        'stats': stats, 'stop_reason': stop_reason, 'stop_message': stop_message,
+        'bot_running': is_running, 'waiting_signal': waiting_signal,
+        'mart_step': mart_step, 'mart_max': mart_max,
+        'saldo_atual': stats.get('balance', 0), 'lucro_liquido': stats.get('saldo_liquido', 0),
+        'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
+        'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
+        'perda_dc': bots_state[bot_type].get('_perda_desde_ultimo_ganho', 0),
+        'limite_perda': BotConfig.LIMITE_PERDA,
     })
 
 # ==================== TRADES ====================
@@ -546,7 +509,8 @@ def emergency_reset():
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v4")
+    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
+    print("🌐 URLs: /home | /dashboard | /guia")
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
