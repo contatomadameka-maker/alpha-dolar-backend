@@ -6,6 +6,7 @@ PATCH 28/02: Fix travamento Martingale step 2/3
 FIX 28/02 v2: _calcular_stake_recuperacao usa LUCRO_ALVO (não STAKE_INICIAL)
 FIX 01/03: Cálculo correto de profit (sell_price - buy_price) — corrige saldo positivo em LOSS
 FIX 02/03: Lucro alvo verificado após cada trade + Martingale não conflita com recuperação
+FIX 02/03b: max_stake recuperação aumentado para 50% do saldo (era 30%)
 """
 import time
 import sys
@@ -144,6 +145,7 @@ class AlphaDolar:
         """
         Fórmula DC Bot: stake = (perda_acumulada + STAKE_INICIAL) / payout_rate
         Recupera todas as perdas + lucro mínimo de STAKE_INICIAL.
+        FIX 02/03b: limite aumentado para 50% do saldo (era 30%)
         """
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
@@ -152,8 +154,8 @@ class AlphaDolar:
         stake = round(stake_ideal, 2)
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
 
-        # Segurança: não arrisca mais que 30% do saldo
-        max_stake = self.api.balance * 0.30
+        # Segurança: não arrisca mais que 50% do saldo
+        max_stake = self.api.balance * 0.50
         return round(min(stake, max_stake), 2)
 
     def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
@@ -261,14 +263,10 @@ class AlphaDolar:
             self.strategy.on_trade_result(vitoria)
 
         # ✅ FIX 02/03: Martingale NÃO conflita com sistema de recuperação
-        # Quando há perda acumulada, _calcular_stake_recuperacao() é quem define o stake.
-        # O martingale só é usado quando perda_acumulada == 0 (operação normal).
         if self.martingale:
             if self.perda_acumulada <= 0:
-                # Sem perda: martingale normal
                 self.martingale.calcular_proximo_stake(vitoria)
             else:
-                # Com perda: só reseta martingale se ganhou (recuperou)
                 if vitoria:
                     self.martingale.reset()
             info = self.martingale.get_info()
@@ -295,7 +293,6 @@ class AlphaDolar:
             self.stop()
             return
 
-        # Stop loss: apenas para casos críticos de saldo
         deve_parar, motivo = self.stop_loss.deve_parar()
         if deve_parar and "saldo" in motivo.lower():
             self._disparar_stop_loss(motivo)
