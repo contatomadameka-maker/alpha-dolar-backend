@@ -1,11 +1,9 @@
-# VERSÃO CORRIGIDA 2026-02-28 v5
+# VERSÃO CORRIGIDA 2026-03-02 v6
 """
 ALPHA DOLAR 2.0 - API PRODUCTION INTEGRADA
-FIXES v5:
-  ✅ Rotas /home e /dashboard com URLs limpas
-  ✅ Raiz / redireciona para /home
-  ✅ Serve arquivos da raiz do projeto (não mais de 'web/')
-  ✅ Todos os fixes v4 mantidos
+FIXES v6:
+  ✅ 5 estratégias de dígitos adicionadas (Alpha Bot 4, Digit Sniper, Digit Pulse, Mega Digit 1.0, 2.0)
+  ✅ Todos os fixes v5 mantidos
 """
 
 import sys
@@ -27,17 +25,6 @@ if project_path not in sys.path:
     sys.path.insert(0, project_path)
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
-import threading
-import time
-from datetime import datetime
-import sys
-import os
-import traceback as _tb
-
-project_path = os.path.dirname(os.path.abspath(__file__))
-backend_path = os.path.join(project_path, 'backend')
-sys.path.insert(0, project_path)
-sys.path.insert(0, backend_path)
 
 app = Flask(__name__, static_folder='web', static_url_path='')
 CORS(app)
@@ -72,18 +59,22 @@ try:
     from backend.strategies.alpha_smart import AlphaSmart
     from backend.strategies.alpha_analytics_sniper import AlphaAnalytics, AlphaSniper
     from backend.strategies.premium_strategies import MegaAlpha1, MegaAlpha2, MegaAlpha3, AlphaElite, AlphaNexus
+    # Estratégias de Dígitos
+    from backend.strategies.digit_strategies import AlphaBot4Digit, DigitSniper, DigitPulse, MegaDigit1, MegaDigit2
     BOTS_AVAILABLE = True
-    print("✅ Todas as 15 estratégias carregadas!")
+    print("✅ Todas as 20 estratégias carregadas (15 Rise/Fall + 5 Dígitos)!")
 except ImportError as e:
     BOTS_AVAILABLE = False
     print(f"⚠️ Erro ao importar bots: {e}")
     _tb.print_exc()
 
 STRATEGY_MAP = {
+    # Rise/Fall FREE
     'alpha_bot_1':        lambda tm, rm: AlphaBot1(tm, rm),
     'alpha_bot_2':        lambda tm, rm: AlphaBot2(tm, rm),
     'alpha_bot_3':        lambda tm, rm: AlphaBot3(tm, rm),
     'alpha_bot_balanced': lambda tm, rm: AlphaBotBalanced(tm, rm),
+    # Rise/Fall VIP
     'alpha_mind':         lambda tm, rm: AlphaMind(tm, rm),
     'quantum_trader':     lambda tm, rm: QuantumTrader(tm, rm),
     'titan_core':         lambda tm, rm: TitanCore(tm, rm),
@@ -91,12 +82,24 @@ STRATEGY_MAP = {
     'alpha_smart':        lambda tm, rm: AlphaSmart(tm, rm),
     'alpha_analytics':    lambda tm, rm: AlphaAnalytics(tm, rm),
     'alpha_sniper':       lambda tm, rm: AlphaSniper(tm, rm),
+    # Rise/Fall PREMIUM
     'mega_alpha_1':       lambda tm, rm: MegaAlpha1(tm, rm),
     'mega_alpha_2':       lambda tm, rm: MegaAlpha2(tm, rm),
     'mega_alpha_3':       lambda tm, rm: MegaAlpha3(tm, rm),
     'alpha_elite':        lambda tm, rm: AlphaElite(tm, rm),
     'alpha_nexus':        lambda tm, rm: AlphaNexus(tm, rm),
+    # Dígitos FREE
+    'alpha_bot_4':        lambda tm, rm: AlphaBot4Digit(tm, rm),
+    # Dígitos VIP
+    'digit_sniper':       lambda tm, rm: DigitSniper(tm, rm),
+    'digit_pulse':        lambda tm, rm: DigitPulse(tm, rm),
+    # Dígitos PREMIUM
+    'mega_digit_1':       lambda tm, rm: MegaDigit1(tm, rm),
+    'mega_digit_2':       lambda tm, rm: MegaDigit2(tm, rm),
 }
+
+# Estratégias que usam contrato DIGITOVER/DIGITUNDER (precisam de barrier)
+DIGIT_STRATEGIES = {'alpha_bot_4', 'digit_sniper', 'digit_pulse', 'mega_digit_1', 'mega_digit_2'}
 
 SYMBOL_MAP = {
     'Volatility 10 Index':       'R_10',
@@ -179,7 +182,13 @@ def serve_static(path):
 
 @app.route('/api/health')
 def health():
-    return jsonify({'status': 'ok', 'message': 'Alpha Dolar API Running', 'bots_available': BOTS_AVAILABLE})
+    return jsonify({
+        'status': 'ok',
+        'message': 'Alpha Dolar API Running',
+        'bots_available': BOTS_AVAILABLE,
+        'total_strategies': len(STRATEGY_MAP),
+        'digit_strategies': len(DIGIT_STRATEGIES),
+    })
 
 # ==================== START BOT ====================
 @app.route('/api/bot/start', methods=['POST'])
@@ -199,11 +208,15 @@ def start_bot():
         lucro_alvo    = float(config.get('lucro_alvo', 2.0))
         limite_perda  = float(config.get('limite_perda', 5.0))
 
+        strategy_id = config.get('strategy', 'alpha_bot_1')
+        is_digit    = strategy_id in DIGIT_STRATEGIES
+
         print(f"\n{'='*60}")
         print(f"📥 Iniciar bot: {bot_type} | conta: {account_type.upper()}")
         print(f"📊 Símbolo: {config.get('symbol')} → {symbol}")
+        print(f"🎯 Estratégia: {strategy_id} ({'DÍGITOS' if is_digit else 'RISE/FALL'})")
         print(f"💰 stake={stake_inicial} target={lucro_alvo} stop={limite_perda}")
-        print(f"🔑 Token recebido: {'✅ SIM (' + account_type.upper() + ')' if token else '❌ NÃO — bot não conseguirá autorizar!'}")
+        print(f"🔑 Token recebido: {'✅ SIM (' + account_type.upper() + ')' if token else '❌ NÃO'}")
         print(f"{'='*60}\n")
 
         if not token:
@@ -234,7 +247,6 @@ def start_bot():
 
             trading_mode   = config.get('trading_mode', 'faster')
             risk_mode      = config.get('risk_mode', 'conservative')
-            strategy_id    = config.get('strategy', 'alpha_bot_1')
             stop_loss_type = config.get('stop_loss_type', 'value')
             max_losses     = int(config.get('max_losses', 5))
 
@@ -314,6 +326,7 @@ def start_bot():
                     'exit_tick': str(exit_tick) if exit_tick else None,
                     'longcode': getattr(getattr(bot, 'api', None), '_ultimo_longcode', None),
                     'perda_acum': round(perda_acum, 2),
+                    'is_digit': is_digit,
                 }
                 bots_state[bot_type]['trades'].append(trade)
                 if len(bots_state[bot_type]['trades']) > 100:
@@ -359,7 +372,9 @@ def start_bot():
             return jsonify({
                 'success': True, 'message': 'Bot iniciado!',
                 'bot_type': bot_type, 'account_type': account_type,
-                'symbol': symbol, 'mode': f'REAL BOT - {account_type.upper()}'
+                'symbol': symbol, 'strategy': strategy_id,
+                'is_digit': is_digit,
+                'mode': f'REAL BOT - {account_type.upper()}'
             })
 
         # ==================== SIMULADO ====================
@@ -530,8 +545,9 @@ def emergency_reset():
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
+    print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v6")
     print("🌐 URLs: /home | /dashboard | /guia")
+    print(f"📊 {len(STRATEGY_MAP)} estratégias disponíveis ({len(DIGIT_STRATEGIES)} de dígitos)")
     print("✅ BOTS PYTHON REAIS!" if BOTS_AVAILABLE else "⚠️ MODO SIMULADO")
     print("="*70 + "\n")
     app.run(host='0.0.0.0', port=5000, debug=True)
