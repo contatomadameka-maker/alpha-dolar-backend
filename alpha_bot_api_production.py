@@ -8,12 +8,25 @@ FIXES v5:
   ✅ Todos os fixes v4 mantidos
 """
 
+import sys
+import os
+import time
+import threading
+import traceback as _tb
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, redirect
 try:
     from flask_cors import CORS
 except ImportError:
     class CORS:
         def __init__(self, app, **kw): pass
+
+project_path = os.path.dirname(os.path.abspath(__file__))
+backend_path = os.path.join(project_path, 'backend')
+if project_path not in sys.path:
+    sys.path.insert(0, project_path)
+if backend_path not in sys.path:
+    sys.path.insert(0, backend_path)
 import threading
 import time
 from datetime import datetime
