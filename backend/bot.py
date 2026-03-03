@@ -394,20 +394,38 @@ class AlphaDolar:
                         direction = "CALL"
                         signal_data_forcado = None
 
-                        # ✅ FIX 03/03: tenta obter sinal completo com barrier
+                        # Tenta analyze() primeiro (estratégias CALL/PUT)
                         if hasattr(self.strategy, 'analyze'):
                             resultado = self.strategy.analyze(self.tick_history)
                             if resultado and resultado.get('signal'):
                                 direction = resultado['signal']
                                 signal_data_forcado = resultado
 
-                        # Se não veio signal_data mas estratégia é digit, monta manualmente
+                        # Tenta should_enter() (estratégias digit como AlphaBot4Digit)
+                        if signal_data_forcado is None and hasattr(self.strategy, 'should_enter'):
+                            try:
+                                tick_fake = {'quote': self.tick_history[-1]} if self.tick_history else {'quote': 0}
+                                se, se_dir, se_conf = self.strategy.should_enter(tick_fake)
+                                if se and se_dir:
+                                    direction = se_dir
+                                    params = self.strategy.get_contract_params(se_dir) if hasattr(self.strategy, 'get_contract_params') else {}
+                                    signal_data_forcado = {
+                                        'signal': se_dir,
+                                        'contract_type': params.get('contract_type', se_dir),
+                                        'confidence': se_conf * 100,
+                                        'parameters': params if params.get('barrier') is not None else None
+                                    }
+                            except Exception:
+                                pass
+
+                        # ✅ Fallback seguro: se estratégia é digit, nunca forçar CALL
                         if signal_data_forcado is None and hasattr(self.strategy, 'get_contract_params'):
-                            params = self.strategy.get_contract_params(direction)
+                            params = self.strategy.get_contract_params('DIGITOVER')
                             if params.get('barrier') is not None:
+                                direction = params.get('contract_type', 'DIGITOVER')
                                 signal_data_forcado = {
                                     'signal': direction,
-                                    'contract_type': params.get('contract_type', direction),
+                                    'contract_type': direction,
                                     'confidence': 0,
                                     'parameters': params
                                 }
