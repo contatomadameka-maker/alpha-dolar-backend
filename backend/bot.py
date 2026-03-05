@@ -9,7 +9,9 @@ FIX 02/03: Lucro alvo verificado após cada trade + Martingale não conflita com
 FIX 02/03b: max_stake recuperação aumentado para 70% do saldo (era 30%)
 FIX 03/03: barrier passado corretamente para estratégias digit (DIGITOVER/DIGITUNDER)
 FIX 05/03: _calcular_stake_recuperacao removido limite 70% — causava recuperação insuficiente
-           Agora usa 90% do saldo como fallback de segurança com warning
+FIX 05/03b: _calcular_stake_recuperacao usa Martingale normal (multiplicador) em vez de LUCRO_ALVO
+            Isso evita salto absurdo de $0.35 → $45 quando lucro alvo é alto ($40)
+            Fórmula de recuperação total só entra quando Martingale não cobre as perdas
 """
 import time
 import sys
@@ -152,32 +154,61 @@ class AlphaDolar:
 
     def _calcular_stake_recuperacao(self):
         """
-        Fórmula DC Bot: stake = (perda_acumulada + LUCRO_ALVO) / payout_rate
-        Recupera todas as perdas + lucro alvo definido pelo usuário.
+        FIX 05/03b: Usa o Martingale normal (multiplicador progressivo) como stake de recuperação.
 
-        FIX 05/03: Removido limite rígido de 70% do saldo que causava recuperação insuficiente.
-        Exemplo do problema:
-          - Perda acum: $30.86 → stake ideal ~$35.07
-          - Saldo restante: $21.20 → antigo max_stake = $21.20 × 0.70 = $14.84 (insuficiente!)
-          - Com o fix: usa stake ideal $35.07 se saldo disponível, ou avisa e usa 90% como fallback.
+        PROBLEMA ANTERIOR:
+          stake = (perda_acumulada + LUCRO_ALVO) / payout
+          Com lucro alvo $40 e apenas $0.35 de perda → stake = ($0.35 + $40) / 0.88 = $45.85 ← absurdo!
 
-        O stop_loss é quem deve parar o bot se o saldo for insuficiente,
-        não este método que deve apenas calcular o stake correto.
+        SOLUÇÃO:
+          Usa o stake calculado pelo Martingale (multiplicador progressivo).
+          Exemplo com stake=$0.35, mult=2.27:
+            Loss 1: $0.35 → próximo $0.80
+            Loss 2: $0.80 → próximo $1.70
+            Loss 3: $1.70 → próximo $3.64
+            Loss 4: $3.64 → próximo $7.77  (antes resetava aqui!)
+            Loss 5: $7.77 → próximo $16.60
+            Loss 6: $16.60 → WIN recupera tudo ✅
+
+          Se o stake do Martingale não cobre as perdas acumuladas,
+          usa a fórmula de recuperação completa como fallback.
         """
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
 
-        stake_ideal = (self.perda_acumulada + BotConfig.LUCRO_ALVO) / self.PAYOUT_RATE
-        stake = round(stake_ideal, 2)
-        stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
+        # Stake calculado pelo Martingale (progressão normal)
+        if self.martingale:
+            stake_martingale = self.martingale.stake_atual
+        else:
+            stake_martingale = BotConfig.STAKE_INICIAL
 
-        # Fallback de segurança: se stake ideal supera 90% do saldo, usa 90%
-        # e emite warning. O stop_loss cuidará de parar se necessário.
+        # Verifica se o stake do Martingale cobre as perdas + lucro mínimo
+        retorno_esperado = stake_martingale * self.PAYOUT_RATE
+        cobre_perdas = retorno_esperado >= (self.perda_acumulada + BotConfig.STAKE_INICIAL)
+
+        if cobre_perdas:
+            # Martingale normal é suficiente
+            stake = stake_martingale
+        else:
+            # Martingale não cobre — usa fórmula de recuperação completa
+            # mas com STAKE_INICIAL no lugar de LUCRO_ALVO para não explodir
+            stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
+            stake = round(stake_ideal, 2)
+            stake = max(stake_martingale, stake)
+            self.log(
+                f"⚠️ Martingale insuficiente (${stake_martingale:.2f}) para cobrir perdas "
+                f"(${self.perda_acumulada:.2f}) — usando recuperação: ${stake:.2f}",
+                "WARNING"
+            )
+
+        stake = round(stake, 2)
+
+        # Segurança: não ultrapassa 90% do saldo
         max_stake = self.api.balance * 0.90
         if stake > max_stake:
             self.log(
-                f"⚠️ Stake ideal ${stake:.2f} supera 90% do saldo (${max_stake:.2f}). "
-                f"Usando ${max_stake:.2f}. Recuperação parcial — considere aumentar saldo.",
+                f"⚠️ Stake ${stake:.2f} supera 90% do saldo (${max_stake:.2f}). "
+                f"Usando ${max_stake:.2f}. Recuperação parcial.",
                 "WARNING"
             )
             return round(max_stake, 2)
@@ -288,13 +319,11 @@ class AlphaDolar:
         if hasattr(self.strategy, 'on_trade_result'):
             self.strategy.on_trade_result(vitoria)
 
-        # ✅ FIX 02/03: Martingale NÃO conflita com sistema de recuperação
+        # Martingale: atualiza step sempre que há derrota, reseta em vitória
         if self.martingale:
-            if self.perda_acumulada <= 0:
-                self.martingale.calcular_proximo_stake(vitoria)
-            else:
-                if vitoria:
-                    self.martingale.reset()
+            self.martingale.calcular_proximo_stake(vitoria)
+            if vitoria:
+                self.martingale.reset()
             info = self.martingale.get_info()
             proximo = self._calcular_stake_recuperacao() if self.perda_acumulada > 0 else info['stake_atual']
             self.log(
@@ -312,7 +341,7 @@ class AlphaDolar:
             "INFO"
         )
 
-        # ✅ FIX 02/03: Verificar lucro alvo após cada trade
+        # Verificar lucro alvo após cada trade
         lucro_sessao = stats.get('saldo_liquido', 0)
         if lucro_sessao >= BotConfig.LUCRO_ALVO:
             self.log(f"🎯 LUCRO ALVO ATINGIDO! Lucro: ${lucro_sessao:.2f} / Alvo: ${BotConfig.LUCRO_ALVO:.2f}", "WIN")
@@ -413,14 +442,12 @@ class AlphaDolar:
                         direction = "CALL"
                         signal_data_forcado = None
 
-                        # Tenta analyze() primeiro (estratégias CALL/PUT)
                         if hasattr(self.strategy, 'analyze'):
                             resultado = self.strategy.analyze(self.tick_history)
                             if resultado and resultado.get('signal'):
                                 direction = resultado['signal']
                                 signal_data_forcado = resultado
 
-                        # Tenta should_enter() (estratégias digit como AlphaBot4Digit)
                         if signal_data_forcado is None and hasattr(self.strategy, 'should_enter'):
                             try:
                                 tick_fake = {'quote': self.tick_history[-1]} if self.tick_history else {'quote': 0}
@@ -437,7 +464,7 @@ class AlphaDolar:
                             except Exception:
                                 pass
 
-                        # ✅ Fallback seguro: se estratégia é digit, nunca forçar CALL
+                        # Fallback seguro: se estratégia é digit, nunca forçar CALL
                         if signal_data_forcado is None and hasattr(self.strategy, 'get_contract_params'):
                             params = self.strategy.get_contract_params('DIGITOVER')
                             if params.get('barrier') is not None:
