@@ -8,6 +8,8 @@ FIX 01/03: Cálculo correto de profit (sell_price - buy_price) — corrige saldo
 FIX 02/03: Lucro alvo verificado após cada trade + Martingale não conflita com recuperação
 FIX 02/03b: max_stake recuperação aumentado para 70% do saldo (era 30%)
 FIX 03/03: barrier passado corretamente para estratégias digit (DIGITOVER/DIGITUNDER)
+FIX 05/03: _calcular_stake_recuperacao removido limite 70% — causava recuperação insuficiente
+           Agora usa 90% do saldo como fallback de segurança com warning
 """
 import time
 import sys
@@ -150,20 +152,37 @@ class AlphaDolar:
 
     def _calcular_stake_recuperacao(self):
         """
-        Fórmula DC Bot: stake = (perda_acumulada + STAKE_INICIAL) / payout_rate
-        Recupera todas as perdas + lucro mínimo de STAKE_INICIAL.
-        FIX 02/03b: limite aumentado para 70% do saldo (era 30%)
+        Fórmula DC Bot: stake = (perda_acumulada + LUCRO_ALVO) / payout_rate
+        Recupera todas as perdas + lucro alvo definido pelo usuário.
+
+        FIX 05/03: Removido limite rígido de 70% do saldo que causava recuperação insuficiente.
+        Exemplo do problema:
+          - Perda acum: $30.86 → stake ideal ~$35.07
+          - Saldo restante: $21.20 → antigo max_stake = $21.20 × 0.70 = $14.84 (insuficiente!)
+          - Com o fix: usa stake ideal $35.07 se saldo disponível, ou avisa e usa 90% como fallback.
+
+        O stop_loss é quem deve parar o bot se o saldo for insuficiente,
+        não este método que deve apenas calcular o stake correto.
         """
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
 
-        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
+        stake_ideal = (self.perda_acumulada + BotConfig.LUCRO_ALVO) / self.PAYOUT_RATE
         stake = round(stake_ideal, 2)
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
 
-        # Segurança: não arrisca mais que 70% do saldo
-        max_stake = self.api.balance * 0.70
-        return round(min(stake, max_stake), 2)
+        # Fallback de segurança: se stake ideal supera 90% do saldo, usa 90%
+        # e emite warning. O stop_loss cuidará de parar se necessário.
+        max_stake = self.api.balance * 0.90
+        if stake > max_stake:
+            self.log(
+                f"⚠️ Stake ideal ${stake:.2f} supera 90% do saldo (${max_stake:.2f}). "
+                f"Usando ${max_stake:.2f}. Recuperação parcial — considere aumentar saldo.",
+                "WARNING"
+            )
+            return round(max_stake, 2)
+
+        return stake
 
     def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
         perda = self.perda_acumulada
