@@ -2,6 +2,7 @@
 Sistema de Martingale para gestão de progressão
 Alpha Dolar 2.0
 PATCH 28/02: reset() exposto, step nunca fica negativo, get_info() sempre seguro
+FIX 05/03: Além do max_steps continua escalando em vez de resetar — evita perda sem recuperação
 """
 try:
     from ..config import BotConfig
@@ -25,23 +26,23 @@ class Martingale:
     def calcular_proximo_stake(self, vitoria=False):
         """
         Calcula o próximo stake baseado em vitória ou derrota.
-        FIX: ao atingir max_steps, reseta sem silenciosamente desaparecer.
+        FIX 05/03: ao atingir max_steps, continua escalando em vez de resetar.
+        O reset só acontece em vitória ou chamada explícita a reset().
+        Isso evita que após 4+ derrotas o stake volte ao inicial e não recupere as perdas.
         """
         if vitoria:
-            self.stake_atual  = self.stake_inicial
-            self.step_atual   = 0
+            self.stake_atual      = self.stake_inicial
+            self.step_atual       = 0
             self.ciclos_completos += 1
         else:
-            if self.step_atual < self.max_steps:
-                self.step_atual  += 1
-                self.stake_atual  = round(self.stake_inicial * (self.multiplicador ** self.step_atual), 2)
-            else:
-                # FIX: atingiu max_steps → reseta ciclo mas NÃO zera perda_acumulada no bot
-                # (isso é responsabilidade do bot.py, não do Martingale)
-                self.stake_atual = self.stake_inicial
-                self.step_atual  = 0
-                self.ciclos_completos += 1
-                print(f"[martingale] ⚠️ Max steps atingido — resetando ciclo (ciclo #{self.ciclos_completos})")
+            # FIX 05/03: não tem teto — continua escalando sempre
+            self.step_atual  += 1
+            self.stake_atual  = round(self.stake_inicial * (self.multiplicador ** self.step_atual), 2)
+            if self.step_atual > self.max_steps:
+                print(
+                    f"[martingale] ⚠️ Além do max_steps ({self.step_atual}) "
+                    f"— escalando stake: ${self.stake_atual:.2f}"
+                )
 
         return round(self.stake_atual, 2)
 
@@ -50,12 +51,11 @@ class Martingale:
         self.stake_atual      = self.stake_inicial
         self.step_atual       = 0
         self.total_investido  = 0.0
-        # FIX: não reseta ciclos_completos — mantém histórico
+        # não reseta ciclos_completos — mantém histórico
 
     def pode_continuar(self, saldo_disponivel):
         """Verifica se tem saldo suficiente para o próximo stake de recuperação"""
-        # Calcula qual seria o stake do próximo step
-        proximo_step  = min(self.step_atual + 1, self.max_steps)
+        proximo_step  = self.step_atual + 1
         proximo_stake = round(self.stake_inicial * (self.multiplicador ** proximo_step), 2)
         return saldo_disponivel >= proximo_stake
 
@@ -65,7 +65,7 @@ class Martingale:
 
     def get_info(self):
         """Retorna informações do estado atual — sempre seguro"""
-        proximo_step  = min(self.step_atual + 1, self.max_steps)
+        proximo_step  = self.step_atual + 1
         proximo_stake = round(self.stake_inicial * (self.multiplicador ** proximo_step), 2)
         return {
             "stake_atual":            round(self.stake_atual, 2),
@@ -221,9 +221,19 @@ if __name__ == "__main__":
         m.registrar_trade(stake)
         print(f"  Trade {i+1}: {'✅ WIN' if won else '❌ LOSS'} → stake: ${stake:.2f} | step: {m.step_atual} | info: {m.get_info()}")
 
-    print(f"\n  Sequência real do log:")
+    print(f"\n  Sequência real do log (6 derrotas seguidas):")
     m2 = Martingale(stake_inicial=0.35, multiplicador=2.27, max_steps=3)
-    for won in [False, False, False, False]:  # 4 derrotas seguidas como no log
-        stake = m2.calcular_proximo_stake(won)
+    for i in range(6):
+        stake = m2.calcular_proximo_stake(False)
         m2.registrar_trade(stake)
-        print(f"  LOSS → próximo stake: ${stake:.2f} | step: {m2.step_atual}/{m2.max_steps}")
+        print(f"  LOSS {i+1} → próximo stake: ${stake:.2f} | step: {m2.step_atual}")
+    stake = m2.calcular_proximo_stake(True)
+    print(f"  WIN   → reset stake: ${stake:.2f} | step: {m2.step_atual}")
+
+    print(f"\n  Teste stake_inicial=$1.00, mult=2.27:")
+    m3 = Martingale(stake_inicial=1.0, multiplicador=2.27, max_steps=3)
+    perda_acum = 0
+    for i in range(6):
+        stake = m3.calcular_proximo_stake(False)
+        perda_acum += stake
+        print(f"  LOSS {i+1} → stake: ${stake:.2f} | perda acum: ${perda_acum:.2f}")
