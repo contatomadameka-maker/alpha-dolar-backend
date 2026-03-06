@@ -2,6 +2,7 @@
 Configurações do Deriv Bot
 Alpha Dolar 2.0
 """
+import os
 from enum import Enum
 
 class TradingMode(Enum):
@@ -17,16 +18,18 @@ class RiskManagement(Enum):
     AGRESSIVO    = "agressivo"
 
 class BotConfig:
-    API_TOKEN       = "a1-TD8gXQ9R8UGFLMH3rrfrJdtYQkN8k"
-    APP_ID          = "128988"
-    DEFAULT_SYMBOL  = "R_100"
-    DEFAULT_STRATEGY = "alpha_bot_1"
-    TRADING_MODE    = TradingMode.VELOZ
-    RISK_MANAGEMENT = RiskManagement.CONSERVADOR
+    # ✅ Token vem do ambiente — nunca hardcoded no código
+    API_TOKEN       = os.environ.get('DERIV_TOKEN', '')
+    APP_ID          = os.environ.get('DERIV_APP_ID', '128988')
 
-    STAKE_INICIAL   = 0.35
-    LUCRO_ALVO      = 2.0
-    LIMITE_PERDA    = 5.0
+    DEFAULT_SYMBOL   = "R_100"
+    DEFAULT_STRATEGY = "alpha_bot_1"
+    TRADING_MODE     = TradingMode.VELOZ
+    RISK_MANAGEMENT  = RiskManagement.CONSERVADOR
+
+    STAKE_INICIAL = 0.35
+    LUCRO_ALVO    = 2.0
+    LIMITE_PERDA  = 5.0
 
     USAR_MARTINGALE          = True
     MULTIPLICADOR_MARTINGALE = 2.0
@@ -37,7 +40,7 @@ class BotConfig:
     BASIS         = "stake"
 
     MAX_TRADES_PER_DAY = 100
-    MIN_BALANCE        = 0.35   # ✅ Igual ao stake mínimo da Deriv
+    MIN_BALANCE        = 0.35
 
     STOP_LOSS_TYPE         = "value"
     MAX_CONSECUTIVE_LOSSES = 5
@@ -83,18 +86,14 @@ class MarketConfig:
     }
 
 def validate_config():
-    """
-    Valida apenas parâmetros essenciais.
-    ✅ NÃO compara stake com MIN_BALANCE — o stake vem do frontend e pode ser qualquer valor válido.
-    """
     errors = []
 
+    if not BotConfig.API_TOKEN:
+        errors.append("⚠️ DERIV_TOKEN não configurado nas variáveis de ambiente!")
     if BotConfig.STAKE_INICIAL < 0.35:
         errors.append("⚠️ Stake inicial muito baixo! Mínimo da Deriv: $0.35")
-
     if BotConfig.LUCRO_ALVO <= 0:
         errors.append("⚠️ Lucro alvo deve ser maior que zero!")
-
     if BotConfig.LIMITE_PERDA <= 0:
         errors.append("⚠️ Limite de perda deve ser maior que zero!")
 
