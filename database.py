@@ -24,11 +24,15 @@ def salvar_cliente(data):
         'token_real': data.get('token_real'),
         'account_type': data.get('account_type', 'demo'),
         'bot_name': data.get('bot_name', ''),
-        'ultimo_acesso': None
     }
-    headers = {**HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation'}
+    headers = {**HEADERS, 'Prefer': 'resolution=merge-duplicates,return=representation', 'Content-Type': 'application/json'}
+    # Tenta upsert
     r = requests.post(url, json=payload, headers=headers)
-    return r.status_code in [200, 201]
+    if r.status_code == 409:
+        # Faz update direto
+        deriv_id = data.get('deriv_id')
+        r = requests.patch(f"{url}?deriv_id=eq.{deriv_id}", json=payload, headers=headers)
+    return r.status_code in [200, 201, 204]
 
 def listar_clientes():
     url = f"{SUPABASE_URL}/rest/v1/clientes?order=ultimo_acesso.desc"
