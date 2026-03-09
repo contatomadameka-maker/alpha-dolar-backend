@@ -538,25 +538,8 @@ init_db()
 def salvar_cliente_route():
     data = request.json
     try:
-        import requests as req
-        SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
-        SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
-        headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'resolution=merge-duplicates,return=representation'
-        }
-        payload = {
-            'deriv_id': data.get('deriv_id'),
-            'nome': data.get('nome'),
-            'email': data.get('email'),
-            'token_demo': data.get('token_demo'),
-            'token_real': data.get('token_real'),
-            'account_type': data.get('account_type', 'demo')
-        }
-        r = req.post(f"{SUPABASE_URL}/rest/v1/clientes", json=payload, headers=headers)
-        return jsonify({'ok': r.status_code in [200,201], 'status': r.status_code, 'resp': r.text})
+        ok = _salvar(data)
+        return jsonify({'ok': ok})
     except Exception as e:
         return jsonify({'ok': False, 'erro': str(e)}), 500
 
