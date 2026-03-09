@@ -35,3 +35,26 @@ def listar_clientes():
     if r.status_code == 200:
         return r.json()
     return []
+
+def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
+    import requests as req
+    import os
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json'
+    }
+    payload = {
+        'bot_name': bot_name,
+        'cliente_id': cliente_id,
+        'tipo': direcao,
+        'stake': float(stake),
+        'resultado': 'win' if ganhou else 'loss',
+        'lucro': float(lucro)
+    }
+    try:
+        req.post(f"{SUPABASE_URL}/rest/v1/operacoes", json=payload, headers=headers)
+    except:
+        pass

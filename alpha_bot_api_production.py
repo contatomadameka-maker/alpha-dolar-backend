@@ -257,6 +257,11 @@ def start_bot():
             bots_state[bot_type]['_lucro_desde_ultimo_reset'] = 0.0
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
+                try:
+                    _cliente_id = next(iter([v.get('deriv_id','') for v in [bots_state.get(bot_type,{})] if v.get('deriv_id')]), '')
+                    _bot_name = request.json.get('bot_name', bot_type) if hasattr(request, 'json') else bot_type
+                    _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake)
+                except: pass
                 trades_ate_agora = bots_state[bot_type]['trades']
                 total = len(trades_ate_agora) + 1
                 wins  = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
@@ -526,7 +531,7 @@ if __name__ == '__main__':
 # ─────────────────────────────────────────────
 # BANCO DE DADOS — CLIENTES (Supabase)
 # ─────────────────────────────────────────────
-from database import init_db, salvar_cliente as _salvar, listar_clientes as _listar
+from database import init_db, salvar_cliente as _salvar, listar_clientes as _listar, salvar_operacao as _salvar_op, salvar_operacao as _salvar_op
 init_db()
 
 @app.route('/api/salvar-cliente', methods=['POST'])
