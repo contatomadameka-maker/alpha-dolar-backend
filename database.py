@@ -58,3 +58,23 @@ def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
         req.post(f"{SUPABASE_URL}/rest/v1/operacoes", json=payload, headers=headers)
     except:
         pass
+
+def listar_operacoes(bot_name=None):
+    import requests as req
+    import os
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    headers = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json'
+    }
+    url = f"{SUPABASE_URL}/rest/v1/operacoes?order=criado_em.desc&limit=500"
+    if bot_name:
+        url += f"&bot_name=eq.{bot_name}"
+    try:
+        r = req.get(url, headers=headers)
+        if r.status_code == 200:
+            return r.json()
+    except: pass
+    return []

@@ -531,7 +531,7 @@ if __name__ == '__main__':
 # ─────────────────────────────────────────────
 # BANCO DE DADOS — CLIENTES (Supabase)
 # ─────────────────────────────────────────────
-from database import init_db, salvar_cliente as _salvar, listar_clientes as _listar, salvar_operacao as _salvar_op, salvar_operacao as _salvar_op
+from database import init_db, salvar_cliente as _salvar, listar_clientes as _listar, salvar_operacao as _salvar_op, listar_operacoes as _listar_ops, salvar_operacao as _salvar_op
 init_db()
 
 @app.route('/api/salvar-cliente', methods=['POST'])
@@ -564,6 +564,15 @@ def salvar_cliente_route():
 def listar_clientes_route():
     try:
         rows = _listar()
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/operacoes', methods=['GET'])
+def operacoes_route():
+    bot_name = request.args.get('bot_name')
+    try:
+        rows = _listar_ops(bot_name)
         return jsonify(rows)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
