@@ -79,3 +79,32 @@ def listar_operacoes(bot_name=None):
             return r.json()
     except: pass
     return []
+
+def listar_bots():
+    import requests as req, os
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}'}
+    r = req.get(f"{SUPABASE_URL}/rest/v1/bots?order=criado_em.desc", headers=headers)
+    return r.json() if r.status_code == 200 else []
+
+def salvar_bot(data):
+    import requests as req, os
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    headers = {
+        'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+    }
+    payload = {'nome': data.get('nome'), 'dono': data.get('dono'), 'deriv_id': data.get('deriv_id'), 'status': data.get('status','ativo')}
+    r = req.post(f"{SUPABASE_URL}/rest/v1/bots", json=payload, headers=headers)
+    return r.status_code in [200, 201]
+
+def atualizar_bot(nome, data):
+    import requests as req, os
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    headers = {'apikey': SUPABASE_KEY, 'Authorization': f'Bearer {SUPABASE_KEY}', 'Content-Type': 'application/json'}
+    r = req.patch(f"{SUPABASE_URL}/rest/v1/bots?nome=eq.{nome}", json=data, headers=headers)
+    return r.status_code in [200, 204]
