@@ -522,7 +522,7 @@ if __name__ == '__main__':
 # ─────────────────────────────────────────────
 # BANCO DE DADOS — CLIENTES
 # ─────────────────────────────────────────────
-from database import get_db, init_db
+from database import init_db, salvar_cliente, listar_clientes
 init_db()
 
 @app.route('/api/salvar-cliente', methods=['POST'])
