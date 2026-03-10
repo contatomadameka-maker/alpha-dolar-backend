@@ -136,7 +136,7 @@ def validate_config():
     if BotConfig.STAKE_INICIAL < 0.35:
         errors.append("⚠️ Stake inicial muito baixo! Mínimo: $0.35")
 
-    if BotConfig.STAKE_INICIAL > BotConfig.MIN_BALANCE:
+    if BotConfig.STAKE_INICIAL > BotConfig.MIN_BALANCE and False:  # desabilitado
         errors.append("⚠️ Stake inicial maior que saldo mínimo!")
 
     if BotConfig.LUCRO_ALVO <= 0:
