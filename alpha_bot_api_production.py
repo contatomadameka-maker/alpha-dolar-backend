@@ -259,7 +259,7 @@ def start_bot():
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 try:
                     _cliente_id = next(iter([v.get('deriv_id','') for v in [bots_state.get(bot_type,{})] if v.get('deriv_id')]), '')
-                    _bot_name = request.json.get('bot_name', bot_type) if hasattr(request, 'json') else bot_type
+                    _bot_name = bots_state[bot_type].get('bot_name_real', bot_type)
                     _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake)
                 except: pass
                 trades_ate_agora = bots_state[bot_type]['trades']
@@ -345,6 +345,7 @@ def start_bot():
             bots_state[bot_type].update({
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
+                'bot_name_real': data.get('bot_name', bot_type),
             })
 
             return jsonify({
@@ -381,6 +382,7 @@ def start_bot():
             bots_state[bot_type].update({
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
+                'bot_name_real': data.get('bot_name', bot_type),
             })
             return jsonify({'success': True, 'message': 'Bot simulado iniciado', 'mode': 'SIMULATED'})
 
