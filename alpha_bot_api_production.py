@@ -277,12 +277,21 @@ def start_bot():
                 wr    = round((wins / total) * 100, 1) if total > 0 else 0
 
                 if hasattr(bot, "atualizar_apos_trade"): bot.atualizar_apos_trade(won, profit)
-                mart_info  = bot.martingale.get_info() if bot.martingale else {}
-                step_atual = mart_info.get('step_atual', 0)
-                max_steps  = mart_info.get('max_steps', 3)
+                # Atualiza mart_step de forma genérica para qualquer estratégia
+                _max = bots_state[bot_type].get('mart_max', 3)
+                _step = bots_state[bot_type].get('mart_step', 0)
+                if won:
+                    bots_state[bot_type]['mart_step'] = 0
+                else:
+                    bots_state[bot_type]['mart_step'] = min(_step + 1, _max)
+                # Tenta ler do objeto se disponível (mais preciso)
+                try:
+                    if bot.martingale:
+                        _info = bot.martingale.get_info()
+                        bots_state[bot_type]['mart_step'] = _info.get('step_atual', bots_state[bot_type]['mart_step'])
+                        bots_state[bot_type]['mart_max']  = _info.get('max_steps', _max)
+                except: pass
                 perda_acum = getattr(bot, 'perda_acumulada', 0)
-                bots_state[bot_type]['mart_step'] = step_atual
-                bots_state[bot_type]['mart_max']  = max_steps
 
                 if won:
                     bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
