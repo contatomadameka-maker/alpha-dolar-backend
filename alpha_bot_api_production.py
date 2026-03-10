@@ -276,6 +276,7 @@ def start_bot():
                 wins  = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
                 wr    = round((wins / total) * 100, 1) if total > 0 else 0
 
+                if hasattr(bot, "atualizar_apos_trade"): bot.atualizar_apos_trade(won, profit)
                 mart_info  = bot.martingale.get_info() if bot.martingale else {}
                 step_atual = mart_info.get('step_atual', 0)
                 max_steps  = mart_info.get('max_steps', 3)
