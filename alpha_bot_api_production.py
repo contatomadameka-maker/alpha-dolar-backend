@@ -196,6 +196,15 @@ def start_bot():
                 'error': f'Token não recebido para conta {account_type}. Faça login novamente.'
             }), 400
 
+        # Verifica se bot está suspenso
+        try:
+            bot_name_req = data.get('bot_name', bot_type)
+            todos_bots = _listar_bots()
+            for b in todos_bots:
+                if b.get('nome') == bot_name_req and b.get('status') == 'suspenso':
+                    return jsonify({'success': False, 'error': '🚫 Bot suspenso pelo administrador. Entre em contato.'}), 403
+        except: pass
+
         if bot_type not in bots_state:
             bots_state[bot_type] = {
                 'running': False, 'instance': None, 'thread': None,
