@@ -346,6 +346,9 @@ def start_bot():
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
                 'bot_name_real': data.get('bot_name', bot_type),
+                '_perda_desde_ultimo_ganho': 0.0,
+                '_lucro_desde_ultimo_reset': 0.0,
+                'mart_step': 0, 'mart_max': 3,
             })
 
             return jsonify({
@@ -383,6 +386,9 @@ def start_bot():
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
                 'bot_name_real': data.get('bot_name', bot_type),
+                '_perda_desde_ultimo_ganho': 0.0,
+                '_lucro_desde_ultimo_reset': 0.0,
+                'mart_step': 0, 'mart_max': 3,
             })
             return jsonify({'success': True, 'message': 'Bot simulado iniciado', 'mode': 'SIMULATED'})
 
