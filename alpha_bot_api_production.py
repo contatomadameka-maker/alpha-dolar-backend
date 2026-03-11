@@ -490,12 +490,6 @@ def get_bot_stats(bot_type):
 
     mart_step = bots_state[bot_type].get('mart_step', 0)
     mart_max  = bots_state[bot_type].get('mart_max', 3)
-    if mart_step == 0 and bot and BOTS_AVAILABLE and hasattr(bot, 'martingale') and bot.martingale:
-        try:
-            info = bot.martingale.get_info()
-            mart_step = info.get('step_atual', 0)
-            mart_max  = info.get('max_steps', 3)
-        except: pass
 
     return jsonify({
         'success': True, 'bot_type': bot_type, 'running': is_running,
