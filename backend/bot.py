@@ -304,16 +304,6 @@ class AlphaDolar:
         if deve_parar and "saldo" in motivo.lower():
             self._disparar_stop_loss(motivo)
 
-        # Notifica backend sobre resultado do trade
-        if hasattr(self, "_on_trade_completed") and callable(self._on_trade_completed):
-            try:
-                self._on_trade_completed(
-                    contract_data.get("contract_type", "CALL/PUT"),
-                    vitoria, profit, self._ultimo_stake_usado,
-                    BotConfig.DEFAULT_SYMBOL
-                )
-            except: pass
-
     def on_balance_update(self, balance):
         self.log(f"💰 Saldo atualizado: ${balance:.2f}", "INFO")
 
