@@ -266,6 +266,7 @@ def start_bot():
             bots_state[bot_type]['_lucro_desde_ultimo_reset'] = 0.0
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
+                print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={bots_state[bot_type].get('mart_step',0)}")
                 try:
                     _cliente_id = next(iter([v.get('deriv_id','') for v in [bots_state.get(bot_type,{})] if v.get('deriv_id')]), '')
                     _bot_name = bots_state[bot_type].get('bot_name_real', bot_type)
