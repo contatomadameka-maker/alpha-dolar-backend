@@ -925,6 +925,7 @@
         <a href="/dashboard-fixed.html" class="nav2-btn nav2-active">⚡ Operar</a>
         <a href="/ai-signals.html" class="nav2-btn">✦ Alpha Signals</a>
         <button onclick="abrirPainelSignals()" class="nav2-btn" style="background:linear-gradient(135deg,rgba(0,210,255,0.15),rgba(14,165,233,0.1));border-color:rgba(0,210,255,0.4);color:#00d2ff;cursor:pointer;font-family:inherit;">📡 Enviar Sinal</button>
+        <button onclick="abrirPainelAssinantes()" class="nav2-btn" style="background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(22,163,74,0.1));border-color:rgba(34,197,94,0.4);color:#22c55e;cursor:pointer;font-family:inherit;">👥 Assinantes</button>
         <a href="/loja.html" class="nav2-btn">🛒 Loja</a>
         <a href="/videos.html" class="nav2-btn">📺 Tutoriais/Vídeos</a>
         <a href="https://wa.me/5547996214217" target="_blank" class="nav2-btn nav2-suporte">💬 Suporte</a>
@@ -6567,6 +6568,198 @@ if (typeof _origProOnContract === 'function') {
   };
 }
 window.abrirPainelSignals = abrirPainelSignals;
+</script>
+
+
+<!-- PAINEL GESTÃO ASSINANTES SIGNALS -->
+<div id="painel-assinantes" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#0d1117;border:1px solid rgba(0,210,255,0.3);border-radius:20px;padding:32px;width:min(680px,95vw);max-height:90vh;overflow-y:auto;">
+    
+    <!-- HEADER -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#00d2ff;font-weight:700;text-transform:uppercase;">📡 Alpha Signals</div>
+        <div style="font-size:20px;font-weight:900;color:#fff;margin-top:4px;">Gestão de Assinantes</div>
+      </div>
+      <button onclick="document.getElementById('painel-assinantes').style.display='none'" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;">✕ Fechar</button>
+    </div>
+
+    <!-- ADICIONAR ASSINANTE -->
+    <div style="background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:20px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;color:#22c55e;text-transform:uppercase;margin-bottom:14px;">➕ Adicionar Assinante</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <input id="as-nome" placeholder="Nome completo" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-email" placeholder="Email" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-tgid" placeholder="Telegram ID (ex: 123456789)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-tguser" placeholder="@username (opcional)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <select id="as-plano" style="background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+          <option value="signals">Alpha Signals</option>
+          <option value="vip">VIP</option>
+          <option value="premium">Premium</option>
+        </select>
+        <select id="as-dias" style="background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+          <option value="30">30 dias</option>
+          <option value="60">60 dias</option>
+          <option value="90">90 dias</option>
+          <option value="365">1 ano</option>
+          <option value="36500">Vitalício</option>
+        </select>
+      </div>
+      <button onclick="adicionarAssinante()" style="width:100%;padding:12px;background:linear-gradient(135deg,#16a34a,#22c55e);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">✅ Liberar Acesso + Enviar Link</button>
+    </div>
+
+    <!-- GERAR LINK AVULSO -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;">
+      <button onclick="gerarLinkAvulso()" style="flex:1;padding:11px;background:rgba(0,210,255,0.1);border:1px solid rgba(0,210,255,0.3);border-radius:10px;color:#00d2ff;font-weight:700;font-size:13px;cursor:pointer;">🔗 Gerar Link Avulso</button>
+      <button onclick="verificarExpirados()" style="flex:1;padding:11px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;color:#ef4444;font-weight:700;font-size:13px;cursor:pointer;">🔍 Verificar Expirados</button>
+    </div>
+
+    <!-- LISTA DE ASSINANTES -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;">👥 Assinantes Ativos</div>
+        <button onclick="carregarAssinantes()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;color:#94a3b8;font-size:11px;cursor:pointer;">↻ Atualizar</button>
+      </div>
+      <div id="as-lista" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
+        <div style="text-align:center;color:#475569;padding:20px;font-size:13px;">Clique em Atualizar para carregar</div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div style="margin-top:16px;">
+      <div id="as-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;min-height:40px;font-size:11px;color:#475569;max-height:80px;overflow-y:auto;">Aguardando ações...</div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const API_BASE2 = 'https://alpha-dolar-backend.onrender.com/api';
+
+function abrirPainelAssinantes() {
+  document.getElementById('painel-assinantes').style.display = 'flex';
+  carregarAssinantes();
+}
+
+function addAsLog(msg, cor) {
+  const log = document.getElementById('as-log');
+  if (!log) return;
+  const t = new Date().toLocaleTimeString('pt-BR');
+  log.innerHTML = `<span style="color:${cor||'#94a3b8'}">[${t}] ${msg}</span>`;
+}
+
+async function carregarAssinantes() {
+  const lista = document.getElementById('as-lista');
+  lista.innerHTML = '<div style="text-align:center;color:#475569;padding:20px">⏳ Carregando...</div>';
+  try {
+    const r = await fetch(API_BASE2 + '/signals/assinantes');
+    const data = await r.json();
+    if (!data.length) {
+      lista.innerHTML = '<div style="text-align:center;color:#475569;padding:20px;font-size:13px">Nenhum assinante cadastrado ainda.</div>';
+      return;
+    }
+    lista.innerHTML = data.map(a => {
+      const ativo = a.status === 'ativo';
+      const exp = a.data_expiracao ? new Date(a.data_expiracao).toLocaleDateString('pt-BR') : 'Vitalício';
+      return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${ativo?'#22c55e':'#ef4444'};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#fff">${a.nome}</div>
+          <div style="font-size:11px;color:#475569">${a.telegram_username||'sem @'} • ID: ${a.telegram_id} • Expira: ${exp}</div>
+        </div>
+        <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:rgba(0,210,255,0.1);color:#00d2ff;font-weight:700">${a.plano}</span>
+        ${ativo ? `<button onclick="revogarAssinante(${a.telegram_id},'${a.nome}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700;">Revogar</button>` : '<span style="font-size:11px;color:#ef4444;font-weight:700">Inativo</span>'}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="text-align:center;color:#ef4444;padding:20px;font-size:13px">Erro: ${e.message}</div>`;
+  }
+}
+
+async function adicionarAssinante() {
+  const nome = document.getElementById('as-nome').value.trim();
+  const email = document.getElementById('as-email').value.trim();
+  const tgid = document.getElementById('as-tgid').value.trim();
+  const tguser = document.getElementById('as-tguser').value.trim();
+  const plano = document.getElementById('as-plano').value;
+  const dias = document.getElementById('as-dias').value;
+  if (!nome || !tgid) { addAsLog('❌ Nome e Telegram ID são obrigatórios!', '#ef4444'); return; }
+  addAsLog('⏳ Adicionando e enviando link...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/adicionar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({nome, email, telegram_id: tgid, telegram_username: tguser, plano, dias})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addAsLog(`✅ ${nome} adicionado! Link enviado via Telegram.`, '#22c55e');
+      document.getElementById('as-nome').value = '';
+      document.getElementById('as-email').value = '';
+      document.getElementById('as-tgid').value = '';
+      document.getElementById('as-tguser').value = '';
+      carregarAssinantes();
+    } else {
+      addAsLog('❌ Erro: ' + JSON.stringify(d), '#ef4444');
+    }
+  } catch(e) {
+    addAsLog('❌ Erro: ' + e.message, '#ef4444');
+  }
+}
+
+async function revogarAssinante(tgid, nome) {
+  if (!confirm(`Revogar acesso de ${nome}?`)) return;
+  addAsLog(`⏳ Revogando acesso de ${nome}...`, '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/revogar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({telegram_id: tgid, motivo: 'Revogado pelo admin'})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addAsLog(`✅ ${nome} removido do canal!`, '#22c55e');
+      carregarAssinantes();
+    }
+  } catch(e) {
+    addAsLog('❌ Erro: ' + e.message, '#ef4444');
+  }
+}
+
+async function gerarLinkAvulso() {
+  addAsLog('⏳ Gerando link...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/link');
+    const d = await r.json();
+    if (d.ok && d.link) {
+      addAsLog('🔗 Link: ' + d.link, '#00d2ff');
+      navigator.clipboard.writeText(d.link).catch(()=>{});
+      prompt('Link copiado! Compartilhe com o cliente:', d.link);
+    } else {
+      addAsLog('❌ Erro ao gerar link', '#ef4444');
+    }
+  } catch(e) {
+    addAsLog('❌ ' + e.message, '#ef4444');
+  }
+}
+
+async function verificarExpirados() {
+  addAsLog('⏳ Verificando expirados...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/verificar', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    if (d.ok) {
+      const n = d.expulsos?.length || 0;
+      addAsLog(n > 0 ? `✅ ${n} assinante(s) expirado(s) removido(s): ${d.expulsos.join(', ')}` : '✅ Nenhum assinante expirado.', '#22c55e');
+      if (n > 0) carregarAssinantes();
+    }
+  } catch(e) {
+    addAsLog('❌ ' + e.message, '#ef4444');
+  }
+}
+window.abrirPainelAssinantes = abrirPainelAssinantes;
 </script>
 
 </body> no dashboard-fixed  ║

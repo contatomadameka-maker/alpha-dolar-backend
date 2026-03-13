@@ -684,3 +684,67 @@ def api_sinal_horario():
         return jsonify({'ok': ok})
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+# ═══════════════════════════════════════════
+# ROTAS GESTÃO DE ASSINANTES SIGNALS
+# ═══════════════════════════════════════════
+try:
+    from backend.signals_access import (
+        listar_assinantes, buscar_assinante, adicionar_assinante,
+        revogar_assinante, gerar_link_convite, verificar_expiracao
+    )
+    SIGNALS_OK = True
+except Exception as e:
+    print(f"Signals access não carregado: {e}")
+    SIGNALS_OK = False
+
+@app.route('/api/signals/assinantes', methods=['GET'])
+def api_listar_assinantes():
+    try:
+        return jsonify(listar_assinantes())
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/signals/adicionar', methods=['POST'])
+def api_adicionar_assinante():
+    try:
+        data = request.get_json()
+        result = adicionar_assinante(
+            data.get('nome',''),
+            data.get('email',''),
+            int(data.get('telegram_id',0)),
+            data.get('telegram_username',''),
+            data.get('plano','signals'),
+            int(data.get('dias',30))
+        )
+        return jsonify({'ok': True, 'data': result})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/signals/revogar', methods=['POST'])
+def api_revogar_assinante():
+    try:
+        data = request.get_json()
+        result = revogar_assinante(
+            int(data.get('telegram_id',0)),
+            data.get('motivo','manual')
+        )
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/signals/link', methods=['GET'])
+def api_gerar_link():
+    try:
+        link = gerar_link_convite()
+        return jsonify({'ok': bool(link), 'link': link})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/signals/verificar', methods=['POST'])
+def api_verificar_expiracao():
+    try:
+        expulsos = verificar_expiracao()
+        return jsonify({'ok': True, 'expulsos': expulsos})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
