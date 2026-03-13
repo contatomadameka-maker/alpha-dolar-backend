@@ -924,8 +924,10 @@
         <a href="/home" class="nav2-btn">🏠 Início</a>
         <a href="/dashboard-fixed.html" class="nav2-btn nav2-active">⚡ Operar</a>
         <a href="/ai-signals.html" class="nav2-btn">✦ Alpha Signals</a>
+        <span id="admin-btns" style="display:none;gap:6px;">
         <button onclick="abrirPainelSignals()" class="nav2-btn" style="background:linear-gradient(135deg,rgba(0,210,255,0.15),rgba(14,165,233,0.1));border-color:rgba(0,210,255,0.4);color:#00d2ff;cursor:pointer;font-family:inherit;">📡 Enviar Sinal</button>
         <button onclick="abrirPainelAssinantes()" class="nav2-btn" style="background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(22,163,74,0.1));border-color:rgba(34,197,94,0.4);color:#22c55e;cursor:pointer;font-family:inherit;">👥 Assinantes</button>
+        </span>
         <a href="/loja.html" class="nav2-btn">🛒 Loja</a>
         <a href="/videos.html" class="nav2-btn">📺 Tutoriais/Vídeos</a>
         <a href="https://wa.me/5547996214217" target="_blank" class="nav2-btn nav2-suporte">💬 Suporte</a>
@@ -6760,6 +6762,26 @@ async function verificarExpirados() {
   }
 }
 window.abrirPainelAssinantes = abrirPainelAssinantes;
+</script>
+
+
+<script>
+(function(){
+  function checkAdmin(){
+    try {
+      const accs = JSON.parse(localStorage.getItem('deriv_accounts')||'{}');
+      const ids = Object.values(accs).map(a=>a.loginid||a.account||'');
+      const isAdmin = ids.some(id=>id==='CR10027387') || 
+                      localStorage.getItem('deriv_loginid')==='CR10027387';
+      const el = document.getElementById('admin-btns');
+      if(el && isAdmin) el.style.display='flex';
+    } catch(e){}
+  }
+  // Tenta imediatamente e após carregar a conta
+  setTimeout(checkAdmin, 1000);
+  setTimeout(checkAdmin, 3000);
+  window.addEventListener('storage', checkAdmin);
+})();
 </script>
 
 </body> no dashboard-fixed  ║
