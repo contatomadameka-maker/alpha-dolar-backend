@@ -620,6 +620,101 @@ def api_robo_stop():
     robo_master_ativo = False
     return jsonify({'ok': True, 'ativo': False})
 
+
+# ═══════════════════════════════════════════
+# ALPHA CLOCK — SCORES DINÂMICOS POR HORÁRIO
+# ═══════════════════════════════════════════
+@app.route('/api/clock/scores', methods=['GET'])
+def api_clock_scores():
+    try:
+        from backend.database import listar_operacoes
+        import pytz
+        from datetime import datetime, timedelta
+
+        ops = listar_operacoes()
+        BR_TZ = pytz.timezone("America/Sao_Paulo")
+        
+        # Filtrar últimos 30 dias
+        agora = datetime.now(BR_TZ)
+        cutoff = agora - timedelta(days=30)
+        
+        # Faixas horárias
+        faixas = [
+            (0, 2, "MADRUGADA"),
+            (2, 4, "MADRUGADA"),
+            (4, 6, "MANHÃ CEDO"),
+            (6, 8, "ABERTURA BR"),
+            (8, 10, "PICO MANHÃ"),
+            (10, 12, "MANHÃ"),
+            (12, 14, "ALMOÇO"),
+            (14, 16, "PICO TARDE"),
+            (16, 18, "TARDE"),
+            (18, 20, "ENTARDECER"),
+            (20, 22, "NOITE"),
+            (22, 24, "NOITE"),
+        ]
+        
+        scores = []
+        hora_atual = agora.hour
+        
+        for inicio, fim, label in faixas:
+            # Filtrar operações nesta faixa
+            ops_faixa = []
+            for op in ops:
+                try:
+                    dt_str = op.get('criado_em', '')
+                    if not dt_str:
+                        continue
+                    dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+                    dt_br = dt.astimezone(BR_TZ)
+                    if dt_br < cutoff:
+                        continue
+                    h = dt_br.hour
+                    if inicio <= h < fim:
+                        ops_faixa.append(op)
+                except:
+                    continue
+            
+            total = len(ops_faixa)
+            if total >= 5:
+                wins = sum(1 for o in ops_faixa if o.get('resultado') == 'win')
+                score = round((wins / total) * 100)
+                # Bonus por volume
+                if total >= 50: score = min(score + 5, 99)
+                elif total >= 20: score = min(score + 2, 99)
+            else:
+                # Poucos dados — score padrão baseado em conhecimento de mercado
+                defaults = {(0,2):45,(2,4):38,(4,6):52,(6,8):65,(8,10):82,(10,12):78,
+                           (12,14):60,(14,16):88,(16,18):85,(18,20):72,(20,22):55,(22,24):48}
+                score = defaults.get((inicio,fim), 60)
+            
+            agora_nesta_faixa = inicio <= hora_atual < fim
+            
+            scores.append({
+                'inicio': inicio,
+                'fim': fim,
+                'label': label,
+                'score': score,
+                'total_ops': total,
+                'agora': agora_nesta_faixa,
+                'dinamico': total >= 5
+            })
+        
+        # Melhor horário
+        melhor = max(scores, key=lambda x: x['score'])
+        hora_br = agora.strftime('%H:%M')
+        
+        return jsonify({
+            'ok': True,
+            'scores': scores,
+            'melhor': melhor,
+            'hora_br': hora_br,
+            'total_operacoes': len(ops),
+            'atualizado_em': agora.strftime('%d/%m/%Y %H:%M')
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)}), 500
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")

@@ -5962,15 +5962,16 @@ function patternAnalisar() {
 
     <!-- Grade de horários -->
     <div style="padding:0 20px 8px;">
-        <div style="font-size:10px;font-weight:700;color:rgba(252,211,77,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Score por Horário (Horário de Brasília)</div>
+        <div style="font-size:10px;font-weight:700;color:rgba(252,211,77,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Score por Horário (Horário de Brasília)</div>
+        <div id="clock-fonte-badge" style="font-size:11px;color:#f59e0b;margin-bottom:10px;">⏳ Carregando dados reais...</div>
     </div>
     <div class="clock-grid" id="clockGrid"></div>
 </div>
 
 <script>
 // ═══ ALPHA CLOCK ═══
-// Scores baseados em análise estatística de índices Deriv (horário Brasília)
-const _clockScores = [
+// Scores dinâmicos baseados em operações reais do banco de dados
+const _clockScoresPadrao = [
     {hora:'00-02h', score:45, label:'Madrugada'},
     {hora:'02-04h', score:38, label:'Madrugada'},
     {hora:'04-06h', score:52, label:'Manhã cedo'},
@@ -5984,12 +5985,39 @@ const _clockScores = [
     {hora:'20-22h', score:55, label:'Noite'},
     {hora:'22-24h', score:48, label:'Noite'},
 ];
+let _clockScores = [..._clockScoresPadrao];
+let _clockDinamico = false;
+
+async function carregarScoresDinamicos() {
+    try {
+        const r = await fetch('https://alpha-dolar-backend.onrender.com/api/clock/scores');
+        const d = await r.json();
+        if (d.ok && d.scores && d.scores.length === 12) {
+            _clockScores = d.scores.map(s => ({
+                hora: `${String(s.inicio).padStart(2,'0')}-${String(s.fim).padStart(2,'0')}h`,
+                score: s.score,
+                label: s.label,
+                dinamico: s.dinamico,
+                total_ops: s.total_ops
+            }));
+            _clockDinamico = true;
+            // Atualizar badge de fonte
+            const badge = document.getElementById('clock-fonte-badge');
+            if (badge) {
+                badge.textContent = d.total_operacoes >= 50 
+                    ? `📊 Baseado em ${d.total_operacoes} operações reais` 
+                    : `📊 ${d.total_operacoes} ops reais + estimativa`;
+                badge.style.color = '#22c55e';
+            }
+        }
+    } catch(e) {}
+}
 
 let _clockInterval = null;
 
 window.abrirAlphaClock = function() {
     document.getElementById('alphaClockModal').style.display = 'block';
-    clockRenderGrid();
+    carregarScoresDinamicos().then(() => clockRenderGrid());
     clockTick();
     if (_clockInterval) clearInterval(_clockInterval);
     _clockInterval = setInterval(clockTick, 1000);
