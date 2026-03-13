@@ -225,7 +225,14 @@ def start_bot():
             BotConfig.LIMITE_PERDA   = limite_perda
             BotConfig.API_TOKEN      = token
             bots_state[bot_type]['deriv_id']   = deriv_id
-            bots_state[bot_type]['bot_name']   = data.get('bot_name', bot_type)
+            # Buscar nome do bot cadastrado para este cliente
+            try:
+                bots = _listar_bots()
+                bot_cadastrado = next((b for b in bots if b.get('deriv_id') == deriv_id), None)
+                bot_nome = bot_cadastrado['nome'] if bot_cadastrado else data.get('bot_name', f'BOT {deriv_id}')
+            except:
+                bot_nome = data.get('bot_name', bot_type)
+            bots_state[bot_type]['bot_name'] = bot_nome
             print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
 
             trading_mode   = config.get('trading_mode', 'faster')
