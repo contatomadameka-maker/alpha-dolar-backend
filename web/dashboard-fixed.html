@@ -2643,10 +2643,21 @@ body { overflow-x: hidden !important; }
             const marketSymbol = window.selectedMarketSymbol || 'R_100';
             const marketName   = window.selectedMarketName   || 'Volatility 100 Index';
 
+            // Pegar deriv_id da conta
+            let derivId = '';
+            try {
+                const contas2 = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+                const contaAtiva = accountType === 'real' 
+                    ? contas2.find(c => c.isDemo === false)
+                    : contas2.find(c => c.isDemo === true) || contas2[0];
+                derivId = contaAtiva?.loginid || contaAtiva?.account || '';
+            } catch(e) {}
+
             const payload = {
                 bot_type: 'ia',
                 account_type: accountType,
                 token: token || undefined,
+                deriv_id: derivId,
                 config: {
                     stake_inicial: parseFloat(document.getElementById('initialStake')?.value || 0.35),
                     lucro_alvo:    parseFloat(document.getElementById('targetProfit')?.value || 2.0),

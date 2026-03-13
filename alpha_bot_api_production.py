@@ -176,6 +176,7 @@ def start_bot():
         config       = data.get('config', {})
         account_type = data.get('account_type', 'demo')
         token        = data.get('token')
+        deriv_id     = data.get('deriv_id', '') or data.get('loginid', '')
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake_inicial', 0.35))
@@ -223,6 +224,8 @@ def start_bot():
             BotConfig.LUCRO_ALVO     = lucro_alvo
             BotConfig.LIMITE_PERDA   = limite_perda
             BotConfig.API_TOKEN      = token
+            bots_state[bot_type]['deriv_id']   = deriv_id
+            bots_state[bot_type]['bot_name']   = data.get('bot_name', bot_type)
             print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
 
             trading_mode   = config.get('trading_mode', 'faster')
@@ -329,6 +332,19 @@ def start_bot():
                 bots_state[bot_type]['trades'].append(trade)
                 if len(bots_state[bot_type]['trades']) > 100:
                     bots_state[bot_type]['trades'].pop(0)
+                # Salvar operação no Supabase
+                try:
+                    cliente_id = bots_state[bot_type].get('deriv_id', '') or bots_state[bot_type].get('cliente_id', '')
+                    _salvar_op(
+                        bot_name=bots_state[bot_type].get('bot_name', bot_type),
+                        cliente_id=cliente_id,
+                        direcao=direction,
+                        ganhou=won,
+                        lucro=round(profit, 2),
+                        stake=round(stake, 2)
+                    )
+                except Exception as e:
+                    print(f"Erro ao salvar operação: {e}")
 
             bot._on_trade_completed = on_trade_completed
 
