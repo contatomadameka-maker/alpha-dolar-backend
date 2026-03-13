@@ -1,3 +1,4 @@
+import os
 """
 Alpha Dolar — Sistema de Sinais Telegram
 Envia sinais automáticos e manuais para o canal
@@ -10,7 +11,7 @@ import requests
 from datetime import datetime
 import pytz
 
-TELEGRAM_TOKEN = "8223914227:AAHzCTOZxqxzGY7yEfvr_lqeFvEhXm0228Y"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
 CHANNEL_ID = "-1003524534332"
 BR_TZ = pytz.timezone("America/Sao_Paulo")
 
