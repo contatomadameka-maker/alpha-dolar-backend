@@ -643,7 +643,10 @@ def api_robo_stop():
 @app.route('/api/clock/scores', methods=['GET'])
 def api_clock_scores():
     try:
-        from backend.database import listar_operacoes
+        try:
+            from backend.database import listar_operacoes
+        except ImportError:
+            from database import listar_operacoes
         import pytz
         from datetime import datetime, timedelta
 
