@@ -781,6 +781,79 @@ def auto_restart_bots():
 # Iniciar auto-restart em thread separada
 threading.Thread(target=auto_restart_bots, daemon=True).start()
 
+
+@app.route('/api/ia/analytics', methods=['GET'])
+def api_ia_analytics():
+    try:
+        try:
+            from backend.database import listar_operacoes
+        except ImportError:
+            from database import listar_operacoes
+        import pytz
+        from datetime import datetime, timedelta
+        ops = listar_operacoes()
+        if not ops:
+            return jsonify({'ok': False, 'erro': 'Sem dados'})
+        BR_TZ = pytz.timezone('America/Sao_Paulo')
+        agora = datetime.now(BR_TZ)
+        cutoff = agora - timedelta(days=30)
+        # Filtra últimos 30 dias
+        ops_recentes = []
+        for op in ops:
+            try:
+                dt_str = op.get('criado_em', '')
+                if not dt_str: continue
+                dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+                dt_br = dt.astimezone(BR_TZ)
+                if dt_br >= cutoff:
+                    op['_hora'] = dt_br.hour
+                    ops_recentes.append(op)
+            except: pass
+        # Win rate por tipo
+        tipos = {}
+        for op in ops_recentes:
+            t = op.get('tipo', 'unknown')
+            if t not in tipos:
+                tipos[t] = {'wins': 0, 'total': 0}
+            tipos[t]['total'] += 1
+            if op.get('resultado') == 'win':
+                tipos[t]['wins'] += 1
+        tipo_stats = []
+        for t, v in tipos.items():
+            if v['total'] >= 5:
+                wr = round(v['wins'] / v['total'] * 100, 1)
+                tipo_stats.append({'tipo': t, 'win_rate': wr, 'total': v['total']})
+        tipo_stats.sort(key=lambda x: x['win_rate'], reverse=True)
+        # Win rate por hora atual (+/- 2h)
+        hora_atual = agora.hour
+        ops_hora = [op for op in ops_recentes if abs(op['_hora'] - hora_atual) <= 2]
+        hora_tipos = {}
+        for op in ops_hora:
+            t = op.get('tipo', 'unknown')
+            if t not in hora_tipos:
+                hora_tipos[t] = {'wins': 0, 'total': 0}
+            hora_tipos[t]['total'] += 1
+            if op.get('resultado') == 'win':
+                hora_tipos[t]['wins'] += 1
+        hora_stats = []
+        for t, v in hora_tipos.items():
+            if v['total'] >= 3:
+                wr = round(v['wins'] / v['total'] * 100, 1)
+                hora_stats.append({'tipo': t, 'win_rate': wr, 'total': v['total']})
+        hora_stats.sort(key=lambda x: x['win_rate'], reverse=True)
+        # Melhor tipo agora
+        melhor_agora = hora_stats[0]['tipo'] if hora_stats else (tipo_stats[0]['tipo'] if tipo_stats else None)
+        return jsonify({
+            'ok': True,
+            'total_ops': len(ops_recentes),
+            'por_tipo': tipo_stats,
+            'por_hora_atual': hora_stats,
+            'melhor_agora': melhor_agora,
+            'hora_atual': hora_atual
+        })
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)})
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
