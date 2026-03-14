@@ -920,6 +920,7 @@ body { overflow-x: hidden !important; }
         </span>
         <a href="/loja.html" class="nav2-btn">🛒 Loja</a>
         <a href="/videos.html" class="nav2-btn">📺 Tutoriais/Vídeos</a>
+        <button onclick="abrirModalAnalytics()" class="nav2-btn" style="background:linear-gradient(135deg,rgba(251,191,36,0.15),rgba(245,158,11,0.1));border-color:rgba(251,191,36,0.4);color:#fbbf24;cursor:pointer;font-family:inherit;">📊 Analytics</button>
         <a href="https://wa.me/5547996214217" target="_blank" class="nav2-btn nav2-suporte">💬 Suporte</a>
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -4819,8 +4820,23 @@ window._MKT_DATA = {
         <div id="proWinRate" style="font-size:16px;font-weight:900;color:#f97316;">0%</div>
       </div>
     </div>
+    <div id="proStopBar" style="background:#0a0614;border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div style="font-size:11px;color:#94a3b8;font-weight:700;">🛑 Perda na sequência</div>
+        <div style="font-size:11px;font-weight:900;">
+          <span id="proStopAtual" style="color:#ef4444;">$0.00</span>
+          <span style="color:#475569;"> / </span>
+          <span id="proStopLimite" style="color:#64748b;">$10.00</span>
+        </div>
+      </div>
+      <div style="background:#1e1030;border-radius:6px;height:6px;overflow:hidden;">
+        <div id="proStopBarra" style="height:6px;border-radius:6px;background:#22c55e;width:0%;transition:width 0.4s,background 0.4s;"></div>
+      </div>
+      <div id="proStopMsg" style="font-size:10px;color:#475569;margin-top:4px;text-align:right;">Reseta a cada WIN ✓</div>
+    </div>
     <div class="pro-grid-2">
       <div><label class="pro-label">Tipo de Contrato</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;"><button id="proModoFixo" onclick="proSetModo('fixo')" style="flex:1;padding:6px;border-radius:8px;border:1px solid rgba(0,210,255,0.4);background:rgba(0,210,255,0.15);color:#00d2ff;font-size:11px;font-weight:700;cursor:pointer;">🎯 FIXO</button><button id="proModoAuto" onclick="proSetModo('auto')" style="flex:1;padding:6px;border-radius:8px;border:1px solid rgba(100,116,139,0.3);background:transparent;color:#64748b;font-size:11px;font-weight:700;cursor:pointer;">🔄 AUTO</button></div>
         <select id="proContractType" class="pro-input">
           <option value="DIGITEVEN">Par (DIGITEVEN)</option>
           <option value="DIGITODD">Ímpar (DIGITODD)</option>
@@ -4874,7 +4890,7 @@ window._MKT_DATA = {
   </div>
 </div>
 <script>
-window._proState={running:false,ws:null,digits:[],lucro:0,perda:0,wins:0,losses:0,stake:0.35,stakeAtual:0.35,mult:2.2,perdaAcum:0,martStep:0,waiting:false,pendingContracts:{},reqId:1,vozAtiva:true};
+window._proState={running:false,ws:null,digits:[],lucro:0,perda:0,wins:0,losses:0,stake:0.35,stakeAtual:0.35,mult:2.2,perdaAcum:0,martStep:0,waiting:false,pendingContracts:{},reqId:1,vozAtiva:true,cooldownAte:0};
 window.abrirAlphaIaPro=function(){
   const m=document.getElementById('alphaIaProModal');
   m.style.display='block';
@@ -4927,6 +4943,8 @@ window.proSetConta=function(tipo,el){
   } catch(e){}
 };
 window.fecharAlphaIaPro=function(){document.getElementById('alphaIaProModal').style.display='none';};
+window._proModo='fixo';
+window.proSetModo=function(modo){window._proModo=modo;const fixo=document.getElementById('proModoFixo');const auto=document.getElementById('proModoAuto');if(modo==='fixo'){fixo.style.background='rgba(0,210,255,0.15)';fixo.style.borderColor='rgba(0,210,255,0.4)';fixo.style.color='#00d2ff';auto.style.background='transparent';auto.style.borderColor='rgba(100,116,139,0.3)';auto.style.color='#64748b';document.getElementById('proContractType').disabled=false;}else{auto.style.background='rgba(168,85,247,0.15)';auto.style.borderColor='rgba(168,85,247,0.4)';auto.style.color='#a855f7';fixo.style.background='transparent';fixo.style.borderColor='rgba(100,116,139,0.3)';fixo.style.color='#64748b';document.getElementById('proContractType').disabled=true;}};
 window.proSetMult=function(val,el){document.querySelectorAll('.pro-mult-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('proMultiplier').value=val;window._proState.mult=val;};
 window.proVozChange=function(cb){window._proState.vozAtiva=cb.checked;const thumb=document.getElementById('proVozThumb');const slider=document.getElementById('proVozSlider');if(cb.checked){thumb.style.left='22px';slider.style.background='#a855f7';}else{thumb.style.left='2px';slider.style.background='#374151';}};
 function proFalar(t){if(!window._proState.vozAtiva)return;if(!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=1.05;u.pitch=1.0;u.volume=0.9;const vozes=window.speechSynthesis.getVoices();const voz=vozes.find(v=>v.lang==='pt-BR'&&v.name.toLowerCase().includes('female'))||vozes.find(v=>v.lang==='pt-BR')||vozes.find(v=>v.lang.startsWith('pt'));if(voz)u.voice=voz;window.speechSynthesis.speak(u);}
@@ -4934,7 +4952,7 @@ function proAddFeed(msg,cor){const feed=document.getElementById('proFeed');if(!f
 function proAnalisar(ct){const s=window._proState;const d=s.digits;if(d.length<20)return{entrar:false,score:0,desc:'Coletando dados...'};const u20=d.slice(-20);const u10=d.slice(-10);const pares=u20.filter(x=>x%2===0).length;const rp=pares/20;let s1=0;if(ct==='DIGITEVEN')s1=rp>=0.60?rp:rp>=0.55?rp*0.8:0;else if(ct==='DIGITODD')s1=(1-rp)>=0.60?(1-rp):(1-rp)>=0.55?(1-rp)*0.8:0;else if(ct==='DIGITOVER')s1=rp<0.40?0.65:0;else if(ct==='DIGITUNDER')s1=rp>0.60?0.65:0;let streak=1;const last=d[d.length-1]%2;for(let i=d.length-2;i>=0&&i>=d.length-8;i--){if(d[i]%2===last)streak++;else break;}let s2=0;if(streak>=4){const ep=last===0;if(ct==='DIGITODD'&&ep)s2=Math.min(0.55+streak*0.05,0.80);else if(ct==='DIGITEVEN'&&!ep)s2=Math.min(0.55+streak*0.05,0.80);}else if(streak<=2){if(ct==='DIGITEVEN'&&last===0)s2=0.58;else if(ct==='DIGITODD'&&last===1)s2=0.58;}const altos=u10.filter(x=>x>=5).length;let s3=0;if(ct==='DIGITOVER')s3=altos<=3?0.70:altos<=4?0.60:0;else if(ct==='DIGITUNDER')s3=altos>=7?0.70:altos>=6?0.60:0;else s3=0.50;const sf=(s1*0.45)+(s2*0.35)+(s3*0.20);return{entrar:sf>=0.52,score:Math.round(sf*100),desc:'M1:'+Math.round(s1*100)+'% M2:'+Math.round(s2*100)+'% M3:'+Math.round(s3*100)+'%',ratioPar:Math.round(rp*100),streak,altos};}
 function proGetToken(){try{const c=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');const t=window._proState.contaTipo||localStorage.getItem('deriv_conta_ativa')||'demo';const cc=c.find(x=>Boolean(x.isDemo)===(t==='demo'))||c[0];return cc?cc.token:null;}catch{return null;}}
 function proConectar(){const s=window._proState;const token=proGetToken();if(!token){proAddFeed('❌ Token não encontrado. Faça login.','#ef4444');return;}s.ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');s.ws.onopen=()=>{s.ws.send(JSON.stringify({authorize:token}));};s.ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.msg_type==='authorize'){proAddFeed('✅ Conectado! Coletando dados...','#22c55e');proFalar('Alpha I A Pro conectado. Coletando dados do mercado.');const sym=document.getElementById('proSymbol').value;s.ws.send(JSON.stringify({ticks:sym,subscribe:1}));}else if(msg.msg_type==='tick'){proOnTick(msg.tick);}else if(msg.msg_type==='buy'){if(msg.error){proAddFeed('❌ Erro: '+msg.error.message,'#ef4444');s.waiting=false;return;}const id=msg.buy.contract_id;s.pendingContracts[id]=true;s.ws.send(JSON.stringify({proposal_open_contract:1,contract_id:id,subscribe:1}));}else if(msg.msg_type==='proposal_open_contract'){proOnContract(msg.proposal_open_contract);}else if(msg.msg_type==='balance'){const sb=document.getElementById('proSaldoBox');const t=window._proState.contaTipo||'demo';if(sb)sb.textContent=t.toUpperCase()+': $'+parseFloat(msg.balance.balance||0).toFixed(2)+' '+(msg.balance.currency||'USD');}};s.ws.onclose=()=>{if(s.running){proAddFeed('⚠️ Reconectando...','#eab308');setTimeout(proConectar,3000);}};}
-function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);document.getElementById('proScore').textContent=a.score>0?a.score+'%':'—';document.getElementById('proTipo').textContent=ct.replace('DIGIT','');document.getElementById('proMlFase').textContent=s.digits.length<20?'Coletando ('+s.digits.length+'/20)':'ML Ativo · '+a.desc;const _liq=s.lucro-s.perda;if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}if(a.entrar&&a.score>=52){const rt=ct==='DIGITEVEN'?'Ratio par em '+a.ratioPar+'%':ct==='DIGITODD'?'Ratio ímpar em '+(100-a.ratioPar)+'%':'Altos: '+a.altos+' de 10';proFalar('Sinal detectado. '+rt+'. Score '+a.score+'%. Entrando.');proExecutar(ct);}}
+function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);document.getElementById('proScore').textContent=a.score>0?a.score+'%':'—';document.getElementById('proTipo').textContent=ct.replace('DIGIT','');document.getElementById('proMlFase').textContent=s.digits.length<20?'Coletando ('+s.digits.length+'/20)':'ML Ativo · '+a.desc;const _liq=s.lucro-s.perda;if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}if(a.entrar&&a.score>=52&&Date.now()>=s.cooldownAte){const rt=ct==='DIGITEVEN'?'Ratio par em '+a.ratioPar+'%':ct==='DIGITODD'?'Ratio ímpar em '+(100-a.ratioPar)+'%':'Altos: '+a.altos+' de 10';proFalar('Sinal detectado. '+rt+'. Score '+a.score+'%. Entrando.');proExecutar(ct);}}
 function proGetPayout(ct){
   // Payout aproximado por tipo de contrato
   const payouts={'DIGITEVEN':0.87,'DIGITODD':0.87,'DIGITOVER':0.95,'DIGITUNDER':0.95,'DIGITMATCH':8.0,'DIGITDIFF':0.05};
@@ -4951,12 +4969,15 @@ function proExecutar(ct){const s=window._proState;if(s.waiting||!s.ws)return;s.w
     stake=Math.round(stake*100)/100;
   }
   s.stakeAtual=stake;proAddFeed('📤 Entrada: '+ct+' | $'+stake.toFixed(2),'#a855f7');s.ws.send(JSON.stringify({buy:1,price:stake,parameters:{contract_type:ct,symbol:document.getElementById('proSymbol').value,duration:1,duration_unit:'t',basis:'stake',amount:stake,currency:'USD'}}));}
-function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includes(c.status))return;s.waiting=false;const won=c.status==='won';const profit=parseFloat(c.sell_price||0)-parseFloat(c.buy_price||0);if(won){s.wins++;s.lucro+=Math.abs(profit);s.perdaAcum=0;s.martStep=0;proAddFeed('✅ WIN +$'+Math.abs(profit).toFixed(2),'#22c55e');proFalar('Ganhou! Lucro de '+Math.abs(profit).toFixed(2)+' dólares.');}else{s.losses++;s.perda+=Math.abs(profit);s.perdaAcum+=Math.abs(profit);s.martStep=Math.min(s.martStep+1,5);proAddFeed('❌ LOSS -$'+Math.abs(profit).toFixed(2),'#ef4444');if(s.martStep>=3)proFalar('Atenção. Sequência de '+s.martStep+' perdas. Ajustando stake.');}const total=s.wins+s.losses;const wr=total>0?Math.round(s.wins/total*100):0;document.getElementById('proLucro').textContent='$'+(s.lucro-s.perda).toFixed(2);document.getElementById('proLucro').style.color=(s.lucro-s.perda)>=0?'#22c55e':'#ef4444';document.getElementById('proWinRate').textContent=wr+'%';
+function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includes(c.status))return;s.waiting=false;s.cooldownAte=Date.now()+10000;const won=c.status==='won';const profit=parseFloat(c.sell_price||0)-parseFloat(c.buy_price||0);if(won){s.wins++;s.lucro+=Math.abs(profit);s.perdaAcum=0;s.martStep=0;const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$0.00";_sl.style.color="#22c55e";}const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width="0%";_sb.style.background="#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="✅ WIN! Sequência resetada.";proAddFeed('✅ WIN +$'+Math.abs(profit).toFixed(2),'#22c55e');proFalar('Ganhou! Lucro de '+Math.abs(profit).toFixed(2)+' dólares.');}else{s.losses++;s.perda+=Math.abs(profit);s.perdaAcum+=Math.abs(profit);s.martStep=Math.min(s.martStep+1,5);const _lim=parseFloat(document.getElementById("proStop").value)||10;const _pct=Math.min((s.perdaAcum/_lim)*100,100);const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$"+s.perdaAcum.toFixed(2);_sl.style.color=_pct>70?"#ef4444":_pct>40?"#f97316":"#fbbf24";}const _slm=document.getElementById("proStopLimite");if(_slm)_slm.textContent="$"+_lim.toFixed(2);const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width=_pct+"%";_sb.style.background=_pct>70?"#ef4444":_pct>40?"#f97316":"#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="⚠️ Sequência: "+s.martStep+" loss(es) | Reseta no próximo WIN";proAddFeed('❌ LOSS -$'+Math.abs(profit).toFixed(2),'#ef4444');if(s.martStep>=3)proFalar('Atenção. Sequência de '+s.martStep+' perdas. Ajustando stake.');}const total=s.wins+s.losses;const wr=total>0?Math.round(s.wins/total*100):0;document.getElementById('proLucro').textContent='$'+(s.lucro-s.perda).toFixed(2);document.getElementById('proLucro').style.color=(s.lucro-s.perda)>=0?'#22c55e':'#ef4444';document.getElementById('proWinRate').textContent=wr+'%';
   // Atualiza saldo em tempo real
   if(s.ws){s.ws.send(JSON.stringify({balance:1}));}
 }
-window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');proConectar();};
-function proParar(motivo){const s=window._proState;s.running=false;if(s.ws){s.ws.close();s.ws=null;}const msgs={take_profit:'🎯 Lucro alvo atingido!',stop_loss:'🛑 Stop loss atingido.',manual:'⏹ Encerrado manualmente.'};const fala={take_profit:'Lucro alvo atingido! Parabéns. Sessão encerrada.',stop_loss:'Limite de perda atingido. Encerrando para proteger sua banca.',manual:'Alpha I A Pro encerrado.'};proAddFeed(msgs[motivo]||'⏹ Encerrado.','#94a3b8');proFalar(fala[motivo]||'Encerrado.');document.getElementById('proStartBtn').textContent='✨ Iniciar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7c3aed,#a855f7)';document.getElementById('proMlFase').textContent='Encerrado';}
+window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];s.cooldownAte=0;if('speechSynthesis' in window){const _u=new SpeechSynthesisUtterance(' ');_u.volume=0;window.speechSynthesis.speak(_u);};document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');proConectar();};
+function proParar(motivo){const s=window._proState;
+  const tipo=window.currentAccountType||"demo";
+  if(s.wins+s.losses>0){try{window.registrarSessaoComparativo&&window.registrarSessaoComparativo("ia_pro",tipo,{trades:s.wins+s.losses,wins:s.wins,losses:s.losses,lucro:s.lucro-s.perda,maior_seq:s.martStep});}catch(e){}}
+  s.running=false;if(s.ws){s.ws.close();s.ws=null;}const msgs={take_profit:'🎯 Lucro alvo atingido!',stop_loss:'🛑 Stop loss atingido.',manual:'⏹ Encerrado manualmente.'};const fala={take_profit:'Lucro alvo atingido! Parabéns. Sessão encerrada.',stop_loss:'Limite de perda atingido. Encerrando para proteger sua banca.',manual:'Alpha I A Pro encerrado.'};proAddFeed(msgs[motivo]||'⏹ Encerrado.','#94a3b8');proFalar(fala[motivo]||'Encerrado.');document.getElementById('proStartBtn').textContent='✨ Iniciar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7c3aed,#a855f7)';document.getElementById('proMlFase').textContent='Encerrado';}
 if('speechSynthesis' in window){window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
 </script>
 
@@ -6861,6 +6882,17 @@ function abrirModalCanal() {
 window.abrirModalCanal = abrirModalCanal;
 </script>
 
+
+<!-- MODAL ANALYTICS -->
+<div id="modal-analytics" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#0f172a;border:1px solid rgba(251,191,36,0.3);border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="color:#fbbf24;font-size:18px;font-weight:700;">📊 Analytics — Win Rate por Tipo</div>
+      <button onclick="document.getElementById('modal-analytics').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="analytics-content"></div>
+  </div>
+</div>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -8863,7 +8895,18 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════
-     POPUP BOAS-VINDAS — Cole antes do </body>
+     POPUP BOAS-VINDAS — Cole antes do 
+<!-- MODAL ANALYTICS -->
+<div id="modal-analytics" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#0f172a;border:1px solid rgba(251,191,36,0.3);border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="color:#fbbf24;font-size:18px;font-weight:700;">📊 Analytics — Win Rate por Tipo</div>
+      <button onclick="document.getElementById('modal-analytics').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="analytics-content"></div>
+  </div>
+</div>
+</body>
      ═══════════════════════════════════════════════════════════════ -->
 
 <!-- OVERLAY -->
@@ -9018,5 +9061,16 @@ function fecharPopupDefinitivo() {
 }
 </script>
 <!-- ══ FIM POPUP ══ -->
+
+<!-- MODAL ANALYTICS -->
+<div id="modal-analytics" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#0f172a;border:1px solid rgba(251,191,36,0.3);border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="color:#fbbf24;font-size:18px;font-weight:700;">📊 Analytics — Win Rate por Tipo</div>
+      <button onclick="document.getElementById('modal-analytics').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="analytics-content"></div>
+  </div>
+</div>
 </body>
 </html>
