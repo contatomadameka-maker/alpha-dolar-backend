@@ -5053,7 +5053,7 @@ function proAnalisarTipo(ct, d) {
     desc='Entropia:'+Math.round(entropia*100)+'% LastDig:'+lastDig;
   }
 
-  return {score, barrier, desc, entrar: false};
+  return {score: Math.round(score*100), barrier, desc, entrar: false};
 }
 
 function proAnalisar(ct){
@@ -5097,17 +5097,26 @@ function proAnalisar(ct){
       }).join('');
     }
     window._proAutoEscolha={ct:melhor.ct,barrier:melhor.barrier};
-    return{entrar,score:melhor.score,desc:'AUTO→'+melhor.ct+' '+melhor.desc,barrier:melhor.barrier,ctEscolhido:melhor.ct};
+    const scoreAuto=melhor.score>1?Math.round(melhor.score):Math.round(melhor.score*100);return{entrar:scoreAuto>=45,score:scoreAuto,desc:'AUTO→'+melhor.ct+' '+melhor.desc,barrier:melhor.barrier,ctEscolhido:melhor.ct};
   } else {
     // FIXO: usa fórmula específica do tipo escolhido, limiar 52%
     const r=proAnalisarTipo(ct,d);
     const entrar=r.score>=52;
-    return{entrar,score:r.score,desc:r.desc,barrier:r.barrier,ctEscolhido:ct};
+    const scoreFixo=r.score>1?Math.round(r.score):Math.round(r.score*100);return{entrar:scoreFixo>=52,score:scoreFixo,desc:r.desc,barrier:r.barrier,ctEscolhido:ct};
   }
 }
 function proGetToken(){try{const c=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');const t=window._proState.contaTipo||localStorage.getItem('deriv_conta_ativa')||'demo';const cc=c.find(x=>Boolean(x.isDemo)===(t==='demo'))||c[0];return cc?cc.token:null;}catch{return null;}}
 function proConectar(){const s=window._proState;const token=proGetToken();if(!token){proAddFeed('❌ Token não encontrado. Faça login.','#ef4444');return;}s.ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');s.ws.onopen=()=>{s.ws.send(JSON.stringify({authorize:token}));};s.ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.msg_type==='authorize'){proAddFeed('✅ Conectado! Coletando dados...','#22c55e');proFalar('Alpha I A Pro conectado. Coletando dados do mercado.');const sym=document.getElementById('proSymbol').value;s.ws.send(JSON.stringify({ticks:sym,subscribe:1}));}else if(msg.msg_type==='tick'){proOnTick(msg.tick);}else if(msg.msg_type==='buy'){if(msg.error){proAddFeed('❌ Erro: '+msg.error.message,'#ef4444');s.waiting=false;return;}const id=msg.buy.contract_id;s.pendingContracts[id]=true;s.ws.send(JSON.stringify({proposal_open_contract:1,contract_id:id,subscribe:1}));}else if(msg.msg_type==='proposal_open_contract'){proOnContract(msg.proposal_open_contract);}else if(msg.msg_type==='balance'){const sb=document.getElementById('proSaldoBox');const t=window._proState.contaTipo||'demo';if(sb)sb.textContent=t.toUpperCase()+': $'+parseFloat(msg.balance.balance||0).toFixed(2)+' '+(msg.balance.currency||'USD');}};s.ws.onclose=()=>{if(s.running){proAddFeed('⚠️ Reconectando...','#eab308');setTimeout(proConectar,3000);}};}
-function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);document.getElementById('proScore').textContent=a.score>0?a.score+'%':'—';document.getElementById('proTipo').textContent=ct.replace('DIGIT','');document.getElementById('proMlFase').textContent=s.digits.length<20?'Coletando ('+s.digits.length+'/20)':'ML Ativo · '+a.desc;const _liq=s.lucro-s.perda;if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}if(a.entrar&&Date.now()>=s.cooldownAte){const ctFinal=a.ctEscolhido||ct;const rt='Score '+a.score+'% → '+ctFinal.replace('DIGIT','');proFalar('Sinal detectado. '+rt+'. Entrando.');proExecutar(ctFinal,a.barrier);}}
+function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);
+  const scoreDisplay=a.score>1?Math.round(a.score):Math.round(a.score*100);
+  document.getElementById('proScore').textContent=scoreDisplay>0?scoreDisplay+'%':'—';
+  const ctFinal=a.ctEscolhido||ct;
+  document.getElementById('proTipo').textContent=ctFinal.replace('DIGIT','');
+  document.getElementById('proMlFase').textContent=s.digits.length<20?'Coletando ('+s.digits.length+'/20)':'ML Ativo · '+a.desc;
+  const _liq=s.lucro-s.perda;
+  if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}
+  if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}
+  if(a.entrar&&Date.now()>=s.cooldownAte){const rt='Score '+scoreDisplay+'% → '+ctFinal.replace('DIGIT','');proFalar('Sinal detectado. '+rt+'. Entrando.');proExecutar(ctFinal,a.barrier);}
 function proGetPayout(ct){
   // Payout aproximado por tipo de contrato
   const payouts={'DIGITEVEN':0.87,'DIGITODD':0.87,'DIGITOVER':0.95,'DIGITUNDER':0.95,'DIGITMATCH':8.0,'DIGITDIFF':0.05};
