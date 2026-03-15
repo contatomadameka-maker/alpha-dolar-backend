@@ -5135,6 +5135,69 @@ function proAnalisar(ct){
 function proGetToken(){try{const c=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');const t=window._proState.contaTipo||localStorage.getItem('deriv_conta_ativa')||'demo';const cc=c.find(x=>Boolean(x.isDemo)===(t==='demo'))||c[0];return cc?cc.token:null;}catch{return null;}}
 
 // ── AUTO SELEÇÃO DE MERCADO ──
+
+window.proSugerirMelhorMercado = function() {
+  const s = window._proState;
+  const btn = document.getElementById('proSugerirMercado');
+
+  if(s.running && s.digits.length >= 20) {
+    const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+    const scores = tipos.map(t => proAnalisarTipo(t, s.digits).score);
+    const melhor = Math.max(...scores);
+    const sym = document.getElementById('proSymbol').value;
+    const nomes = {R_100:'Volatility 100',R_75:'Volatility 75',R_50:'Volatility 50',R_25:'Volatility 25',R_10:'Volatility 10','1HZ100V':'Vol 100 (1s)',JD100:'Jump 100',JD50:'Jump 50',JD10:'Jump 10'};
+    proAddFeed('💡 Mercado atual: '+(nomes[sym]||sym)+' | Score: '+melhor+'%','#fbbf24');
+    proAddFeed('💡 Para trocar mercado, pare o bot primeiro.','#64748b');
+    return;
+  }
+
+  const token = proGetToken();
+  if(!token){ proAddFeed('❌ Faça login primeiro.','#ef4444'); return; }
+  if(btn){ btn.textContent='⏳...'; btn.disabled=true; }
+
+  const mercados = [{sym:'R_100',label:'Volatility 100'},{sym:'R_50',label:'Volatility 50'},{sym:'R_10',label:'Volatility 10'}];
+  let idx = 0;
+  const resultados = [];
+
+  function testarProximo() {
+    if(idx >= mercados.length) {
+      resultados.sort((a,b)=>b.score-a.score);
+      const melhor = resultados[0];
+      if(melhor){
+        document.getElementById('proSymbol').value = melhor.sym;
+        proAddFeed('✅ Melhor mercado: '+melhor.label+' ('+melhor.score+'%)','#22c55e');
+      }
+      if(btn){ btn.textContent='🔍 Sugerir'; btn.disabled=false; }
+      return;
+    }
+    const m = mercados[idx++];
+    const digits = [];
+    const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+    const timer = setTimeout(()=>{ ws.close(); testarProximo(); }, 6000);
+    ws.onopen = ()=> ws.send(JSON.stringify({authorize: token}));
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if(msg.msg_type==='authorize') ws.send(JSON.stringify({ticks:m.sym,subscribe:1}));
+      else if(msg.msg_type==='tick'){
+        const q=parseFloat(msg.tick.quote);
+        const ds=q.toFixed(5).replace('.','');
+        digits.push(parseInt(ds[ds.length-1]));
+        if(digits.length>=15){
+          const scores=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].map(t=>proAnalisarTipo(t,digits).score);
+          const sc=Math.max(...scores);
+          resultados.push({sym:m.sym,label:m.label,score:sc});
+          proAddFeed('📊 '+m.label+': '+sc+'%','#64748b');
+          clearTimeout(timer);
+          ws.close();
+          testarProximo();
+        }
+      }
+    };
+    ws.onerror = ()=>{ clearTimeout(timer); testarProximo(); };
+  }
+  testarProximo();
+};
+
 async function proEscolherMercado(token) {
   const mercados = [
     {sym:'R_100', label:'Volatility 100'},
