@@ -1721,7 +1721,7 @@ body { overflow-x: hidden !important; }
                   Multiplicador de entrada
                   <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:400;">
                     <span id="manualMultLabel" style="color:#64748b;">OFF</span>
-                    <div style="position:relative;width:32px;height:18px;" onclick="manualToggleMult()">
+                    <div style="position:relative;width:32px;height:18px;cursor:pointer;" onclick="manualToggleMult()">
                       <span id="manualMultSlider" style="position:absolute;inset:0;background:#374151;border-radius:20px;transition:.3s;"></span>
                       <span id="manualMultThumb" style="position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:.3s;"></span>
                     </div>
@@ -5241,7 +5241,7 @@ window.proSugerirMelhorMercado = function() {
       else if(msg.msg_type==='tick'){
         const q=parseFloat(msg.tick.quote);
         const ds=q.toFixed(5).replace('.','');
-        digits.push(parseInt(ds[ds.length-1]));
+        digits.push(parseInt(ds[ds.length-1]));if(!window._digitsBuffer)window._digitsBuffer=[];window._digitsBuffer.push(parseInt(ds[ds.length-1]));if(window._digitsBuffer.length>500)window._digitsBuffer.shift();
         if(digits.length>=15){
           const scores=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].map(t=>proAnalisarTipo(t,digits).score);
           const sc=Math.max(...scores);
@@ -5283,7 +5283,7 @@ async function proEscolherMercado(token) {
         } else if(msg.msg_type === 'tick') {
           const q = parseFloat(msg.tick.quote);
           const ds = q.toFixed(5).replace('.','');
-          digits.push(parseInt(ds[ds.length-1]));
+          digits.push(parseInt(ds[ds.length-1]));if(!window._digitsBuffer)window._digitsBuffer=[];window._digitsBuffer.push(parseInt(ds[ds.length-1]));if(window._digitsBuffer.length>500)window._digitsBuffer.shift();
           if(digits.length >= 10) {
             // Calcular score médio para esse mercado
             const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
