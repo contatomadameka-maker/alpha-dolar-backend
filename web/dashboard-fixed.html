@@ -3931,6 +3931,13 @@ body { overflow-x: hidden !important; }
                 }
                 if (msg.msg_type === 'tick' && msg.tick) {
                     window.digOnTick(msg.tick.quote);
+                    // Alimentar _digitsBuffer para sinais automáticos
+                    const q = parseFloat(msg.tick.quote);
+                    const ds = q.toFixed(5).replace('.','');
+                    const dg = parseInt(ds[ds.length-1]);
+                    if(!window._digitsBuffer) window._digitsBuffer = [];
+                    window._digitsBuffer.push(dg);
+                    if(window._digitsBuffer.length > 500) window._digitsBuffer.shift();
                 }
                 if (msg.error) {
                     if (msg.error.code === 'AuthorizationRequired') {
