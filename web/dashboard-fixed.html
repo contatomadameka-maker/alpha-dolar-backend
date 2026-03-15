@@ -4862,7 +4862,10 @@ window._MKT_DATA = {
           <option value="DIGITDIFF">Diferente (DIGITDIFF)</option>
         </select>
       </div>
-      <div><label class="pro-label">Mercado</label>
+      <div><label class="pro-label" style="display:flex;justify-content:space-between;align-items:center;">
+          Mercado
+          <button id="proSugerirMercado" onclick="proSugerirMelhorMercado()" style="font-size:9px;padding:2px 7px;border-radius:6px;border:1px solid rgba(168,85,247,0.4);background:rgba(168,85,247,0.1);color:#a855f7;cursor:pointer;font-weight:700;">🔍 Sugerir</button>
+        </label>
         <select id="proSymbol" class="pro-input">
           <optgroup label="── VOLATILITY ──">
             <option value="R_100">Volatility 100</option>
@@ -5130,6 +5133,68 @@ function proAnalisar(ct){
   }
 }
 function proGetToken(){try{const c=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');const t=window._proState.contaTipo||localStorage.getItem('deriv_conta_ativa')||'demo';const cc=c.find(x=>Boolean(x.isDemo)===(t==='demo'))||c[0];return cc?cc.token:null;}catch{return null;}}
+
+// ── AUTO SELEÇÃO DE MERCADO ──
+async function proEscolherMercado(token) {
+  const mercados = [
+    {sym:'R_100', label:'Volatility 100'},
+    {sym:'R_50',  label:'Volatility 50'},
+    {sym:'R_25',  label:'Volatility 25'},
+    {sym:'R_10',  label:'Volatility 10'},
+    {sym:'1HZ100V', label:'Volatility 100 (1s)'},
+    {sym:'JD100', label:'Jump 100'},
+  ];
+  proAddFeed('🔍 AUTO: Analisando melhor mercado...', '#a855f7');
+  const resultados = [];
+
+  for(const m of mercados) {
+    await new Promise(resolve => {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+      const digits = [];
+      let autorizado = false;
+      const timeout = setTimeout(() => { ws.close(); resolve(); }, 8000);
+
+      ws.onopen = () => ws.send(JSON.stringify({authorize: token}));
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if(msg.msg_type === 'authorize' && !autorizado) {
+          autorizado = true;
+          ws.send(JSON.stringify({ticks: m.sym, subscribe: 1}));
+        } else if(msg.msg_type === 'tick') {
+          const q = parseFloat(msg.tick.quote);
+          const ds = q.toFixed(5).replace('.','');
+          digits.push(parseInt(ds[ds.length-1]));
+          if(digits.length >= 20) {
+            // Calcular score médio para esse mercado
+            const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+            const scores = tipos.map(t => proAnalisarTipo(t, digits).score);
+            const melhorScore = Math.max(...scores);
+            resultados.push({sym: m.sym, label: m.label, score: melhorScore});
+            clearTimeout(timeout);
+            ws.close();
+            resolve();
+          }
+        }
+      };
+      ws.onerror = () => { clearTimeout(timeout); resolve(); };
+      ws.onclose = () => resolve();
+    });
+  }
+
+  // Escolher mercado com maior score
+  if(resultados.length > 0) {
+    resultados.sort((a,b) => b.score - a.score);
+    const melhor = resultados[0];
+    // Atualizar dropdown
+    const sel = document.getElementById('proSymbol');
+    if(sel) sel.value = melhor.sym;
+    proAddFeed('✅ Melhor mercado: ' + melhor.label + ' (Score: ' + melhor.score + '%)', '#22c55e');
+    proFalar('Mercado escolhido: ' + melhor.label);
+    return melhor.sym;
+  }
+  return document.getElementById('proSymbol').value;
+}
+
 function proConectar(){const s=window._proState;const token=proGetToken();if(!token){proAddFeed('❌ Token não encontrado. Faça login.','#ef4444');return;}s.ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');s.ws.onopen=()=>{s.ws.send(JSON.stringify({authorize:token}));};s.ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.msg_type==='authorize'){proAddFeed('✅ Conectado! Coletando dados...','#22c55e');proFalar('Alpha I A Pro conectado. Coletando dados do mercado.');const sym=document.getElementById('proSymbol').value;s.ws.send(JSON.stringify({ticks:sym,subscribe:1}));}else if(msg.msg_type==='tick'){proOnTick(msg.tick);}else if(msg.msg_type==='buy'){if(msg.error){proAddFeed('❌ Erro: '+msg.error.message,'#ef4444');s.waiting=false;return;}const id=msg.buy.contract_id;s.pendingContracts[id]=true;s.ws.send(JSON.stringify({proposal_open_contract:1,contract_id:id,subscribe:1}));}else if(msg.msg_type==='proposal_open_contract'){proOnContract(msg.proposal_open_contract);}else if(msg.msg_type==='balance'){const sb=document.getElementById('proSaldoBox');const t=window._proState.contaTipo||'demo';if(sb)sb.textContent=t.toUpperCase()+': $'+parseFloat(msg.balance.balance||0).toFixed(2)+' '+(msg.balance.currency||'USD');}};s.ws.onclose=()=>{if(s.running){proAddFeed('⚠️ Reconectando...','#eab308');setTimeout(proConectar,3000);}};}
 function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);
   const scoreDisplay=a.score>1?Math.round(a.score):Math.round(a.score*100);
@@ -5176,7 +5241,13 @@ function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includ
   // Atualiza saldo em tempo real
   if(s.ws){s.ws.send(JSON.stringify({balance:1}));}
 }
-window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];s.cooldownAte=0;if('speechSynthesis' in window){const _u=new SpeechSynthesisUtterance(' ');_u.volume=0;window.speechSynthesis.speak(_u);};document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');proConectar();};
+window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];s.cooldownAte=0;if('speechSynthesis' in window){const _u=new SpeechSynthesisUtterance(' ');_u.volume=0;window.speechSynthesis.speak(_u);};document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');
+  if(window._proModo==='auto'){
+    const _tok=proGetToken();
+    if(_tok){
+      proEscolherMercado(_tok).then(()=>proConectar());
+    } else { proConectar(); }
+  } else { proConectar(); }};
 function proParar(motivo){const s=window._proState;
   const tipo=window.currentAccountType||"demo";
   if(s.wins+s.losses>0){try{window.registrarSessaoComparativo&&window.registrarSessaoComparativo("ia_pro",tipo,{trades:s.wins+s.losses,wins:s.wins,losses:s.losses,lucro:s.lucro-s.perda,maior_seq:s.martStep});}catch(e){}}
