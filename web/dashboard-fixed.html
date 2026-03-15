@@ -5041,36 +5041,12 @@ function proAnalisar(ct){
   if(modoAuto){
     // Analisa TODOS os tipos e escolhe o melhor
     const tipos=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER','DIGITMATCH','DIGITDIFF'];
-    // Calcula scores de todos os tipos
-    if(!window._proHistTipo) window._proHistTipo=[];
-    const hist=window._proHistTipo;
-
-    // 1. Pegar scores reais de todos
-    const todosResultados=[];
+    // Escolhe o tipo com maior score no momento
+    let melhor={score:0,ct:'DIGITEVEN',barrier:null,desc:''};
     tipos.forEach(t=>{
       const r=proAnalisarTipo(t,d);
-      if(r.score>0) todosResultados.push({ct:t,score:r.score,barrier:r.barrier,desc:r.desc});
+      if(r.score>melhor.score){melhor={score:r.score,ct:t,barrier:r.barrier,desc:r.desc};}
     });
-
-    // 2. Ordenar por score real
-    todosResultados.sort((a,b)=>b.score-a.score);
-    const top=todosResultados[0];
-
-    // 3. Verificar se há empate técnico (diferença <= 5%)
-    const empatados=todosResultados.filter(x=>top.score-x.score<=5);
-
-    let escolhido=top;
-    if(empatados.length>1){
-      // Entre empatados, prefere o menos usado recentemente
-      const menosUsado=empatados.sort((a,b)=>{
-        const usoA=hist.slice(-6).filter(x=>x===a.ct).length;
-        const usoB=hist.slice(-6).filter(x=>x===b.ct).length;
-        return usoA-usoB;
-      })[0];
-      escolhido=menosUsado;
-    }
-
-    let melhor={score:escolhido.score,ct:escolhido.ct,barrier:escolhido.barrier,desc:escolhido.desc};
     // No AUTO, limiar mais baixo (45%) pois compara relativamente
     const entrar=melhor.score>=45;
     // Atualiza o display do tipo escolhido
