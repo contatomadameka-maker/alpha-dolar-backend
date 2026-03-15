@@ -1450,7 +1450,8 @@ body { overflow-x: hidden !important; }
                       <div id="sinalOver" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">OVER —</div>
                       <div id="sinalUnder" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">UNDER —</div>
                       <div id="sinalMatch" style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">MATCH —</div>
-                      <div style="margin-left:auto;font-size:10px;color:#475569;" id="sinalHora">—</div>
+                      <div id="sinalSugestao" style="margin-left:auto;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">Aguardando...</div>
+                      <div style="font-size:10px;color:#475569;" id="sinalHora">—</div>
                     </div>
                     <div class="chart-container"><div id="tradingview_chart"></div></div>
                 </div>
@@ -3704,6 +3705,20 @@ body { overflow-x: hidden !important; }
                         }
 
                         showResult(isWin, lucro);
+                        // Multiplicador manual
+                        if(window._manualMult && window._manualMult.ativo) {
+                          if(isWin) { window._manualMult.perdaAcum = 0; }
+                          else { window._manualMult.perdaAcum += Math.abs(lucro); }
+                          const base = parseFloat(document.getElementById('manualStake')?.value || 1);
+                          const steps = window._manualMult.perdaAcum > 0 ? Math.ceil(window._manualMult.perdaAcum / base) : 0;
+                          const next = steps > 0 ? Math.round(base * Math.pow(window._manualMult.valor, steps) * 100) / 100 : base;
+                          const el = document.getElementById('manualNextStake');
+                          if(el) el.textContent = '$' + next.toFixed(2);
+                          // Atualizar stake automaticamente
+                          const stakeInput = document.getElementById('manualStake');
+                          if(stakeInput && !isWin) stakeInput.value = next.toFixed(2);
+                          if(stakeInput && isWin) stakeInput.value = base.toFixed(2);
+                        }
 
                         if (window.registrarTrade) {
                             window.registrarTrade({
@@ -5074,7 +5089,7 @@ window.proSetMult=function(val,el){document.querySelectorAll('.pro-mult-btn').fo
 window.proVozChange=function(cb){window._proState.vozAtiva=cb.checked;const thumb=document.getElementById('proVozThumb');const slider=document.getElementById('proVozSlider');if(cb.checked){thumb.style.left='22px';slider.style.background='#a855f7';}else{thumb.style.left='2px';slider.style.background='#374151';}};
 function proFalar(t){if(!window._proState.vozAtiva)return;if(!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=1.05;u.pitch=1.0;u.volume=0.9;const vozes=window.speechSynthesis.getVoices();const voz=vozes.find(v=>v.lang==='pt-BR'&&v.name.toLowerCase().includes('female'))||vozes.find(v=>v.lang==='pt-BR')||vozes.find(v=>v.lang.startsWith('pt'));if(voz)u.voice=voz;window.speechSynthesis.speak(u);}
 function proAddFeed(msg,cor){const feed=document.getElementById('proFeed');if(!feed)return;const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const div=document.createElement('div');div.style.cssText='color:'+(cor||'#94a3b8')+';padding:2px 0;border-bottom:1px solid rgba(168,85,247,0.08);';div.textContent='['+ts+'] '+msg;const ph=feed.querySelector('div[style*="text-align:center"]');if(ph)ph.remove();feed.appendChild(div);feed.scrollTop=feed.scrollHeight;}
-function proAnalisarTipo(ct, d) {
+window.proAnalisarTipo = function proAnalisarTipo(ct, d) {
   if(!d||d.length<20)return{score:0,barrier:null,desc:'...'};
   const u20=d.slice(-20);
   const u10=d.slice(-10);
@@ -7360,6 +7375,28 @@ function atualizarSinaisGrafico() {
   });
   const hora=document.getElementById('sinalHora');
   if(hora) hora.textContent=new Date().toLocaleTimeString('pt-BR');
+
+  // Sugestão de direção
+  const sug=document.getElementById('sinalSugestao');
+  if(sug){
+    const evenSc=proAnalisarTipo('DIGITEVEN',digits).score;
+    const oddSc=proAnalisarTipo('DIGITODD',digits).score;
+    const overSc=proAnalisarTipo('DIGITOVER',digits).score;
+    const underSc=proAnalisarTipo('DIGITUNDER',digits).score;
+    const maxSc=Math.max(evenSc,oddSc,overSc,underSc);
+    if(maxSc>=70){
+      const dir=(evenSc>=70||overSc>=70)?'⬆️ RISE':'⬇️ FALL';
+      sug.textContent=dir+' '+maxSc+'%';
+      sug.style.background=evenSc>=70||overSc>=70?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)';
+      sug.style.borderColor=evenSc>=70||overSc>=70?'rgba(34,197,94,0.5)':'rgba(239,68,68,0.5)';
+      sug.style.color=evenSc>=70||overSc>=70?'#22c55e':'#ef4444';
+    } else {
+      sug.textContent='⏳ Aguardando sinal...';
+      sug.style.background='rgba(100,116,139,0.1)';
+      sug.style.borderColor='rgba(100,116,139,0.2)';
+      sug.style.color='#64748b';
+    }
+  }
 }
 setInterval(atualizarSinaisGrafico, 3000);
 
@@ -7412,6 +7449,8 @@ const _marketToTV = {
 // Inicializa ao carregar
 document.addEventListener('DOMContentLoaded', function() {
   setTimeout(()=>initTradingViewChart('R_100'), 500);
+  // Iniciar digWs automaticamente para sinais
+  setTimeout(()=>{ if(window.digInit) window.digInit(); }, 1000);
 });
 
 // Atualiza gráfico quando mercado muda no dropdown principal
