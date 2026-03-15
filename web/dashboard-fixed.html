@@ -5092,7 +5092,7 @@ function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)retur
   const _liq=s.lucro-s.perda;
   if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}
   if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}
-  if(a.entrar&&Date.now()>=s.cooldownAte){const rt='Score '+scoreDisplay+'% → '+ctFinal.replace('DIGIT','');proFalar('Sinal detectado. '+rt+'. Entrando.');proExecutar(ctFinal,a.barrier);}
+  if(a.entrar&&Date.now()>=s.cooldownAte){const rt='Score '+scoreDisplay+'% → '+ctFinal.replace('DIGIT','');proFalar('Sinal detectado. '+rt+'. Entrando.');proExecutar(ctFinal,a.barrier);}}
 function proGetPayout(ct){
   // Payout aproximado por tipo de contrato
   const payouts={'DIGITEVEN':0.87,'DIGITODD':0.87,'DIGITOVER':0.95,'DIGITUNDER':0.95,'DIGITMATCH':8.0,'DIGITDIFF':0.05};
