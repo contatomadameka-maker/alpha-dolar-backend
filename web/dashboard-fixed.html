@@ -5122,7 +5122,14 @@ function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)re
     stake=Math.round(stake*100)/100;
   }
   s.stakeAtual=stake;proAddFeed('📤 Entrada: '+ct+' | $'+stake.toFixed(2),'#a855f7');const params={contract_type:ct,symbol:document.getElementById('proSymbol').value,duration:1,duration_unit:'t',basis:'stake',amount:stake,currency:'USD'};
-  if((ct==='DIGITMATCH'||ct==='DIGITDIFF')&&barrier!==null&&barrier!==undefined){params.barrier=barrier;}
+  // Barrier obrigatória por tipo
+  if(ct==='DIGITMATCH'||ct==='DIGITDIFF'){
+    if(barrier!==null&&barrier!==undefined){params.barrier=barrier;}
+  } else if(ct==='DIGITOVER'){
+    params.barrier=4; // último dígito > 4
+  } else if(ct==='DIGITUNDER'){
+    params.barrier=5; // último dígito < 5
+  }
   s.ws.send(JSON.stringify({buy:1,price:stake,parameters:params}));}
 function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includes(c.status))return;s.waiting=false;s.cooldownAte=Date.now()+10000;const won=c.status==='won';const profit=parseFloat(c.sell_price||0)-parseFloat(c.buy_price||0);if(won){s.wins++;s.lucro+=Math.abs(profit);s.perdaAcum=0;s.martStep=0;const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$0.00";_sl.style.color="#22c55e";}const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width="0%";_sb.style.background="#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="✅ WIN! Sequência resetada.";proAddFeed('✅ WIN +$'+Math.abs(profit).toFixed(2),'#22c55e');proFalar('Ganhou! Lucro de '+Math.abs(profit).toFixed(2)+' dólares.');}else{s.losses++;s.perda+=Math.abs(profit);s.perdaAcum+=Math.abs(profit);s.martStep=Math.min(s.martStep+1,5);const _lim=parseFloat(document.getElementById("proStop").value)||10;const _pct=Math.min((s.perdaAcum/_lim)*100,100);const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$"+s.perdaAcum.toFixed(2);_sl.style.color=_pct>70?"#ef4444":_pct>40?"#f97316":"#fbbf24";}const _slm=document.getElementById("proStopLimite");if(_slm)_slm.textContent="$"+_lim.toFixed(2);const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width=_pct+"%";_sb.style.background=_pct>70?"#ef4444":_pct>40?"#f97316":"#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="⚠️ Sequência: "+s.martStep+" loss(es) | Reseta no próximo WIN";proAddFeed('❌ LOSS -$'+Math.abs(profit).toFixed(2),'#ef4444');if(s.martStep>=3)proFalar('Atenção. Sequência de '+s.martStep+' perdas. Ajustando stake.');}const total=s.wins+s.losses;const wr=total>0?Math.round(s.wins/total*100):0;document.getElementById('proLucro').textContent='$'+(s.lucro-s.perda).toFixed(2);document.getElementById('proLucro').style.color=(s.lucro-s.perda)>=0?'#22c55e':'#ef4444';document.getElementById('proWinRate').textContent=wr+'%';
   // Atualiza saldo em tempo real
