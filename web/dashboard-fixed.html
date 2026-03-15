@@ -5149,7 +5149,7 @@ async function proEscolherMercado(token) {
       const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
       const digits = [];
       let autorizado = false;
-      const timeout = setTimeout(() => { ws.close(); resolve(); }, 5000);
+      const timeout = setTimeout(() => { proAddFeed('⏱ Timeout '+m.sym,'#64748b'); ws.close(); resolve(); }, 5000);
 
       ws.onopen = () => ws.send(JSON.stringify({authorize: token}));
       ws.onmessage = (e) => {
@@ -5173,7 +5173,7 @@ async function proEscolherMercado(token) {
           }
         }
       };
-      ws.onerror = () => { clearTimeout(timeout); resolve(); };
+      ws.onerror = (e) => { proAddFeed('⚠️ Erro WS '+m.sym,'#ef4444'); clearTimeout(timeout); resolve(); };
       ws.onclose = () => resolve();
     });
   }
