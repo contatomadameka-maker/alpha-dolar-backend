@@ -5166,7 +5166,7 @@ async function proEscolherMercado(token) {
             const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
             const scores = tipos.map(t => proAnalisarTipo(t, digits).score);
             const melhorScore = Math.max(...scores);
-            resultados.push({sym: m.sym, label: m.label, score: melhorScore});
+            resultados.push({sym: m.sym, label: m.label, score: melhorScore});proAddFeed('📊 '+m.label+': '+melhorScore+'%','#64748b');
             clearTimeout(timeout);
             ws.close();
             resolve();
