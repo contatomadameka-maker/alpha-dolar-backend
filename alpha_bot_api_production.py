@@ -104,12 +104,21 @@ def resolve_symbol(s):
     return SYMBOL_MAP.get(s, s or 'R_100')
 
 # ==================== ESTADO GLOBAL ====================
-bots_state = {
-    'manual':      {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None, 'stop_message': None},
-    'ia':          {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None, 'stop_message': None},
-    'ia_simples':  {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None, 'stop_message': None},
-    'ia_avancado': {'running': False, 'instance': None, 'thread': None, 'trades': [], 'stop_reason': None, 'stop_message': None},
-}
+# bots_state agora é isolado por usuário: bots_state[deriv_id][bot_type]
+bots_state = {}
+
+def get_user_state(deriv_id, bot_type):
+    """Retorna ou cria estado isolado por usuário"""
+    if not deriv_id:
+        deriv_id = 'anonymous'
+    if deriv_id not in bots_state:
+        bots_state[deriv_id] = {}
+    if bot_type not in bots_state[deriv_id]:
+        bots_state[deriv_id][bot_type] = {
+            'running': False, 'instance': None, 'thread': None,
+            'trades': [], 'stop_reason': None, 'stop_message': None
+        }
+    return bots_state[deriv_id][bot_type]
 
 # ==================== ROTAS ESTÁTICAS ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -207,12 +216,12 @@ def start_bot():
         except: pass
 
         if bot_type not in bots_state:
-            bots_state[bot_type] = {
+            get_user_state(deriv_id, bot_type) = {
                 'running': False, 'instance': None, 'thread': None,
                 'trades': [], 'stop_reason': None, 'stop_message': None
             }
 
-        if bots_state[bot_type].get('running', False):
+        if get_user_state(deriv_id, bot_type).get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} já está rodando'}), 400
 
         # ==================== BOT REAL ====================
@@ -224,8 +233,8 @@ def start_bot():
             BotConfig.LUCRO_ALVO     = lucro_alvo
             BotConfig.LIMITE_PERDA   = limite_perda
             BotConfig.API_TOKEN      = token
-            bots_state[bot_type]['deriv_id']     = deriv_id
-            bots_state[bot_type]['account_type'] = account_type
+            get_user_state(deriv_id, bot_type)['deriv_id']     = deriv_id
+            get_user_state(deriv_id, bot_type)['account_type'] = account_type
             # Buscar nome do bot cadastrado para este cliente
             try:
                 bots = _listar_bots()
@@ -233,7 +242,7 @@ def start_bot():
                 bot_nome = bot_cadastrado['nome'] if bot_cadastrado else data.get('bot_name', f'BOT {deriv_id}')
             except:
                 bot_nome = data.get('bot_name', bot_type)
-            bots_state[bot_type]['bot_name'] = bot_nome
+            get_user_state(deriv_id, bot_type)['bot_name'] = bot_nome
             print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
 
             trading_mode   = config.get('trading_mode', 'faster')
@@ -264,62 +273,62 @@ def start_bot():
                 def _patched_log(message, level="INFO", _bt=bot_type, _orig=_orig_log):
                     _orig(message, level)
                     if level == "STOP_LOSS":
-                        bots_state[_bt]['stop_reason']  = 'stop_loss'
-                        bots_state[_bt]['stop_message'] = message
-                        bots_state[_bt]['running']      = False
+                        get_user_state(deriv_id, _bt)['stop_reason']  = 'stop_loss'
+                        get_user_state(deriv_id, _bt)['stop_message'] = message
+                        get_user_state(deriv_id, _bt)['running']      = False
                     elif level in ("WIN", "SUCCESS") and "LUCRO ALVO" in message.upper():
-                        bots_state[_bt]['stop_reason']  = 'take_profit'
-                        bots_state[_bt]['stop_message'] = message
-                        bots_state[_bt]['running']      = False
+                        get_user_state(deriv_id, _bt)['stop_reason']  = 'take_profit'
+                        get_user_state(deriv_id, _bt)['stop_message'] = message
+                        get_user_state(deriv_id, _bt)['running']      = False
                 bot.log = _patched_log
 
-            bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
-            bots_state[bot_type]['_lucro_desde_ultimo_reset'] = 0.0
+            get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = 0.0
+            get_user_state(deriv_id, bot_type)['_lucro_desde_ultimo_reset'] = 0.0
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
-                print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={bots_state[bot_type].get('mart_step',0)}")
+                print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={get_user_state(deriv_id, bot_type).get('mart_step',0)}")
                 try:
                     _cliente_id = next(iter([v.get('deriv_id','') for v in [bots_state.get(bot_type,{})] if v.get('deriv_id')]), '')
-                    _bot_name = bots_state[bot_type].get('bot_name_real', bot_type)
+                    _bot_name = get_user_state(deriv_id, bot_type).get('bot_name_real', bot_type)
                     _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake)
                 except: pass
-                trades_ate_agora = bots_state[bot_type]['trades']
+                trades_ate_agora = get_user_state(deriv_id, bot_type)['trades']
                 total = len(trades_ate_agora) + 1
                 wins  = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
                 wr    = round((wins / total) * 100, 1) if total > 0 else 0
 
                 if hasattr(bot, "atualizar_apos_trade"): bot.atualizar_apos_trade(won, profit)
                 # Atualiza mart_step de forma genérica para qualquer estratégia
-                _max = bots_state[bot_type].get('mart_max', 3)
-                _step = bots_state[bot_type].get('mart_step', 0)
+                _max = get_user_state(deriv_id, bot_type).get('mart_max', 3)
+                _step = get_user_state(deriv_id, bot_type).get('mart_step', 0)
                 if won:
-                    bots_state[bot_type]['mart_step'] = 0
+                    get_user_state(deriv_id, bot_type)['mart_step'] = 0
                 else:
-                    bots_state[bot_type]['mart_step'] = min(_step + 1, _max)
+                    get_user_state(deriv_id, bot_type)['mart_step'] = min(_step + 1, _max)
                 # Tenta ler do objeto se disponível (mais preciso)
                 try:
                     if bot.martingale:
                         _info = bot.martingale.get_info()
-                        bots_state[bot_type]['mart_step'] = _info.get('step_atual', bots_state[bot_type]['mart_step'])
-                        bots_state[bot_type]['mart_max']  = _info.get('max_steps', _max)
+                        get_user_state(deriv_id, bot_type)['mart_step'] = _info.get('step_atual', get_user_state(deriv_id, bot_type)['mart_step'])
+                        get_user_state(deriv_id, bot_type)['mart_max']  = _info.get('max_steps', _max)
                 except: pass
                 perda_acum = getattr(bot, 'perda_acumulada', 0)
 
                 if won:
-                    bots_state[bot_type]['_perda_desde_ultimo_ganho'] = 0.0
-                    bots_state[bot_type]['_lucro_desde_ultimo_reset'] = round(
-                        bots_state[bot_type]['_lucro_desde_ultimo_reset'] + abs(profit), 2)
+                    get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = 0.0
+                    get_user_state(deriv_id, bot_type)['_lucro_desde_ultimo_reset'] = round(
+                        get_user_state(deriv_id, bot_type)['_lucro_desde_ultimo_reset'] + abs(profit), 2)
                 else:
-                    bots_state[bot_type]['_perda_desde_ultimo_ganho'] = round(
-                        bots_state[bot_type]['_perda_desde_ultimo_ganho'] + abs(profit), 2)
+                    get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = round(
+                        get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] + abs(profit), 2)
 
-                perda_dc = bots_state[bot_type]['_perda_desde_ultimo_ganho']
+                perda_dc = get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho']
                 limite   = BotConfig.LIMITE_PERDA
 
-                if perda_dc >= limite and bots_state[bot_type].get('running'):
-                    bots_state[bot_type]['stop_reason']  = 'stop_loss'
-                    bots_state[bot_type]['stop_message'] = f'Perda acumulada: ${perda_dc:.2f} / Limite: ${limite:.2f}'
-                    bots_state[bot_type]['running']      = False
+                if perda_dc >= limite and get_user_state(deriv_id, bot_type).get('running'):
+                    get_user_state(deriv_id, bot_type)['stop_reason']  = 'stop_loss'
+                    get_user_state(deriv_id, bot_type)['stop_message'] = f'Perda acumulada: ${perda_dc:.2f} / Limite: ${limite:.2f}'
+                    get_user_state(deriv_id, bot_type)['running']      = False
                     if hasattr(bot, 'stop'):
                         try: bot.stop()
                         except: pass
@@ -331,21 +340,21 @@ def start_bot():
                     'result': 'win' if won else 'loss', 'profit': round(profit, 2),
                     'stake': round(stake, 2), 'symbol': symbol_used,
                     'timestamp': datetime.now().strftime('%H:%M:%S'),
-                    'next_stake': round(next_stake, 2), 'step': bots_state[bot_type]['mart_step'],
-                    'max_steps': bots_state[bot_type]['mart_max'], 'win_rate': wr, 'total_trades': total,
+                    'next_stake': round(next_stake, 2), 'step': get_user_state(deriv_id, bot_type)['mart_step'],
+                    'max_steps': get_user_state(deriv_id, bot_type)['mart_max'], 'win_rate': wr, 'total_trades': total,
                     'exit_tick': str(exit_tick) if exit_tick else None,
                     'longcode': getattr(getattr(bot, 'api', None), '_ultimo_longcode', None),
                     'perda_acum': round(perda_acum, 2),
                 }
-                bots_state[bot_type]['trades'].append(trade)
-                if len(bots_state[bot_type]['trades']) > 100:
-                    bots_state[bot_type]['trades'].pop(0)
+                get_user_state(deriv_id, bot_type)['trades'].append(trade)
+                if len(get_user_state(deriv_id, bot_type)['trades']) > 100:
+                    get_user_state(deriv_id, bot_type)['trades'].pop(0)
                 # Salvar operação no Supabase (somente conta REAL)
                 try:
-                    if bots_state[bot_type].get('account_type', 'demo') == 'real':
-                        cliente_id = bots_state[bot_type].get('deriv_id', '') or bots_state[bot_type].get('cliente_id', '')
+                    if get_user_state(deriv_id, bot_type).get('account_type', 'demo') == 'real':
+                        cliente_id = get_user_state(deriv_id, bot_type).get('deriv_id', '') or get_user_state(deriv_id, bot_type).get('cliente_id', '')
                         _salvar_op(
-                            bot_name=bots_state[bot_type].get('bot_name', bot_type),
+                            bot_name=get_user_state(deriv_id, bot_type).get('bot_name', bot_type),
                             cliente_id=cliente_id,
                             direcao=direction,
                             ganhou=won,
@@ -395,12 +404,12 @@ def start_bot():
                     print(f"❌ Erro thread bot: {e}")
                     _tb.print_exc()
                 finally:
-                    bots_state[bot_type]['running'] = False
+                    get_user_state(deriv_id, bot_type)['running'] = False
 
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
 
-            bots_state[bot_type].update({
+            get_user_state(deriv_id, bot_type).update({
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
                 'bot_name_real': data.get('bot_name', bot_type),
@@ -440,7 +449,7 @@ def start_bot():
             bot    = SimulatedBot()
             thread = threading.Thread(target=bot.run, daemon=True)
             thread.start()
-            bots_state[bot_type].update({
+            get_user_state(deriv_id, bot_type).update({
                 'running': True, 'instance': bot, 'thread': thread,
                 'trades': [], 'stop_reason': None, 'stop_message': None,
                 'bot_name_real': data.get('bot_name', bot_type),
@@ -464,10 +473,11 @@ def stop_bot():
             return jsonify({'success': False, 'error': 'Dados não fornecidos'}), 400
 
         bot_type = data.get('bot_type', 'ia')
-        if bot_type not in bots_state or not bots_state[bot_type].get('running', False):
+        deriv_id = data.get('deriv_id', 'anonymous')
+        if not get_user_state(deriv_id, bot_type).get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} não está rodando'}), 400
 
-        bot = bots_state[bot_type].get('instance')
+        bot = get_user_state(deriv_id, bot_type).get('instance')
         if bot:
             if hasattr(bot, 'stop'):      bot.stop()
             elif hasattr(bot, 'running'): bot.running = False
@@ -479,8 +489,8 @@ def stop_bot():
             elif hasattr(bot, 'stats'):
                 stats = bot.stats
 
-            bots_state[bot_type]['running']     = False
-            bots_state[bot_type]['stop_reason'] = bots_state[bot_type].get('stop_reason') or 'manual'
+            get_user_state(deriv_id, bot_type)['running']     = False
+            get_user_state(deriv_id, bot_type)['stop_reason'] = get_user_state(deriv_id, bot_type).get('stop_reason') or 'manual'
             # Limpar estado salvo — parada manual não deve auto-reiniciar
             try: _limpar_estado(bot_type)
             except: pass
@@ -494,10 +504,8 @@ def stop_bot():
 # ==================== STATS ====================
 @app.route('/api/bot/stats/<bot_type>')
 def get_bot_stats(bot_type):
-    if bot_type not in bots_state:
-        return jsonify({'success': False, 'running': False, 'stats': {}})
-
-    state = bots_state[bot_type]
+    deriv_id = request.args.get('deriv_id', 'anonymous')
+    state = get_user_state(deriv_id, bot_type)
     bot   = state.get('instance')
     stats = {}
 
@@ -517,20 +525,20 @@ def get_bot_stats(bot_type):
     thread_alive = thread is not None and thread.is_alive()
 
     if state.get('running') and not thread_alive:
-        bots_state[bot_type]['running'] = False
-        if not bots_state[bot_type].get('stop_reason'):
-            bots_state[bot_type]['stop_reason'] = 'crashed'
+        get_user_state(deriv_id, bot_type)['running'] = False
+        if not get_user_state(deriv_id, bot_type).get('stop_reason'):
+            get_user_state(deriv_id, bot_type)['stop_reason'] = 'crashed'
 
-    is_running   = bots_state[bot_type].get('running', False)
-    stop_reason  = bots_state[bot_type].get('stop_reason')
-    stop_message = bots_state[bot_type].get('stop_message')
+    is_running   = get_user_state(deriv_id, bot_type).get('running', False)
+    stop_reason  = get_user_state(deriv_id, bot_type).get('stop_reason')
+    stop_message = get_user_state(deriv_id, bot_type).get('stop_message')
 
     waiting_signal = False
     if is_running and bot and BOTS_AVAILABLE and hasattr(bot, 'waiting_contract'):
         waiting_signal = not bot.waiting_contract
 
-    mart_step = bots_state[bot_type].get('mart_step', 0)
-    mart_max  = bots_state[bot_type].get('mart_max', 3)
+    mart_step = get_user_state(deriv_id, bot_type).get('mart_step', 0)
+    mart_max  = get_user_state(deriv_id, bot_type).get('mart_max', 3)
 
     return jsonify({
         'success': True, 'bot_type': bot_type, 'running': is_running,
@@ -540,16 +548,15 @@ def get_bot_stats(bot_type):
         'saldo_atual': stats.get('balance', 0), 'lucro_liquido': stats.get('saldo_liquido', 0),
         'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
-        'perda_dc': bots_state[bot_type].get('_perda_desde_ultimo_ganho', 0),
+        'perda_dc': get_user_state(deriv_id, bot_type).get('_perda_desde_ultimo_ganho', 0),
         'limite_perda': BotConfig.LIMITE_PERDA,
     })
 
 # ==================== TRADES ====================
 @app.route('/api/bot/trades/<bot_type>')
 def get_bot_trades(bot_type):
-    if bot_type not in bots_state:
-        return jsonify({'success': True, 'trades': []})
-    trades = bots_state[bot_type].get('trades', [])
+    deriv_id = request.args.get('deriv_id', 'anonymous')
+    trades = get_user_state(deriv_id, bot_type).get('trades', [])
     return jsonify({'success': True, 'trades': trades, 'total': len(trades)})
 
 # ==================== BALANCE ====================
@@ -571,6 +578,8 @@ def get_balance():
 @app.route('/api/emergency/reset', methods=['POST'])
 def emergency_reset():
     global bots_state
+    deriv_id = request.get_json(silent=True, force=True) or {}
+    deriv_id = deriv_id.get('deriv_id', 'anonymous') if isinstance(deriv_id, dict) else 'anonymous'
     for state in bots_state.values():
         bot = state.get('instance')
         if bot and hasattr(bot, 'stop'):
