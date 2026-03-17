@@ -5369,7 +5369,7 @@ function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)re
     window._proHistTipo.push(ct);
     if(window._proHistTipo.length>10)window._proHistTipo.shift();
   }
-  // Perdas Virtuais — simula entrada sem apostar dinheiro real
+  // Perdas Virtuais — simula N perdas antes de cada entrada real
   const v = window._proVirtual;
   if(v && v.ativo) {
     const n = parseInt(document.getElementById('proVirtualN')?.value || 3);
@@ -5380,6 +5380,7 @@ function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)re
       proAtualizarStatusVirtual();
       proAddFeed('🎭 Virtual '+v.contador+'/'+n+' — '+ct+' (sem aposta real)','#f59e0b');
       // Simula resultado após 1 tick
+      s.waiting = true;
       setTimeout(()=>{
         s.waiting=false;
         const ganhou = Math.random() > 0.5;
@@ -5392,6 +5393,9 @@ function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)re
       }, 1500);
       return;
     }
+    // Resetar contador após cada entrada real — vai simular novamente antes da próxima
+    v.contador = 0;
+    proAtualizarStatusVirtual();
   }
   s.waiting=true;
   let stake=s.stake;
