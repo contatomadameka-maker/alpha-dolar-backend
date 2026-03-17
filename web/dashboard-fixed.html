@@ -5419,6 +5419,41 @@ function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includ
   if(s.ws){s.ws.send(JSON.stringify({balance:1}));}
 }
 window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];s.cooldownAte=0;if('speechSynthesis' in window){const _u=new SpeechSynthesisUtterance(' ');_u.volume=0;window.speechSynthesis.speak(_u);};document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');
+
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const cb = document.getElementById('proVirtualAtivo');
+    if (cb) cb.checked = window._proVirtual.ativo;
+    // Atualizar slider visual
+    const slider = document.querySelector('#proVirtualAtivo')?.closest('div');
+    if (slider) {
+        const ball = slider.querySelector('div');
+        if (ball) {
+            ball.style.background = window._proVirtual.ativo ? '#a855f7' : '#4b5563';
+            ball.style.transform = window._proVirtual.ativo ? 'translateX(16px)' : 'translateX(0)';
+        }
+    }
+    proAtualizarStatusVirtual();
+};
+
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) {
+        statusEl.textContent = 'Aguardando';
+        statusEl.style.color = '#eab308';
+    } else if (v.contador < v.necessarias) {
+        statusEl.textContent = `Virtual ${v.contador}/${v.necessarias}`;
+        statusEl.style.color = '#ec4899';
+    } else {
+        statusEl.textContent = '✅ Entrando REAL!';
+        statusEl.style.color = '#22c55e';
+    }
+};
+
 proConectar();};
 function proParar(motivo){const s=window._proState;
   const tipo=window.currentAccountType||"demo";
