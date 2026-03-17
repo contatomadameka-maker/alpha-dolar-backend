@@ -663,8 +663,11 @@ def get_bot_stats(bot_type):
 
     thread       = state.get('thread')
     thread_alive = thread is not None and thread.is_alive()
+    instance     = state.get('instance') or get_bot_instance(deriv_id, bot_type)
 
-    if state.get('running') and not thread_alive:
+    # Só marca como parado se não tem instância E thread morta
+    # Evita falso positivo quando estado vem do Redis sem thread local
+    if state.get('running') and not thread_alive and instance is None:
         get_user_state(deriv_id, bot_type)['running'] = False
         if not get_user_state(deriv_id, bot_type).get('stop_reason'):
             get_user_state(deriv_id, bot_type)['stop_reason'] = 'crashed'
