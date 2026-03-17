@@ -471,9 +471,10 @@ def start_bot():
                 # Salvar operação no Supabase (somente conta REAL)
                 try:
                     if get_user_state(deriv_id, bot_type).get('account_type', 'demo') == 'real':
-                        cliente_id = get_user_state(deriv_id, bot_type).get('deriv_id', '') or get_user_state(deriv_id, bot_type).get('cliente_id', '')
+                        cliente_id = deriv_id or get_user_state(deriv_id, bot_type).get('deriv_id', '') or get_user_state(deriv_id, bot_type).get('cliente_id', '')
+                        _bot_name = get_user_state(deriv_id, bot_type).get('bot_name', bot_type) or get_user_state(deriv_id, bot_type).get('bot_name_real', bot_type)
                         _salvar_op(
-                            bot_name=get_user_state(deriv_id, bot_type).get('bot_name', bot_type),
+                            bot_name=_bot_name,
                             cliente_id=cliente_id,
                             direcao=direction,
                             ganhou=won,
@@ -545,7 +546,14 @@ def start_bot():
             # Marcar running=True no Redis ANTES de iniciar thread
             # Evita que o frontend detecte 'parado' durante inicialização
             if STATE_MANAGER:
-                _sm_update(deriv_id, bot_type, {'running': True, 'stop_reason': None, 'stop_message': None})
+                _sm_update(deriv_id, bot_type, {
+                    'running': True,
+                    'stop_reason': None,
+                    'stop_message': None,
+                    'account_type': account_type,
+                    'deriv_id': deriv_id,
+                    'bot_name': bot_nome if 'bot_nome' in dir() else bot_type,
+                })
 
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
