@@ -2597,7 +2597,10 @@ body { overflow-x: hidden !important; }
             _ultimoStopReason = null;
             _transicaoEmAndamento = false;
             iniciarTimerSessao();
-            statusInterval = setInterval(atualizarStatusBot, 2000);
+            // Aguarda 4s antes de iniciar polling — Redis precisa sincronizar
+            setTimeout(() => {
+                if (botRunning) statusInterval = setInterval(atualizarStatusBot, 2000);
+            }, 4000);
             modal.classList.add('active');
             startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
         };
@@ -2904,6 +2907,8 @@ body { overflow-x: hidden !important; }
                     if (!stopReason) {
                         console.warn('Backend reiniciou — tentando reconectar...');
                         if (window._addLogLine) window._addLogLine('🔄 Reconectando ao servidor...', 'log-warn');
+                        // Aguarda 5s antes de reconectar — Redis pode estar sincronizando
+                        await new Promise(r => setTimeout(r, 5000));
                         try { await startBotAPI(); } catch(e) {}
                         return;
                     }
@@ -8408,9 +8413,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // O motor IA local também roda em paralelo via WebSocket de dígitos
     iaAdvConectarDigits();
 
-    // Polling de status do backend
-    st.statusInterval = setInterval(iaAdvPollStatus, 3000);
-    setTimeout(iaAdvPollStatus, 2000);
+    // Polling de status do backend — aguarda 5s para Redis sincronizar
+    setTimeout(() => {
+        if (st.running) {
+            st.statusInterval = setInterval(iaAdvPollStatus, 3000);
+            iaAdvPollStatus();
+        }
+    }, 5000);
   };
 
   // ── PARAR ──
