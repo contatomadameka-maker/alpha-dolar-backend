@@ -7615,6 +7615,33 @@ async function carregarAnalytics() {
     <div id="analytics-content"></div>
   </div>
 </div>
+
+<script>
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    if (!window.proAtualizarStatusVirtual) return;
+    window.proAtualizarStatusVirtual();
+};
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) { statusEl.textContent = 'Aguardando'; statusEl.style.color = '#eab308'; }
+    else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
+    else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
+};
+</script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -9650,6 +9677,33 @@ document.addEventListener('DOMContentLoaded', function() {
     <div id="analytics-content"></div>
   </div>
 </div>
+
+<script>
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    if (!window.proAtualizarStatusVirtual) return;
+    window.proAtualizarStatusVirtual();
+};
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) { statusEl.textContent = 'Aguardando'; statusEl.style.color = '#eab308'; }
+    else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
+    else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
+};
+</script>
 </body>
      ═══════════════════════════════════════════════════════════════ -->
 
@@ -9816,5 +9870,32 @@ function fecharPopupDefinitivo() {
     <div id="analytics-content"></div>
   </div>
 </div>
+
+<script>
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    if (!window.proAtualizarStatusVirtual) return;
+    window.proAtualizarStatusVirtual();
+};
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) { statusEl.textContent = 'Aguardando'; statusEl.style.color = '#eab308'; }
+    else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
+    else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
+};
+</script>
 </body>
 </html>
