@@ -2617,7 +2617,7 @@ body { overflow-x: hidden !important; }
             _watchdogLoopCount = 0;
             if (window._addLogLine) window._addLogLine('🔄 Reiniciando bot (preservando martingale)...', 'log-watchdog');
             try {
-                const statsRes = await fetch(API_BASE + '/bot/stats/ia');
+                const statsRes = await fetch(API_BASE + '/bot/stats/ia?deriv_id='+getDerivId());
                 const statsData = await statsRes.json();
                 window._martingalePreservado = {
                     step: statsData.mart_step || 0,
@@ -2746,7 +2746,7 @@ body { overflow-x: hidden !important; }
 
         async function buscarTradesDoBackend() {
             try {
-                const res = await fetch(API_BASE + '/bot/trades/ia');
+                const res = await fetch(API_BASE + '/bot/trades/ia?deriv_id='+getDerivId());
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.success === false) return;
@@ -2799,7 +2799,7 @@ body { overflow-x: hidden !important; }
             // ✅ Fetch FINAL de stats — dados atualizados com último trade
             let statsFinal = dadosAtuais;
             try {
-                const resStats = await fetch(API_BASE + '/bot/stats/ia');
+                const resStats = await fetch(API_BASE + '/bot/stats/ia?deriv_id='+getDerivId());
                 if (resStats.ok) {
                     const dataStats = await resStats.json();
                     if (dataStats && !dataStats.error) {
@@ -2865,7 +2865,7 @@ body { overflow-x: hidden !important; }
             if (_transicaoEmAndamento) return;
 
             try {
-                const res = await fetch(API_BASE + '/bot/stats/ia');
+                const res = await fetch(API_BASE + '/bot/stats/ia?deriv_id='+getDerivId());
                 if (!res.ok) return;
                 const data = await res.json();
                 if (data.success === false) return;
@@ -3015,7 +3015,7 @@ body { overflow-x: hidden !important; }
             saldoInicial          = 0;
             setTimeout(async () => {
                 try {
-                    const r = await fetch(`${API_BASE}/bot/stats/ia`);
+                    const r = await fetch(`${API_BASE}/bot/stats/ia?deriv_id=${getDerivId()}`);
                     const d = await r.json();
                     if (d.running) {
                         saldoInicial = d.saldo_atual - d.lucro_liquido;

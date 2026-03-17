@@ -11,6 +11,16 @@ HEADERS = {
     'Prefer': 'return=representation'
 }
 
+def _headers():
+    """Retorna headers atualizados com as variáveis de ambiente"""
+    key = os.environ.get('SUPABASE_KEY', SUPABASE_KEY)
+    return {
+        'apikey': key,
+        'Authorization': f'Bearer {key}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+    }
+
 def init_db():
     print("Supabase conectado!")
 
