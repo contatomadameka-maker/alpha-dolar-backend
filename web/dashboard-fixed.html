@@ -7330,7 +7330,7 @@ function getDerivId() {
     const contas = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
     const conta = contas.find(x => Boolean(x.isDemo) === (tipo === 'demo')) || contas[0];
-    return conta ? (conta.loginid || conta.deriv_id || 'anonymous') : 'anonymous';
+    return conta ? (conta.acct || conta.loginid || conta.deriv_id || 'anonymous') : 'anonymous';
   } catch(e) { return 'anonymous'; }
 }
 
