@@ -8677,6 +8677,17 @@ document.addEventListener('DOMContentLoaded', function() {
       const lucroLiquido = data.lucro_liquido !== undefined ? data.lucro_liquido : 0;
       const baseCalc     = saldoAtual - lucroLiquido;
       const profitPct    = baseCalc > 0 && lucroLiquido !== 0 ? (lucroLiquido / baseCalc) * 100 : 0;
+      // Atualiza texto de status do modal
+      const _statusEl = document.getElementById('botStatusText');
+      const _totalTr = data.total_trades || 0;
+      const _wr = data.win_rate || 0;
+      if (_statusEl && st.running) {
+        if (_totalTr > 0) {
+          _statusEl.innerText = `Trades: ${_totalTr} | Win: ${_wr.toFixed(1)}%`;
+        } else {
+          _statusEl.innerText = 'Aguardando sinal...';
+        }
+      }
       const lucroTexto   = '$' + lucroLiquido.toFixed(2) + ' (' + profitPct.toFixed(2) + '%)';
       const corLucro     = lucroLiquido > 0.005 ? '#4caf50' : lucroLiquido < -0.005 ? '#f44336' : '#4caf50';
       const profitEl      = document.getElementById('botRunningProfit');
