@@ -5423,17 +5423,16 @@ window.proToggle=function(){const s=window._proState;if(s.running){proParar('man
 window.proToggleVirtual = function() {
     if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
     window._proVirtual.ativo = !window._proVirtual.ativo;
-    const cb = document.getElementById('proVirtualAtivo');
-    if (cb) cb.checked = window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
     // Atualizar slider visual
-    const slider = document.querySelector('#proVirtualAtivo')?.closest('div');
-    if (slider) {
-        const ball = slider.querySelector('div');
-        if (ball) {
-            ball.style.background = window._proVirtual.ativo ? '#a855f7' : '#4b5563';
-            ball.style.transform = window._proVirtual.ativo ? 'translateX(16px)' : 'translateX(0)';
-        }
-    }
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
     proAtualizarStatusVirtual();
 };
 
