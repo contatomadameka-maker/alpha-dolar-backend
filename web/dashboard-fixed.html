@@ -5385,15 +5385,18 @@ function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)re
         s.waiting=false;
         const ganhou = Math.random() > 0.5;
         if(ganhou){
-          proAddFeed('🎭 Virtual: Teria GANHO','#22c55e');
+          proAddFeed('🎭 Virtual: Teria GANHO — resetando filtro','#22c55e');
+          // Se ganhou no virtual, reseta contador — busca N perdas consecutivas
+          v.contador = 0;
+          proAtualizarStatusVirtual();
         } else {
-          proAddFeed('🎭 Virtual: Teria PERDIDO','#ef4444');
+          proAddFeed('🎭 Virtual: Teria PERDIDO ✓','#ef4444');
+          proAtualizarStatusVirtual();
         }
-        proAtualizarStatusVirtual();
       }, 1500);
       return;
     }
-    // Resetar contador após cada entrada real — vai simular novamente antes da próxima
+    // Atingiu N perdas consecutivas — entra real e reseta
     v.contador = 0;
     proAtualizarStatusVirtual();
   }
