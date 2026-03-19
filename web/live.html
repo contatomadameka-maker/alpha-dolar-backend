@@ -5,6 +5,23 @@
 
     <meta charset="UTF-8">
 <script src="js/fake_engine.js"></script>
+<script>
+// FAKE ENGINE PATCH — desativa polling de trades (evita duplo registro)
+window.addEventListener('DOMContentLoaded', function() {
+  // Sobrescreve buscarTradesDoBackend para nao duplicar trades
+  window.buscarTradesDoBackend = async function() { return; };
+  // Sobrescreve atualizarStatusBot para usar dados do FakeEngine
+  const _origAtualizar = window.atualizarStatusBot;
+  window.atualizarStatusBot = async function() {
+    if (!window.FakeEngine) return;
+    const s = window.FakeEngine.getStats();
+    // Atualiza variaveis globais do dashboard
+    if (typeof window.lucroAcumulado !== 'undefined') window.lucroAcumulado = s.lucro_liquido;
+    if (typeof window.totalTrades !== 'undefined')    window.totalTrades    = s.total_trades;
+    if (typeof window.winRate !== 'undefined')        window.winRate        = s.win_rate;
+  };
+});
+</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alpha Dolar 2.0 - Trading Dashboard</title>
     <link rel="stylesheet" href="css/dashboard-styles.css">
@@ -2304,6 +2321,8 @@ body { overflow-x: hidden !important; }
         }
 
         window.registrarTrade = function({ tipo, mercado, valor, duracao, resultado, lucro, proximoStake, step, maxStep, winRate, totalTrades, exitTick, longcode }) {
+            // DEBUG — mostra quem chamou
+            console.log('[registrarTrade] valor=$'+valor+' prox=$'+proximoStake+' step='+step, new Error().stack.split('\n')[2]);
             const isWin    = resultado === 'WIN' || lucro > 0;
             const lucroNum = parseFloat(lucro) || 0;
             const stakeNum = parseFloat(valor) || 0;
@@ -3715,6 +3734,7 @@ body { overflow-x: hidden !important; }
 
                         if (window.registrarTrade) {
                             window.registrarTrade({
+                                _manual: true,
                                 tipo: c.contract_type || 'CALL/PUT',
                                 mercado: c.underlying || marketSel.value,
                                 valor: parseFloat(c.buy_price) || parseFloat(stakeInput.value),
