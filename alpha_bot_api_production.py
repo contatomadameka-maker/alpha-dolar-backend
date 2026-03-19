@@ -767,7 +767,7 @@ robo_master_intervalo = 600  # 10 minutos default
 def _robo_auto_start():
     global robo_master_ativo, robo_master_thread, robo_master_intervalo
     try:
-        if STATE_MANAGER:
+        if STATE_MANAGER and hasattr(STATE_MANAGER, 'get'):
             estado = STATE_MANAGER.get('robo_master_estado') or {}
             if estado.get('ativo'):
                 robo_master_intervalo = estado.get('intervalo', 600)
@@ -937,7 +937,7 @@ def api_robo_start():
     data = request.get_json() or {}
     robo_master_intervalo = int(data.get('intervalo', 600))
     # Salvar estado no Redis para persistir após restart
-    if STATE_MANAGER:
+    if STATE_MANAGER and hasattr(STATE_MANAGER, 'set'):
         STATE_MANAGER.set('robo_master_estado', {'ativo': True, 'intervalo': robo_master_intervalo})
     if not robo_master_ativo:
         robo_master_ativo = True
@@ -949,7 +949,7 @@ def api_robo_start():
 def api_robo_stop():
     global robo_master_ativo
     robo_master_ativo = False
-    if STATE_MANAGER:
+    if STATE_MANAGER and hasattr(STATE_MANAGER, 'set'):
         STATE_MANAGER.set('robo_master_estado', {'ativo': False, 'intervalo': robo_master_intervalo})
     return jsonify({'ok': True, 'ativo': False})
 
