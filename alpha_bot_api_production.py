@@ -359,8 +359,15 @@ def start_bot():
             # Buscar nome do bot cadastrado para este cliente
             try:
                 bots = _listar_bots()
-                bot_cadastrado = next((b for b in bots if b.get('deriv_id') == deriv_id), None)
-                bot_nome = bot_cadastrado['nome'] if bot_cadastrado else data.get('bot_name', f'BOT {deriv_id}')
+                # Primeiro tenta pelo bot_name enviado pelo frontend
+                bot_name_req = data.get('bot_name', '')
+                if bot_name_req:
+                    bot_cadastrado = next((b for b in bots if b.get('nome','').lower() == bot_name_req.lower()), None)
+                else:
+                    # Fallback: busca pelo deriv_id do dono
+                    bot_cadastrado = next((b for b in bots if b.get('deriv_id') == deriv_id), None)
+                # Se achou bot cadastrado usa o nome oficial, senão usa o enviado pelo frontend
+                bot_nome = bot_cadastrado['nome'] if bot_cadastrado else (bot_name_req or f'BOT {deriv_id}')
             except:
                 bot_nome = data.get('bot_name', bot_type)
             get_user_state(deriv_id, bot_type)['bot_name'] = bot_nome
