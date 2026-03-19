@@ -764,6 +764,20 @@ robo_master_ativo = False
 robo_master_thread = None
 robo_master_intervalo = 600  # 10 minutos default
 
+def _robo_auto_start():
+    global robo_master_ativo, robo_master_thread, robo_master_intervalo
+    try:
+        if STATE_MANAGER:
+            estado = STATE_MANAGER.get('robo_master_estado') or {}
+            if estado.get('ativo'):
+                robo_master_intervalo = estado.get('intervalo', 600)
+                robo_master_ativo = True
+                t = threading.Thread(target=robo_master_loop, daemon=True)
+                t.start()
+                print(f"Auto-start robo: intervalo={robo_master_intervalo}s")
+    except Exception as e:
+        print(f"Auto-start robo falhou: {e}")
+
 MERCADOS_ROBO = ['R_100', 'R_75', 'R_50']
 TIPOS_ROBO = ['PAR', 'ÍMPAR', 'CALL', 'PUT']
 
@@ -796,6 +810,9 @@ def api_robo_start():
     global robo_master_ativo, robo_master_thread, robo_master_intervalo
     data = request.get_json() or {}
     robo_master_intervalo = int(data.get('intervalo', 600))
+    # Salvar estado no Redis para persistir após restart
+    if STATE_MANAGER:
+        STATE_MANAGER.set('robo_master_estado', {'ativo': True, 'intervalo': robo_master_intervalo})
     if not robo_master_ativo:
         robo_master_ativo = True
         robo_master_thread = threading.Thread(target=robo_master_loop, daemon=True)
@@ -805,7 +822,9 @@ def api_robo_start():
 @app.route('/api/robo/stop', methods=['POST'])
 def api_robo_stop():
     global robo_master_ativo
-    robo_master_ativo = False
+        robo_master_ativo = False
+    if STATE_MANAGER:
+        STATE_MANAGER.set('robo_master_estado', {'ativo': False, 'intervalo': robo_master_intervalo})
     return jsonify({'ok': True, 'ativo': False})
 
 
@@ -950,7 +969,8 @@ def auto_restart_bots():
         except Exception as e:
             print(f"⚠️ Auto-restart {bot_type} falhou: {e}")
 
-# Auto-restart desabilitado — causa conflito com múltiplos usuários
+# Auto-restart desabilitado
+_robo_auto_start()  # Auto-inicia robô de sinais se estava ativo — causa conflito com múltiplos usuários
 # threading.Thread(target=auto_restart_bots, daemon=True).start()
 print('ℹ️ Auto-restart desabilitado')
 
