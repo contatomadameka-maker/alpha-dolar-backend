@@ -334,7 +334,7 @@ function getMes(){ const d=new Date(); return `${d.getFullYear()}-${String(d.get
 
 function calcBot(botNome){
   const m = getMes();
-  const ops = operacoes.filter(o => o.bot_name === botNome && o.criado_em && o.criado_em.startsWith(m));
+  const ops = operacoes.filter(o => o.bot_name && o.bot_name.toLowerCase() === botNome.toLowerCase() && o.criado_em && o.criado_em.startsWith(m));
   const ganhos  = ops.filter(o=>o.resultado==='win'||o.resultado==='ganhou').reduce((s,o)=>s+Math.abs(parseFloat(o.lucro)||0),0);
   const perdas  = ops.filter(o=>o.resultado==='loss'||o.resultado==='perdeu').reduce((s,o)=>s+Math.abs(parseFloat(o.lucro)||0),0);
   const lucroLiqDeriv = Math.max(0, perdas - ganhos); // Deriv só lucra quando clientes perdem mais
