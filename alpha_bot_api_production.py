@@ -1391,3 +1391,94 @@ def api_verificar_expiracao():
         return jsonify({'ok': True, 'expulsos': expulsos})
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════
+# 🤖 ROBÔ DE SINAIS TELEGRAM — Loop contínuo
+# ═══════════════════════════════════════════════════════════
+
+robo_sinais_state = {
+    'running': False,
+    'thread': None,
+    'intervalo': 300,
+    'total_enviados': 0,
+    'ultimo_envio': None
+}
+
+def _robo_sinais_loop():
+    import random
+    from backend.telegram_signals import sinal_digitos, enviar_telegram
+
+    mercados = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100']
+    tipos_digit = ['DIGITEVEN', 'DIGITODD', 'DIGITOVER', 'DIGITUNDER']
+
+    print("[RobôSinais] Loop iniciado")
+
+    while robo_sinais_state['running']:
+        try:
+            mercado = random.choice(mercados)
+            tipo    = random.choice(tipos_digit)
+            prob    = random.randint(62, 89)
+            digitos = [random.randint(0, 9) for _ in range(10)]
+            sinal_digitos(mercado, tipo, prob, digitos)
+            robo_sinais_state['total_enviados'] += 1
+            robo_sinais_state['ultimo_envio'] = datetime.now().strftime('%H:%M:%S')
+            print(f"[RobôSinais] Sinal #{robo_sinais_state['total_enviados']} enviado")
+        except Exception as e:
+            print(f"[RobôSinais] Erro: {e}")
+
+        segundos = robo_sinais_state['intervalo']
+        for _ in range(segundos // 5):
+            if not robo_sinais_state['running']:
+                break
+            time.sleep(5)
+
+    print("[RobôSinais] Loop encerrado")
+
+
+@app.route('/api/robo-sinais/start', methods=['POST'])
+def start_robo_sinais():
+    if robo_sinais_state['running']:
+        return jsonify({'error': 'Robô já rodando'}), 400
+    data = request.json or {}
+    robo_sinais_state['intervalo'] = max(60, int(data.get('intervalo', 300)))
+    robo_sinais_state['running'] = True
+    t = threading.Thread(target=_robo_sinais_loop, daemon=True)
+    t.start()
+    robo_sinais_state['thread'] = t
+    from backend.telegram_signals import enviar_telegram
+    enviar_telegram("🟢 <b>ALPHA SIGNALS ATIVADO</b>\n\nRobô de sinais iniciado!\n\n🌐 alphadolar.online")
+    return jsonify({'success': True, 'intervalo': robo_sinais_state['intervalo']})
+
+
+@app.route('/api/robo-sinais/stop', methods=['POST'])
+def stop_robo_sinais():
+    if not robo_sinais_state['running']:
+        return jsonify({'error': 'Robô não está rodando'}), 400
+    robo_sinais_state['running'] = False
+    from backend.telegram_signals import enviar_telegram
+    enviar_telegram("🔴 <b>ALPHA SIGNALS PAUSADO</b>\n\nRobô parado pelo admin.\n\n🌐 alphadolar.online")
+    return jsonify({'success': True, 'total_enviados': robo_sinais_state['total_enviados']})
+
+
+@app.route('/api/robo-sinais/status', methods=['GET'])
+def status_robo_sinais():
+    return jsonify({
+        'running':        robo_sinais_state['running'],
+        'intervalo':      robo_sinais_state['intervalo'],
+        'total_enviados': robo_sinais_state['total_enviados'],
+        'ultimo_envio':   robo_sinais_state['ultimo_envio']
+    })
+
+
+@app.route('/api/robo-sinais/sinal-manual', methods=['POST'])
+def enviar_sinal_manual_prod():
+    from backend.telegram_signals import sinal_manual
+    data    = request.json or {}
+    texto   = data.get('texto', '')
+    direcao = data.get('direcao', None)
+    if not texto:
+        return jsonify({'error': 'Texto obrigatório'}), 400
+    ok = sinal_manual(texto, direcao=direcao)
+    return jsonify({'success': ok})
+
