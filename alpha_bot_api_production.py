@@ -1180,6 +1180,32 @@ def api_ia_analytics():
     except Exception as e:
         return jsonify({'ok': False, 'erro': str(e)})
 
+# ✅ AUTO-START do robô de sinais via Redis
+def _autostart_robo_sinais():
+    try:
+        import time
+        time.sleep(5)  # Aguarda app inicializar
+        robo_ativo = False
+        try:
+            r = redis_client
+            val = r.get('robo_sinais_running')
+            robo_ativo = val and val.decode() == '1'
+        except:
+            pass
+
+        if robo_ativo and not robo_sinais_state['running']:
+            robo_sinais_state['running'] = True
+            t = threading.Thread(target=_robo_sinais_loop, daemon=True)
+            t.start()
+            robo_sinais_state['thread'] = t
+            print("[RobôSinais] Auto-iniciado via Redis ✅")
+    except Exception as e:
+        print(f"[RobôSinais] Erro no auto-start: {e}")
+
+# Salva estado no Redis ao ligar/desligar
+_autostart_thread = threading.Thread(target=_autostart_robo_sinais, daemon=True)
+_autostart_thread.start()
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
@@ -1446,6 +1472,9 @@ def start_robo_sinais():
     t = threading.Thread(target=_robo_sinais_loop, daemon=True)
     t.start()
     robo_sinais_state['thread'] = t
+    # Salva no Redis para auto-restart após redeploy
+    try: redis_client.set('robo_sinais_running', '1')
+    except: pass
     from backend.telegram_signals import enviar_telegram
     enviar_telegram("🟢 <b>ALPHA SIGNALS ATIVADO</b>\n\nRobô de sinais iniciado!\n\n🌐 alphadolar.online")
     return jsonify({'success': True, 'intervalo': robo_sinais_state['intervalo']})
@@ -1456,6 +1485,9 @@ def stop_robo_sinais():
     if not robo_sinais_state['running']:
         return jsonify({'error': 'Robô não está rodando'}), 400
     robo_sinais_state['running'] = False
+    # Remove do Redis
+    try: redis_client.delete('robo_sinais_running')
+    except: pass
     from backend.telegram_signals import enviar_telegram
     enviar_telegram("🔴 <b>ALPHA SIGNALS PAUSADO</b>\n\nRobô parado pelo admin.\n\n🌐 alphadolar.online")
     return jsonify({'success': True, 'total_enviados': robo_sinais_state['total_enviados']})
