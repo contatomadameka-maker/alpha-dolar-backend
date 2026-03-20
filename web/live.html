@@ -3223,6 +3223,23 @@ body { overflow-x: hidden !important; }
 
         window.switchAccountType = function(type) {
             if (type === currentAccountType || isSwitching) return;
+            const contas = getContas();
+            if (!contas) return;
+            const temContaReal = contas.some(c => c.isDemo === false && c.token);
+            const temContaDemo = contas.some(c => c.isDemo === true  && c.token);
+            if (type === 'real' && !temContaReal) {
+                if (confirm('Para operar na conta Real, você precisa conectar sua conta Real da Deriv. Deseja fazer login agora?')) {
+                    localStorage.setItem('deriv_conta_ativa', 'real');
+                    window.location.href = '/login';
+                }
+                return;
+            }
+            if (type === 'demo' && !temContaDemo) {
+                if (confirm('Conta Demo não encontrada. Deseja fazer login novamente?')) {
+                    window.location.href = '/login';
+                }
+                return;
+            }
             currentAccountType = type;
             window.currentAccountType = type;
             localStorage.setItem('deriv_conta_ativa', type);
