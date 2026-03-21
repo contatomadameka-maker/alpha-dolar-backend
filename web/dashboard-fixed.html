@@ -5750,19 +5750,25 @@ const _bankPerfis = {
 let _bankPerfil = 'moderado';
 
 window.abrirAlphaBank = async function() {
-    const derivId = localStorage.getItem('deriv_id') || (JSON.parse(localStorage.getItem('deriv_accounts')||'[]')[0]||{}).loginid;
-    if (!derivId) { window.open('https://pay.cakto.com.br/qktokbt_813127','_blank'); return; }
+    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const email = localStorage.getItem('alpha_email') || '';
+    if (!email) {
+        const ok = confirm('Alpha Bank\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 19,90 vitalicio!');
+        if (ok) window.open('https://pay.cakto.com.br/qktokbt_813127','_blank');
+        return;
+    }
     try {
-        const r = await fetch('/api/meus-produtos?deriv_id=' + derivId);
+        const r = await fetch(
+            SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-bank&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
+        );
         const d = await r.json();
-        const temAcesso = (d.produtos||[]).some(function(p){ return p.produto === 'alpha-bank'; });
-        if (temAcesso) {
+        if (d && d.length > 0) {
             document.getElementById('alphaBankModal').style.display = 'block';
             bankAtualizar();
         } else {
-            const ok = confirm('Alpha Bank - Voce ainda nao tem acesso.
-
-Clique OK para adquirir por R$ 19,90 vitalicio!');
+            const ok = confirm('Alpha Bank\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 19,90 vitalicio!');
             if (ok) window.open('https://pay.cakto.com.br/qktokbt_813127','_blank');
         }
     } catch(e) {

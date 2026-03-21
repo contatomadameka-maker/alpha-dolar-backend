@@ -898,3 +898,60 @@ def listar_clientes():
         return jsonify([dict(r) for r in rows])
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+# ─────────────────────────────────────────────
+# SUPABASE CONFIG
+# ─────────────────────────────────────────────
+SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co'
+SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo'
+import urllib.request
+
+def supabase_liberar(email, produto, tipo='vitalicio'):
+    url = f'{SUPABASE_URL}/rest/v1/produtos_liberados'
+    data = json.dumps({'email': email, 'produto': produto, 'tipo': tipo}).encode()
+    req = urllib.request.Request(url, data=data, method='POST')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('apikey', SUPABASE_SERVICE_KEY)
+    req.add_header('Authorization', f'Bearer {SUPABASE_SERVICE_KEY}')
+    req.add_header('Prefer', 'resolution=ignore-duplicates')
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        return True
+    except Exception as e:
+        print('Supabase erro:', e)
+        return False
+
+# ─────────────────────────────────────────────
+# WEBHOOK CAKTO — libera produto automaticamente
+# ─────────────────────────────────────────────
+PRODUTOS_CAKTO = {
+    'qktokbt_813127': 'alpha-bank',
+}
+
+@app.route('/api/webhook/cakto', methods=['POST'])
+def webhook_cakto():
+    try:
+        data = request.json or {}
+        print('CAKTO webhook:', json.dumps(data))
+        # Cakto envia email do comprador
+        email = (
+            data.get('customer', {}).get('email') or
+            data.get('email') or
+            data.get('buyer', {}).get('email') or ''
+        ).lower().strip()
+        # Identificar produto pelo offer_id ou product_id
+        offer_id = (
+            data.get('offer', {}).get('id') or
+            data.get('product', {}).get('id') or
+            data.get('offer_id') or ''
+        )
+        produto = PRODUTOS_CAKTO.get(str(offer_id))
+        if not email or not produto:
+            print(f'Webhook ignorado — email:{email} offer:{offer_id}')
+            return jsonify({'ok': False, 'msg': 'dados insuficientes'}), 200
+        ok = supabase_liberar(email, produto)
+        print(f'Liberado: {email} -> {produto} = {ok}')
+        return jsonify({'ok': ok})
+    except Exception as e:
+        print('Webhook erro:', e)
+        return jsonify({'ok': False, 'erro': str(e)}), 200

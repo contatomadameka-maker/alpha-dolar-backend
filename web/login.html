@@ -408,6 +408,8 @@ async function processarCallback() {
             })
         });
     } catch(e) { console.warn('Erro ao salvar cliente:', e); }
+    localStorage.setItem('alpha_email', principal.email || '');
+    localStorage.setItem('alpha_deriv_id', principal.acct || '');
 
     window.history.replaceState({}, '', window.location.pathname);
     setLoading(false);
