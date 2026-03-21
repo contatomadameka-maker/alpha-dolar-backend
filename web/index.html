@@ -670,7 +670,7 @@ const PLANOS={
     {nome:'Plano VIP Completo',desc:'7 IAs exclusivas com análise neural, detecção de padrões, scalping inteligente e martingale automático.',banner:'💎',preco:'297',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'POPULAR',feats:['Alpha Mind (78%)','Quantum Trader (80%)','Titan Core (79%)','Alpha Pulse (77%)','Alpha Smart (76%)','Alpha Analytics (78%)','Alpha Sniper (82%)'],btn:'az',dest:true},
   ],
   'alpha-bank':[
-    {nome:'Alpha Bank',desc:'Gestão inteligente de banca. Calcula automaticamente stake ideal, stop loss diário e meta de lucro baseados no seu saldo atual.',banner:'🏦',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Stake automático por saldo','Stop loss diário','Meta de lucro diária','3 perfis de risco','Aplicação 1 clique no robô'],btn:'az'},
+    {nome:'Alpha Bank',desc:'Gestão inteligente de banca. Calcula automaticamente stake ideal, stop loss diário e meta de lucro baseados no seu saldo atual.',banner:'🏦',preco:'19.90',periodo:' vitalício',acesso:'Acesso vitalício',tog:false,badge:'NOVO',feats:['Stake automático por saldo','Stop loss diário','Meta de lucro diária','3 perfis de risco','Aplicação 1 clique no robô'],btn:'az'},
   ],
   'alpha-shield':[
     {nome:'Alpha Shield',desc:'Monitora a volatilidade do mercado em tempo real via WebSocket e alerta quando as condições estão perigosas para operar.',banner:'🛡️',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Monitoramento WebSocket','Desvio padrão em tempo real','3 níveis: Seguro / Atenção / Perigo','Círculo animado de alerta','Detecta mercado automaticamente'],btn:'az'},
@@ -735,7 +735,7 @@ function swTog(i,op,preco){
   document.getElementById('pv'+i).textContent=preco;
   document.getElementById('tog'+i).querySelectorAll('.ptog').forEach((b,j)=>b.classList.toggle('on',j===op));
 }
-function checkout(nome){alert('Em breve: checkout para "'+nome+'" — integração Stripe em desenvolvimento! 🚀')}
+function checkout(nome){const links={'Alpha Bank':'https://pay.cakto.com.br/qktokbt_813127'};if(links[nome])window.open(links[nome],'_blank');else alert('Em breve: checkout para "'+nome+'" 🚀')}
 
 // SALDO E CONTA
 function carregarContaHome(){
