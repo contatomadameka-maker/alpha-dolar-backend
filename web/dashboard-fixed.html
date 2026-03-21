@@ -5749,9 +5749,26 @@ const _bankPerfis = {
 };
 let _bankPerfil = 'moderado';
 
-window.abrirAlphaBank = function() {
-    document.getElementById('alphaBankModal').style.display = 'block';
-    bankAtualizar();
+window.abrirAlphaBank = async function() {
+    const derivId = localStorage.getItem('deriv_id') || (JSON.parse(localStorage.getItem('deriv_accounts')||'[]')[0]||{}).loginid;
+    if (!derivId) { window.open('https://pay.cakto.com.br/qktokbt_813127','_blank'); return; }
+    try {
+        const r = await fetch('/api/meus-produtos?deriv_id=' + derivId);
+        const d = await r.json();
+        const temAcesso = (d.produtos||[]).some(function(p){ return p.produto === 'alpha-bank'; });
+        if (temAcesso) {
+            document.getElementById('alphaBankModal').style.display = 'block';
+            bankAtualizar();
+        } else {
+            const ok = confirm('Alpha Bank - Voce ainda nao tem acesso.
+
+Clique OK para adquirir por R$ 19,90 vitalicio!');
+            if (ok) window.open('https://pay.cakto.com.br/qktokbt_813127','_blank');
+        }
+    } catch(e) {
+        document.getElementById('alphaBankModal').style.display = 'block';
+        bankAtualizar();
+    }
 };
 window.fecharAlphaBank = function() {
     document.getElementById('alphaBankModal').style.display = 'none';
