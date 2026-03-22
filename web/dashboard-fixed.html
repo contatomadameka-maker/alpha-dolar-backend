@@ -5093,7 +5093,16 @@ window._MKT_DATA = {
 <script>
 window._proState={running:false,ws:null,digits:[],lucro:0,perda:0,wins:0,losses:0,stake:0.35,stakeAtual:0.35,mult:2.2,perdaAcum:0,martStep:0,waiting:false,pendingContracts:{},reqId:1,vozAtiva:true,cooldownAte:0};
 window._proModoNeg='balanceado';
-window.abrirAlphaIaPro=function(){
+window.abrirAlphaIaPro=async function(){
+  const email=localStorage.getItem('alpha_email')||'';
+  const SUPA_URL='https://urlthgicnomfbyklesou.supabase.co';
+  const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+  try{
+    const r=await fetch(SUPA_URL+'/rest/v1/produtos_liberados?email=eq.'+encodeURIComponent(email)+'&produto=eq.ia-pro&select=id',
+      {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+    const d=await r.json();
+    if(!(d&&d.length>0)){window.location.href='/checkout?produto=ia-pro';return;}
+  }catch(e){}
   const m=document.getElementById('alphaIaProModal');
   m.style.display='block';
   // Carrega contas e saldo
