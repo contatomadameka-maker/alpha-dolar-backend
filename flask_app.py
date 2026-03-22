@@ -863,6 +863,10 @@ if __name__ == '__main__':
 from database import get_db, init_db
 init_db()
 
+@app.route('/checkout')
+def checkout():
+    return send_from_directory('web', 'checkout.html')
+
 @app.route('/api/salvar-cliente', methods=['POST'])
 def salvar_cliente():
     data = request.json
