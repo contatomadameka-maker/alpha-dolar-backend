@@ -292,13 +292,13 @@ footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#
       <span class="cat-badge badge-vip">VIP</span>
     </div>
 
-    <div class="cat-item" onclick="filtrar('vip')">
+    <div class="cat-item" onclick="document.getElementById('card-vip').scrollIntoView({behavior:'smooth',block:'center'});">
       <span class="cat-icon">⭐</span>
       Estratégias VIP
       <span class="cat-badge badge-vip">VIP</span>
     </div>
 
-    <div class="cat-item" onclick="filtrar('premium')">
+    <div class="cat-item" onclick="document.getElementById('card-premium').scrollIntoView({behavior:'smooth',block:'center'});">
       <span class="cat-icon">👑</span>
       Premium & Elite
       <span class="cat-badge badge-vip">VIP</span>
@@ -566,8 +566,52 @@ footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#
         </div>
 
 
-        <!-- Card Alpha Bank -->
-      <div class="destaque-card" onclick="window.location='/guia-deposito-saque.html'" style="border-color:rgba(76,175,80,.25)">
+        <!-- Card Estratégias VIP -->
+        <div class="destaque-card" id="card-vip" style="border-color:rgba(14,165,233,0.4);margin-bottom:24px;" onclick="window.location.href='/guia-estrategias-vip'">
+          <div class="destaque-thumb" style="background:linear-gradient(135deg,#040c14,#071828,#0d1117);">
+            <div class="destaque-thumb-inner">
+              <span class="destaque-thumb-icon">💎</span>
+              <span class="destaque-thumb-tag" style="background:linear-gradient(135deg,#0284c7,#0ea5e9);border:none;color:#fff;">VIP</span>
+            </div>
+          </div>
+          <div class="destaque-body">
+            <div class="destaque-categoria" style="color:#0ea5e9;">💎 ESTRATÉGIAS VIP</div>
+            <h2 class="destaque-titulo">7 IAs Exclusivas com Win Rate até 82%</h2>
+            <p class="destaque-desc">Acesso a 7 estratégias com análise neural avançada e scalping inteligente. Alpha Mind, Quantum Trader, Titan Core, Alpha Pulse, Alpha Smart, Alpha Analytics e Alpha Sniper.</p>
+            <div class="destaque-tags">
+              <span class="dtag" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">Neural</span>
+              <span class="dtag" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">7 IAs</span>
+              <span class="dtag" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">Win Rate 82%</span>
+              <span class="dtag" style="background:rgba(14,165,233,0.15);color:#0ea5e9;">Vitalício</span>
+            </div>
+            <a href="/guia-estrategias-vip" class="btn-saibamais" style="background:linear-gradient(135deg,#0284c7,#0ea5e9);box-shadow:0 4px 16px rgba(14,165,233,0.3);">💎 Ver guia completo →</a>
+          </div>
+        </div>
+
+        <!-- Card Premium Elite -->
+        <div class="destaque-card" id="card-premium" style="border-color:rgba(245,158,11,0.4);margin-bottom:24px;" onclick="window.location.href='/guia-premium-elite'">
+          <div class="destaque-thumb" style="background:linear-gradient(135deg,#0f0800,#1a1000,#0d1117);">
+            <div class="destaque-thumb-inner">
+              <span class="destaque-thumb-icon">⭐</span>
+              <span class="destaque-thumb-tag" style="background:linear-gradient(135deg,#d97706,#f59e0b);border:none;color:#000;">PREMIUM</span>
+            </div>
+          </div>
+          <div class="destaque-body">
+            <div class="destaque-categoria" style="color:#f59e0b;">⭐ PREMIUM ELITE</div>
+            <h2 class="destaque-titulo">Deep Learning com Win Rate acima de 84%</h2>
+            <p class="destaque-desc">O pacote mais completo da plataforma. 7 IAs Premium com deep learning, modo Baixo Risco exclusivo e taxa de acerto consistentemente acima de 84%. Pagamento único vitalício.</p>
+            <div class="destaque-tags">
+              <span class="dtag" style="background:rgba(245,158,11,0.15);color:#f59e0b;">Deep Learning</span>
+              <span class="dtag" style="background:rgba(245,158,11,0.15);color:#f59e0b;">7 IAs Premium</span>
+              <span class="dtag" style="background:rgba(245,158,11,0.15);color:#f59e0b;">Win Rate 84%+</span>
+              <span class="dtag" style="background:rgba(245,158,11,0.15);color:#f59e0b;">Vitalício</span>
+            </div>
+            <a href="/guia-premium-elite" class="btn-saibamais" style="background:linear-gradient(135deg,#d97706,#f59e0b);color:#000;font-weight:800;box-shadow:0 4px 16px rgba(245,158,11,0.3);">⭐ Ver guia completo →</a>
+          </div>
+        </div>
+
+        <!-- Card Deposito Saque -->
+        <div class="destaque-card" onclick="window.location='/guia-deposito-saque.html'" style="border-color:rgba(76,175,80,.25);margin-bottom:24px;">"destaque-card" onclick="window.location='/guia-deposito-saque.html'" style="border-color:rgba(76,175,80,.25)">
         <div class="destaque-thumb" style="background:linear-gradient(135deg,#061209,#0a1a0d)">
           <div class="destaque-thumb-inner">
             <span class="destaque-thumb-icon">💳</span>
