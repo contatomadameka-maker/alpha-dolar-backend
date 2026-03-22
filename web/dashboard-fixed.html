@@ -8425,6 +8425,7 @@ document.addEventListener('DOMContentLoaded', function() {
           fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
               { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
           ).then(r => r.json()).then(d => {
+              alert('DEBUG: ' + JSON.stringify(d));
               if (d && d.length > 0) {
                   toggle.checked = true;
                   if (modeLabel) { modeLabel.textContent = 'AVANÇADO'; modeLabel.style.color = '#d81b60'; }
@@ -8432,8 +8433,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (advMode)    advMode.classList.add('active');
                   iaAdvSyncMercado();
               } else {
-                  const ok = confirm('IA Avançado\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 97,00!');
-                  if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185','_blank');
+                  setTimeout(function() {
+                      const ok = confirm('IA Avançado\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 97,00!');
+                      if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185','_blank');
+                  }, 100);
               }
           }).catch(() => {});
       } else {
