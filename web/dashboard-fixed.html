@@ -1945,7 +1945,7 @@ body { overflow-x: hidden !important; }
             </div>
             <div class="modal-body">
                 <div class="mode-list">
-                    <div class="mode-option" data-mode="lowRisk" onclick="selectTradingMode('lowRisk','🛡️','Baixo risco')">
+                    <div class="mode-option" data-mode="lowRisk" onclick="verificarModoBaixoRisco()">
                         <div class="mode-icon">🛡️</div>
                         <div class="mode-content"><h5>Baixo risco</h5><p>Máxima precisão, menos negociações</p></div>
                         <span class="premium-badge">Premium</span>
@@ -3304,16 +3304,43 @@ body { overflow-x: hidden !important; }
                 <div style="flex:1;padding:0 12px;"><div style="font-size:13px;font-weight:600;color:${strategy.locked ? '#666' : '#e0e0e0'};">${strategy.name}</div></div>
                 <div style="display:flex;align-items:center;gap:5px;">${badges}${lock}</div>
             `;
-            if (!strategy.locked) {
-                item.onmouseenter = () => { if (!strategy.active) item.style.background = '#1a1d24'; };
-                item.onmouseleave = () => { if (!strategy.active) item.style.background = ''; };
-                item.onclick = () => {
-                    const nameEl = document.getElementById('selectedStrategy');
-                    if (nameEl) nameEl.textContent = strategy.name;
-                    if (typeof window.selectStrategyGlobal === 'function') window.selectStrategyGlobal(strategy);
-                    document.getElementById('strategyModal')?.classList.remove('active');
-                };
-            }
+            item.onmouseenter = () => { if (!strategy.active) item.style.background = '#1a1d24'; };
+            item.onmouseleave = () => { if (!strategy.active) item.style.background = ''; };
+            item.onclick = async () => {
+                const tier = (strategy.tier || '').toLowerCase();
+                if (tier === 'vip' || tier === 'premium') {
+                    const email = localStorage.getItem('alpha_email') || '';
+                    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+                    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+                    const produto = tier === 'vip' ? 'estrategias-vip' : 'premium-elite';
+                    try {
+                        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.' + produto + '&select=id',
+                            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
+                        const d = await r.json();
+                        if (d && d.length > 0) {
+                            const nameEl = document.getElementById('selectedStrategy');
+                            if (nameEl) nameEl.textContent = strategy.name;
+                            if (typeof window.selectStrategyGlobal === 'function') window.selectStrategyGlobal(strategy);
+                            document.getElementById('strategyModal')?.classList.remove('active');
+                        } else {
+                            const checkout = tier === 'vip' ? 'estrategias-vip' : 'premium-elite';
+                            window.location.href = '/checkout?produto=' + checkout;
+                        }
+                    } catch(e) {
+                        const nameEl = document.getElementById('selectedStrategy');
+                        if (nameEl) nameEl.textContent = strategy.name;
+                        if (typeof window.selectStrategyGlobal === 'function') window.selectStrategyGlobal(strategy);
+                        document.getElementById('strategyModal')?.classList.remove('active');
+                    }
+                } else {
+                    if (!strategy.locked) {
+                        const nameEl = document.getElementById('selectedStrategy');
+                        if (nameEl) nameEl.textContent = strategy.name;
+                        if (typeof window.selectStrategyGlobal === 'function') window.selectStrategyGlobal(strategy);
+                        document.getElementById('strategyModal')?.classList.remove('active');
+                    }
+                }
+            };
             container.appendChild(item);
         });
     }
@@ -5748,6 +5775,24 @@ const _bankPerfis = {
     agressivo:   { percTrade:5, percStop:20, percMeta:10, mart:5, label:'Agressivo 🚀' }
 };
 let _bankPerfil = 'moderado';
+
+window.verificarModoBaixoRisco = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    try {
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
+        const d = await r.json();
+        if (d && d.length > 0) {
+            selectTradingMode('lowRisk', '🛡️', 'Baixo risco');
+        } else {
+            window.location.href = '/checkout?produto=premium-elite';
+        }
+    } catch(e) {
+        selectTradingMode('lowRisk', '🛡️', 'Baixo risco');
+    }
+};
 
 window.abrirAlphaBank = async function() {
     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';

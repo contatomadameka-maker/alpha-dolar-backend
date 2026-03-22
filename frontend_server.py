@@ -47,6 +47,10 @@ def trader():
 
 # ✅ ROTA PARA IMAGENS WIN/LOSS — usada pelo Telegram
 
+@app.route('/checkout')
+def checkout():
+    return send_from_directory('web', 'checkout.html')
+
 @app.route('/live')
 def live():
     from flask import redirect, request, make_response
