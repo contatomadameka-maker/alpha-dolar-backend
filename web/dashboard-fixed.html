@@ -8539,7 +8539,7 @@ document.addEventListener('DOMContentLoaded', function() {
           iaAdvSyncMercado();
         } else {
           if (confirm('IA Avançado\n\nVoce nao tem acesso ainda.\n\nDeseja adquirir por R$ 97,00?')) {
-            window.open('https://pay.cakto.com.br/ibgkwkz_813185', '_blank');
+            window.location.href = '/checkout?produto=ia-avancado';
           }
         }
       }).catch(function(e) { console.log('Erro Supabase:', e); });
