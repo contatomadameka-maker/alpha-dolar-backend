@@ -499,7 +499,7 @@ footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#
 
 <!-- IA AVANCADO CARD -->
 <div style="max-width:1200px;margin:0 auto 0;padding:0 20px">
-  <div class="bcard" onclick="window.open('https://pay.cakto.com.br/ibgkwkz_813185','_blank')" style="min-height:180px;background:linear-gradient(135deg,#0d0520,#1a0840);border:1px solid rgba(168,85,247,0.3);margin-bottom:16px">
+  <div class="bcard" onclick="window.location.href='/checkout?produto=ia-avancado'" style="min-height:180px;background:linear-gradient(135deg,#0d0520,#1a0840);border:1px solid rgba(168,85,247,0.3);margin-bottom:16px">
     <div class="bcard-circ" style="border-color:rgba(168,85,247,0.15)">🧠</div>
     <svg class="bcard-robot" style="filter:drop-shadow(0 0 18px rgba(168,85,247,.5))" viewBox="0 0 120 200" xmlns="http://www.w3.org/2000/svg"><rect x="35" y="30" width="50" height="45" rx="12" fill="none" stroke="#a855f7" stroke-width="2"/><circle cx="48" cy="50" r="8" fill="#a855f7" opacity=".8"/><circle cx="72" cy="50" r="8" fill="#a855f7" opacity=".8"/><rect x="44" y="18" width="5" height="14" rx="2" fill="#a855f7"/><circle cx="46.5" cy="15" r="5" fill="#a855f7" opacity=".6"/><rect x="28" y="78" width="64" height="72" rx="10" fill="none" stroke="#a855f7" stroke-width="2"/><path d="M45 95 Q60 85 75 95 L75 125 Q60 135 45 125Z" fill="none" stroke="#a855f7" stroke-width="1.5" opacity=".5"/><rect x="8" y="84" width="16" height="44" rx="8" fill="none" stroke="#a855f7" stroke-width="1.5"/><rect x="96" y="84" width="16" height="44" rx="8" fill="none" stroke="#a855f7" stroke-width="1.5"/><rect x="38" y="152" width="16" height="36" rx="8" fill="none" stroke="#a855f7" stroke-width="1.5"/><rect x="66" y="152" width="16" height="36" rx="8" fill="none" stroke="#a855f7" stroke-width="1.5"/></svg>
     <div class="bcard-cnt">
@@ -515,7 +515,7 @@ footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#
 
 <!-- PREMIUM TOOLS CARDS -->
 <div class="bg2" style="margin-top:0;padding-top:0;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">
-  <div class="bcard" onclick="abrirLoja('alpha-bank')" style="min-height:160px">
+  <div class="bcard" onclick="window.location.href='/checkout?produto=alpha-bank'" style="min-height:160px">
     <div class="bcard-bg" style="background:linear-gradient(135deg,#061209,#0a1f0a)"></div>
     <div class="bcard-circ" style="color:#22c55e">🏦</div>
     <div class="bcard-cnt">
@@ -594,23 +594,40 @@ footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#
 
 <!-- MODAL LOJA -->
 <div class="modal-ov" id="lojaModal">
-  <div class="modal-box">
-    <div class="modal-inner">
-      <div class="modal-side">
-        <div class="ms-ttl">Categorias</div>
-        <div class="ms-item" id="ms-comprados" onclick="filtrar('comprados')">Comprados</div>
-        <div class="ms-item on" id="ms-assinaturas" onclick="filtrar('assinaturas')">Assinaturas</div>
+  <div class="modal-box" style="max-width:1100px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:var(--blue);font-weight:700;margin-bottom:4px">ALPHA DOLAR</div>
+        <h2 style="font-size:22px;font-weight:800;color:#e2e8f0">🛒 Loja de Produtos</h2>
       </div>
-      <div class="modal-content">
-        <div class="modal-top">
-          <h2 id="mTitle">Assinaturas</h2>
-          <button class="btn-close" onclick="fecharLoja()">✕</button>
-        </div>
-        <div class="planos-grid" id="planosGrid"></div>
-      </div>
+      <button class="btn-close" onclick="fecharLoja()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:16px 28px;border-bottom:1px solid #1e2230;flex-wrap:wrap">
+      <button class="loja-cat on" onclick="lojaFiltrar('todos',this)">Todos</button>
+      <button class="loja-cat" onclick="lojaFiltrar('ferramentas',this)">🔧 Ferramentas</button>
+      <button class="loja-cat" onclick="lojaFiltrar('ia',this)">🧠 IA & Robôs</button>
+      <button class="loja-cat" onclick="lojaFiltrar('sinais',this)">📊 Sinais</button>
+      <button class="loja-cat" onclick="lojaFiltrar('planos',this)">⭐ Planos</button>
+    </div>
+    <div style="padding:20px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;overflow-y:auto;max-height:60vh" id="lojaGrid">
     </div>
   </div>
 </div>
+<style>
+.loja-cat{padding:6px 16px;border-radius:20px;border:1px solid #1e2230;background:transparent;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.loja-cat.on{background:rgba(14,165,233,.1);border-color:var(--blue);color:var(--blue)}
+.loja-card{background:#0d1117;border:1px solid #1e2230;border-radius:14px;padding:18px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:10px}
+.loja-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.loja-card-top{display:flex;align-items:center;gap:10px}
+.loja-card-icon{font-size:28px;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.loja-card-nome{font-size:14px;font-weight:700;color:#e2e8f0}
+.loja-card-badge{font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.loja-card-desc{font-size:12px;color:#64748b;line-height:1.5;flex:1}
+.loja-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.loja-card-preco{font-size:16px;font-weight:800;color:#e2e8f0}
+.loja-card-btn{padding:7px 16px;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px}
+@media(max-width:600px){#lojaGrid{grid-template-columns:1fr!important}}
+</style>
 
 <script>
 // STATS SIMULADOS
@@ -707,10 +724,104 @@ const PLANOS={
   ],
 };
 
+const LOJA_PRODUTOS = [
+  {
+    id:'alpha-bank', icon:'🏦', nome:'Alpha Bank', badge:'GESTÃO DE BANCA', badgeCor:'#22c55e', badgeBg:'rgba(34,197,94,.12)',
+    tagline:'Pare de queimar banca por erro humano',
+    desc:'A maioria dos traders perde porque não sabe quanto arriscar. O Alpha Bank calcula automaticamente o stake ideal, stop loss e meta de lucro com base no seu saldo real — protegendo seu capital em qualquer condição de mercado.',
+    destaque:'Reduz perdas em até 60%', preco:'R$ 19,90', periodo:'pagamento único', tipo:'ferramentas', cor:'#22c55e'
+  },
+  {
+    id:'ia-avancado', icon:'🧠', nome:'IA Avançado', badge:'MOTOR DE IA', badgeCor:'#a855f7', badgeBg:'rgba(168,85,247,.12)',
+    tagline:'O robô que aprende com o mercado em tempo real',
+    desc:'Enquanto você dorme, o Motor IA Alpha analisa frequência de dígitos, sequências e padrões para só entrar quando o score de confiança é alto. Simula perdas virtuais antes de arriscar dinheiro real.',
+    destaque:'Score de confiança acima de 75%', preco:'R$ 97,00', periodo:'pagamento único', tipo:'ia', cor:'#a855f7'
+  },
+  {
+    id:'alpha-pattern', icon:'🔮', nome:'Alpha Pattern', badge:'DETECÇÃO DE PADRÕES', badgeCor:'#06b6d4', badgeBg:'rgba(6,182,212,.12)',
+    tagline:'Veja o que os outros traders não conseguem ver',
+    desc:'Detecta em tempo real sequências raras como 4+ pares seguidos ou 5+ altos consecutivos. Quando o mercado cria uma janela de oportunidade, você será o primeiro a saber.',
+    destaque:'4 tipos de padrão raros detectados', preco:'R$ 19,90', periodo:'pagamento único', tipo:'ferramentas', cor:'#06b6d4'
+  },
+  {
+    id:'alpha-clock', icon:'⏰', nome:'Alpha Clock', badge:'TIMING PERFEITO', badgeCor:'#f59e0b', badgeBg:'rgba(245,158,11,.12)',
+    tagline:'Opere nas horas certas, lucre mais com menos esforço',
+    desc:'Sabia que o mercado tem horários 3x mais favoráveis? O Alpha Clock mede o score de cada faixa de 2 horas e destaca o momento AGORA. Nunca mais opere no horário errado.',
+    destaque:'Melhor horário: 14h-16h com 88% de score', preco:'R$ 19,90', periodo:'/mês', tipo:'ferramentas', cor:'#f59e0b'
+  },
+  {
+    id:'alpha-copy', icon:'📡', nome:'Alpha Copy', badge:'COPY TRADE', badgeCor:'#ec4899', badgeBg:'rgba(236,72,153,.12)',
+    tagline:'Lucre copiando quem já sabe operar',
+    desc:'Conecte-se ao Alpha Master e copie cada trade automaticamente em tempo real via WebSocket. Configure o multiplicador de stake e comece a lucrar mesmo sem experiência alguma.',
+    destaque:'Execução em milissegundos via WebSocket', preco:'R$ 19,90', periodo:'/mês', tipo:'ferramentas', cor:'#ec4899'
+  },
+  {
+    id:'estrategias-vip', icon:'💎', nome:'Estratégias VIP', badge:'PLANO VIP', badgeCor:'#0ea5e9', badgeBg:'rgba(14,165,233,.12)',
+    tagline:'7 IAs que os traders VIP usam para lucrar consistente',
+    desc:'Acesso exclusivo a 7 estratégias com análise neural avançada e scalping inteligente. Cada IA foi treinada com milhões de tiques para identificar as melhores entradas.',
+    destaque:'Win Rate médio de 82% nas últimas 30 sessões', preco:'R$ 97,00', periodo:'pagamento único', tipo:'planos', cor:'#0ea5e9'
+  },
+  {
+    id:'premium-elite', icon:'⭐', nome:'Premium Elite', badge:'MELHOR OFERTA', badgeCor:'#f59e0b', badgeBg:'rgba(245,158,11,.12)',
+    tagline:'O pacote completo para traders sérios',
+    desc:'Tudo que a plataforma tem de mais avançado em um único acesso. IAs com deep learning, taxa de acerto acima de 84% e suporte VIP direto. Para quem quer resultado, não desculpa.',
+    destaque:'Acesso a TODOS os recursos Premium', preco:'R$ 147,00', periodo:'pagamento único', tipo:'planos', cor:'#f59e0b'
+  },
+  {
+    id:'ai-signals', icon:'📊', nome:'AI Signals', badge:'SINAIS AO VIVO', badgeCor:'#22c55e', badgeBg:'rgba(34,197,94,.12)',
+    tagline:'Sinais prontos para copiar — sem precisar analisar nada',
+    desc:'Nossa IA monitora o mercado 24h e envia sinais com taxa de acerto acima de 80%. Você recebe o alerta, executa em 1 clique e pronto. Ideal para quem tem pouco tempo mas quer resultados.',
+    destaque:'Taxa de acerto histórica acima de 80%', preco:'R$ 97,00', periodo:'/mês', tipo:'sinais', cor:'#22c55e'
+  },
+  {
+    id:'ia-pro', icon:'✨', nome:'Alpha IA Pro', badge:'IA PREMIUM', badgeCor:'#a855f7', badgeBg:'rgba(168,85,247,.12)',
+    tagline:'O robô mais avançado da plataforma',
+    desc:'Deep learning de última geração com gestão automática de banca integrada. O Alpha IA Pro não só opera — ele aprende e se adapta ao comportamento do mercado em cada sessão.',
+    destaque:'Deep learning adaptativo por sessão', preco:'R$ 97,00', periodo:'/mês', tipo:'ia', cor:'#a855f7'
+  },
+];
+
+function renderLojaGrid(filtro='todos') {
+  const grid = document.getElementById('lojaGrid');
+  const lista = filtro === 'todos' ? LOJA_PRODUTOS : LOJA_PRODUTOS.filter(p => p.tipo === filtro);
+  grid.innerHTML = lista.map(p => `
+    <div class="loja-card" onclick="window.location.href='/checkout?produto=${p.id}'" style="border-color:${p.cor}33;background:linear-gradient(145deg,#0d1117,#0a0e15)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:32px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:${p.badgeBg}">${p.icon}</div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#e2e8f0;margin-bottom:3px">${p.nome}</div>
+            <span style="font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:4px;background:${p.badgeBg};color:${p.badgeCor}">${p.badge}</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:${p.cor};margin-bottom:6px;font-style:italic">"${p.tagline}"</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.6;margin-bottom:12px">${p.desc}</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;background:${p.badgeBg};margin-bottom:14px">
+        <span style="color:${p.cor};font-size:11px">✓</span>
+        <span style="font-size:11px;font-weight:600;color:${p.cor}">${p.destaque}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:20px;font-weight:900;color:${p.cor}">${p.preco}</div>
+          <div style="font-size:10px;color:#475569">${p.periodo}</div>
+        </div>
+        <button style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,${p.cor},${p.cor}cc);color:#fff;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px">
+          Ver detalhes →
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function lojaFiltrar(filtro, el) {
+  document.querySelectorAll('.loja-cat').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderLojaGrid(filtro);
+}
+
 function abrirLoja(tipo='assinaturas'){
-  const titles={assinaturas:'Assinaturas',sinais:'AI Signals',vip:'Bots VIP',premium:'Recursos Premium','alpha-bank':'Alpha Bank','alpha-shield':'Alpha Shield','alpha-pattern':'Alpha Pattern','alpha-clock':'Alpha Clock','alpha-copy':'Alpha Copy'};
-  document.getElementById('mTitle').textContent=titles[tipo]||'Assinaturas';
-  renderPlanos(tipo);
+  renderLojaGrid('todos');
   document.getElementById('lojaModal').classList.add('open');
 }
 window.abrirLoja=abrirLoja;
@@ -751,7 +862,7 @@ function swTog(i,op,preco){
   document.getElementById('pv'+i).textContent=preco;
   document.getElementById('tog'+i).querySelectorAll('.ptog').forEach((b,j)=>b.classList.toggle('on',j===op));
 }
-function checkout(nome){const links={'Alpha Bank':'https://pay.cakto.com.br/qktokbt_813127'};if(links[nome])window.open(links[nome],'_blank');else alert('Em breve: checkout para "'+nome+'" 🚀')}
+function checkout(nome){const ids={'Alpha Bank':'alpha-bank','IA Avançado':'ia-avancado'};const id=ids[nome];if(id)window.location.href='/checkout?produto='+id;else alert('Em breve: checkout para "'+nome+'" 🚀')}
 
 // SALDO E CONTA
 function carregarContaHome(){
