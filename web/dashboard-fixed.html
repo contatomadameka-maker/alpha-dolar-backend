@@ -7809,9 +7809,6 @@ window.proAtualizarStatusVirtual = function() {
 </script>
 
 
-<div style="position:fixed;bottom:10px;left:10px;z-index:99999">
-<button onclick="alert('email:'+localStorage.getItem('alpha_email'))" style="background:red;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px">DEBUG EMAIL</button>
-</div>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -8395,26 +8392,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Tornar btn-modo-ia clicável
     btnModoIA.style.cursor = 'pointer';
-    btnModoIA.onclick = async function() {
+    btnModoIA.onclick = function() {
+      const chk = document.getElementById('advancedMode');
+      if (chk) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
       const modal = document.getElementById('botRunningModal');
       if (modal) modal.classList.remove('active');
-      const email = localStorage.getItem('alpha_email') || '';
-      const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-      const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
-      try {
-        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
-          { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
-        const d = await r.json();
-        if (d && d.length > 0) {
-          const chk = document.getElementById('advancedMode');
-          if (chk) { chk.checked = true; chk.dispatchEvent(new Event('change')); }
-        } else {
-          const ok = confirm('IA Avançado\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 97,00!');
-          if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185','_blank');
-        }
-      } catch(e) {
-        alert('Erro: ' + e.message);
-      }
     };
     btnModoIA.title = 'Configurar Motor IA';
   }
@@ -8431,35 +8413,34 @@ document.addEventListener('DOMContentLoaded', function() {
   if (toggle) {
     toggle.addEventListener('change', function() {
       const isAdv = this.checked;
-      if (isAdv) {
-          toggle.checked = false;
-          if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
-          if (simpleMode) simpleMode.style.display = 'block';
-          if (advMode)    advMode.classList.remove('active');
-          const email = localStorage.getItem('alpha_email') || '';
-          const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-          const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
-          fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
-              { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
-          ).then(r => r.text()).then(txt => { alert('DEBUG RAW: ' + txt); const d = JSON.parse(txt);
-              if (d && d.length > 0) {
-                  toggle.checked = true;
-                  if (modeLabel) { modeLabel.textContent = 'AVANÇADO'; modeLabel.style.color = '#d81b60'; }
-                  if (simpleMode) simpleMode.style.display = 'none';
-                  if (advMode)    advMode.classList.add('active');
-                  iaAdvSyncMercado();
-              } else {
-                  setTimeout(function() {
-                      const ok = confirm('IA Avançado\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 97,00!');
-                      if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185','_blank');
-                  }, 100);
-              }
-          }).catch(() => {});
-      } else {
-          if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
-          if (simpleMode) simpleMode.style.display = 'block';
-          if (advMode)    advMode.classList.remove('active');
+      if (!isAdv) {
+        if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
+        if (simpleMode) simpleMode.style.display = 'block';
+        if (advMode) advMode.classList.remove('active');
+        return;
       }
+      // Bloqueia visual ate verificar
+      toggle.checked = false;
+      if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
+      if (simpleMode) simpleMode.style.display = 'block';
+      if (advMode) advMode.classList.remove('active');
+      const email = localStorage.getItem('alpha_email') || '';
+      const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+      const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+      fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
+        { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
+      ).then(function(r) { return r.json(); }).then(function(d) {
+        if (d && d.length > 0) {
+          toggle.checked = true;
+          if (modeLabel) { modeLabel.textContent = 'AVANÇADO'; modeLabel.style.color = '#d81b60'; }
+          if (simpleMode) simpleMode.style.display = 'none';
+          if (advMode) advMode.classList.add('active');
+          iaAdvSyncMercado();
+        } else {
+          const ok = confirm('IA Avançado - Voce nao tem acesso. Clique OK para adquirir por R$ 97,00!');
+          if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185', '_blank');
+        }
+      }).catch(function(e) { alert('Erro conexao: ' + e.message); });
     });;
         } else {
             modeLabel.textContent = 'SIMPLES';
