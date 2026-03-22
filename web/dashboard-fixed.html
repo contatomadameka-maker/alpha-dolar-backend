@@ -6355,8 +6355,22 @@ let _patternDigits = [];
 let _patternSinais = 0;
 let _patternAcertos = 0;
 
-window.abrirAlphaPattern = function() {
-    document.getElementById('alphaPatternModal').style.display = 'block';
+window.abrirAlphaPattern = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    try {
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-pattern&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
+        const d = await r.json();
+        if (d && d.length > 0) {
+            document.getElementById('alphaPatternModal').style.display = 'block';
+        } else {
+            window.location.href = '/checkout?produto=alpha-pattern';
+        }
+    } catch(e) {
+        document.getElementById('alphaPatternModal').style.display = 'block';
+    }
 };
 window.fecharAlphaPattern = function() {
     document.getElementById('alphaPatternModal').style.display = 'none';
@@ -6628,8 +6642,30 @@ async function carregarScoresDinamicos() {
 
 let _clockInterval = null;
 
-window.abrirAlphaClock = function() {
-    document.getElementById('alphaClockModal').style.display = 'block';
+window.abrirAlphaClock = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    try {
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-clock&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
+        const d = await r.json();
+        if (d && d.length > 0) {
+            document.getElementById('alphaClockModal').style.display = 'block';
+            carregarScoresDinamicos().then(() => clockRenderGrid());
+            clockTick();
+            if (_clockInterval) clearInterval(_clockInterval);
+            _clockInterval = setInterval(clockTick, 1000);
+        } else {
+            window.location.href = '/checkout?produto=alpha-clock';
+        }
+    } catch(e) {
+        document.getElementById('alphaClockModal').style.display = 'block';
+        carregarScoresDinamicos().then(() => clockRenderGrid());
+        clockTick();
+        if (_clockInterval) clearInterval(_clockInterval);
+        _clockInterval = setInterval(clockTick, 1000);
+    }
     carregarScoresDinamicos().then(() => clockRenderGrid());
     clockTick();
     if (_clockInterval) clearInterval(_clockInterval);
@@ -6882,9 +6918,24 @@ let _copyInterval = null;
 let _copyUltimoId = null;
 let _copyWins = 0, _copyTotal = 0, _copyLucro = 0;
 
-window.abrirAlphaCopy = function() {
-    document.getElementById('alphaCopyModal').style.display = 'block';
-    copyCarregarStats();
+window.abrirAlphaCopy = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    try {
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-copy&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
+        const d = await r.json();
+        if (d && d.length > 0) {
+            document.getElementById('alphaCopyModal').style.display = 'block';
+            copyCarregarStats();
+        } else {
+            window.location.href = '/checkout?produto=alpha-copy';
+        }
+    } catch(e) {
+        document.getElementById('alphaCopyModal').style.display = 'block';
+        copyCarregarStats();
+    }
 };
 window.fecharAlphaCopy = function() {
     document.getElementById('alphaCopyModal').style.display = 'none';
