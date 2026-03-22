@@ -7809,6 +7809,9 @@ window.proAtualizarStatusVirtual = function() {
 </script>
 
 
+<div style="position:fixed;bottom:10px;left:10px;z-index:99999">
+<button onclick="alert('email:'+localStorage.getItem('alpha_email'))" style="background:red;color:white;padding:8px 12px;border:none;border-radius:6px;cursor:pointer;font-size:12px">DEBUG EMAIL</button>
+</div>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -8424,8 +8427,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
           fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
               { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
-          ).then(r => r.json()).then(d => {
-              alert('DEBUG: ' + JSON.stringify(d));
+          ).then(r => r.text()).then(txt => { alert('DEBUG RAW: ' + txt); const d = JSON.parse(txt);
               if (d && d.length > 0) {
                   toggle.checked = true;
                   if (modeLabel) { modeLabel.textContent = 'AVANÇADO'; modeLabel.style.color = '#d81b60'; }
