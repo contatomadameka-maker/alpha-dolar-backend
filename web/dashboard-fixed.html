@@ -8416,14 +8416,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!isAdv) {
         if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
         if (simpleMode) simpleMode.style.display = 'block';
-        if (advMode) advMode.classList.remove('active');
+        if (advMode) { advMode.classList.remove('active'); advMode.style.display = 'none'; }
         return;
       }
-      // Bloqueia visual ate verificar
       toggle.checked = false;
-      if (modeLabel) { modeLabel.textContent = 'SIMPLES'; modeLabel.style.color = '#aaa'; }
-      if (simpleMode) simpleMode.style.display = 'block';
-      if (advMode) advMode.classList.remove('active');
       const email = localStorage.getItem('alpha_email') || '';
       const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
       const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
@@ -8434,24 +8430,14 @@ document.addEventListener('DOMContentLoaded', function() {
           toggle.checked = true;
           if (modeLabel) { modeLabel.textContent = 'AVANÇADO'; modeLabel.style.color = '#d81b60'; }
           if (simpleMode) simpleMode.style.display = 'none';
-          if (advMode) advMode.classList.add('active');
+          if (advMode) { advMode.style.display = 'block'; advMode.classList.add('active'); }
           iaAdvSyncMercado();
         } else {
-          const ok = confirm('IA Avançado - Voce nao tem acesso. Clique OK para adquirir por R$ 97,00!');
-          if (ok) window.open('https://pay.cakto.com.br/ibgkwkz_813185', '_blank');
+          if (confirm('IA Avançado\n\nVoce nao tem acesso ainda.\n\nDeseja adquirir por R$ 97,00?')) {
+            window.open('https://pay.cakto.com.br/ibgkwkz_813185', '_blank');
+          }
         }
-      }).catch(function(e) { alert('Erro conexao: ' + e.message); });
-    });;
-        } else {
-            modeLabel.textContent = 'SIMPLES';
-        }
-        modeLabel.style.color = isAdv ? '#d81b60' : '#aaa';
-      }
-      if (simpleMode) simpleMode.style.display = isAdv ? 'none' : 'block';
-      if (advMode)    advMode.classList.toggle('active', isAdv);
-
-      // Sincroniza mercado
-      if (isAdv) iaAdvSyncMercado();
+      }).catch(function(e) { console.log('Erro Supabase:', e); });
     });
   }
 
