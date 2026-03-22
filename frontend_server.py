@@ -47,6 +47,18 @@ def trader():
 
 # ✅ ROTA PARA IMAGENS WIN/LOSS — usada pelo Telegram
 
+@app.route('/guia-estrategias-vip')
+def guia_estrategias_vip():
+    return send_from_directory('web', 'guia-estrategias-vip.html')
+
+@app.route('/guia-premium-elite')
+def guia_premium_elite():
+    return send_from_directory('web', 'guia-premium-elite.html')
+
+@app.route('/quiz')
+def quiz():
+    return send_from_directory('web', 'quiz.html')
+
 @app.route('/checkout')
 def checkout():
     return send_from_directory('web', 'checkout.html')

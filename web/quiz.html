@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Descubra seu Potencial — Alpha Dolar</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#04060f;--s1:#0a0e1a;--s2:#0d1220;--blue:#0ea5e9;--cyan:#22d3ee;--purple:#a855f7;--green:#22c55e;--gold:#f59e0b;--pink:#ec4899;--text:#e2e8f0;--muted:#64748b;--border:rgba(255,255,255,0.07)}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif}
+
+/* FUNDO ANIMADO */
+.bg-glow{position:fixed;inset:0;pointer-events:none;z-index:0}
+.glow1{position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(14,165,233,0.08),transparent 70%);top:-200px;left:-200px;animation:glowMove1 8s ease-in-out infinite}
+.glow2{position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,0.06),transparent 70%);bottom:-100px;right:-100px;animation:glowMove2 10s ease-in-out infinite}
+@keyframes glowMove1{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,40px)}}
+@keyframes glowMove2{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,-60px)}}
+
+/* HEADER */
+.header{position:fixed;top:0;left:0;right:0;z-index:100;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;background:rgba(4,6,15,0.8);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.logo{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.coins-display{display:flex;align-items:center;gap:6px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--gold)}
+.coins-num{transition:all 0.3s}
+
+/* PROGRESS */
+.progress-bar{position:fixed;top:56px;left:0;right:0;height:3px;background:rgba(255,255,255,0.05);z-index:100}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width 0.6s cubic-bezier(0.4,0,0.2,1);width:0%}
+
+/* WRAPPER */
+.quiz-wrapper{position:relative;z-index:1;height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:80px 20px 20px}
+
+/* SLIDE */
+.slide{position:absolute;width:100%;max-width:640px;padding:0 20px;opacity:0;transform:translateX(80px);transition:all 0.5s cubic-bezier(0.4,0,0.2,1);pointer-events:none}
+.slide.active{opacity:1;transform:translateX(0);pointer-events:all}
+.slide.exit{opacity:0;transform:translateX(-80px)}
+
+/* STEP TAG */
+.step-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:20px}
+
+/* QUESTION */
+.question{font-family:'Syne',sans-serif;font-size:clamp(22px,4vw,32px);font-weight:900;line-height:1.25;margin-bottom:10px;color:#fff}
+.question span{background:linear-gradient(135deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.sub{font-size:15px;color:var(--muted);margin-bottom:28px;line-height:1.6}
+
+/* OPTIONS */
+.options{display:flex;flex-direction:column;gap:10px}
+.opt{background:var(--s1);border:1.5px solid var(--border);border-radius:14px;padding:16px 20px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px;text-align:left}
+.opt:hover{border-color:rgba(14,165,233,0.4);background:rgba(14,165,233,0.06);transform:translateX(4px)}
+.opt.selected{border-color:var(--blue);background:rgba(14,165,233,0.1)}
+.opt-icon{font-size:22px;width:42px;height:42px;border-radius:10px;background:rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.opt-text{font-size:15px;font-weight:600;color:var(--text)}
+.opt-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* REVEAL */
+.reveal-box{background:linear-gradient(135deg,rgba(14,165,233,0.08),rgba(168,85,247,0.08));border:1px solid rgba(14,165,233,0.2);border-radius:16px;padding:24px;margin-bottom:20px;text-align:center}
+.reveal-icon{font-size:48px;margin-bottom:12px}
+.reveal-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:8px}
+.reveal-text{font-size:14px;color:var(--muted);line-height:1.7}
+
+/* MILESTONE */
+.milestone{text-align:center;padding:20px 0}
+.milestone-icon{font-size:64px;margin-bottom:16px;animation:bounce 0.6s ease}
+@keyframes bounce{0%{transform:scale(0.5)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+.milestone-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:900;color:#fff;margin-bottom:8px}
+.milestone-coins{display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.3);border-radius:20px;padding:8px 20px;font-size:16px;font-weight:800;color:var(--gold);margin-bottom:16px}
+.milestone-text{font-size:15px;color:var(--muted);max-width:400px;margin:0 auto 24px}
+
+/* VIDEO PLACEHOLDER */
+.video-box{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative}
+.video-play{width:60px;height:60px;border-radius:50%;background:rgba(14,165,233,0.9);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s}
+.video-play:hover{transform:scale(1.1)}
+.video-label{position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.7);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;color:var(--blue)}
+
+/* BTN */
+.btn-next{width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;transition:all 0.2s;margin-top:20px;letter-spacing:0.3px}
+.btn-next:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(14,165,233,0.35)}
+.btn-next:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+/* FINAL */
+.final-profile{background:linear-gradient(135deg,rgba(14,165,233,0.1),rgba(168,85,247,0.1));border:2px solid rgba(14,165,233,0.3);border-radius:20px;padding:28px;text-align:center;margin-bottom:20px}
+.profile-badge{font-size:48px;margin-bottom:12px}
+.profile-name{font-family:'Syne',sans-serif;font-size:24px;font-weight:900;color:#fff;margin-bottom:6px}
+.profile-desc{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px}
+.rec-cards{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.rec-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all 0.2s;text-decoration:none}
+.rec-card:hover{border-color:var(--blue);transform:translateY(-2px)}
+.rec-card-icon{font-size:28px;width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rec-card-nome{font-size:14px;font-weight:700;color:#fff}
+.rec-card-preco{font-size:12px;color:var(--muted);margin-top:2px}
+.rec-card-cta{margin-left:auto;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;white-space:nowrap}
+.btn-gratis{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--green),#16a34a);color:#fff;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.2s;text-decoration:none;display:block;text-align:center}
+
+/* CONFETTI */
+.confetti-piece{position:fixed;width:8px;height:8px;border-radius:2px;animation:confettiFall 2s ease forwards;pointer-events:none;z-index:999}
+@keyframes confettiFall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+
+/* COINS ANIMATION */
+.coin-pop{position:fixed;font-size:20px;pointer-events:none;z-index:999;animation:coinPop 1s ease forwards}
+@keyframes coinPop{0%{transform:translateY(0) scale(0.5);opacity:1}100%{transform:translateY(-80px) scale(1.2);opacity:0}}
+
+@media(max-height:700px){.question{font-size:20px}.opt{padding:12px 16px}.opt-icon{width:36px;height:36px;font-size:18px}}
+</style>
+</head>
+<body>
+
+<div class="bg-glow"><div class="glow1"></div><div class="glow2"></div></div>
+
+<div class="header">
+  <div class="logo">⚡ ALPHA DOLAR</div>
+  <div class="coins-display">🪙 <span class="coins-num" id="coinsDisplay">0</span> moedas</div>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="quiz-wrapper">
+
+  <!-- SLIDE 1 — Hook Renda Extra -->
+  <div class="slide active" id="slide-1">
+    <div class="step-tag" style="background:rgba(14,165,233,0.1);color:var(--blue);border:1px solid rgba(14,165,233,0.2)">✦ 2 minutos · 12 perguntas</div>
+    <div class="question">E se você pudesse ter uma <span>renda extra</span> sem precisar trocar seu tempo por dinheiro?</div>
+    <div class="sub">Milhares de pessoas estão usando robôs de trading para gerar renda enquanto trabalham, dormem ou viajam. Descubra se esse caminho é pra você.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,1,'trabalho')">
+        <div class="opt-icon">💼</div>
+        <div><div class="opt-text">Tenho emprego mas quero renda extra</div><div class="opt-sub">Quero complementar meu salário</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,1,'renda')">
+        <div class="opt-icon">🎯</div>
+        <div><div class="opt-text">Quero que a renda extra vire principal</div><div class="opt-sub">Busco independência financeira de verdade</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,1,'trader')">
+        <div class="opt-icon">📊</div>
+        <div><div class="opt-text">Já faço trading, quero automatizar</div><div class="opt-sub">Cansei de operar no manual e no emocional</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,1,'curiosidade')">
+        <div class="opt-icon">🔍</div>
+        <div><div class="opt-text">Tenho curiosidade, quero entender como funciona</div><div class="opt-sub">Nunca ouvi falar, mas me interessei</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-1" disabled onclick="nextSlide(2, 10)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 2 — Sonho / Desejo -->
+  <div class="slide" id="slide-2">
+    <div class="step-tag" style="background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2)">✦ Pergunta 2 de 12</div>
+    <div class="question">Imagina acordar e ver que seu <span>dinheiro trabalhou</span> enquanto você dormia...</div>
+    <div class="sub">O que você faria com uma renda extra de R$ 500 a R$ 2.000 por mês sem precisar estar presente?</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,2,'viagem')">
+        <div class="opt-icon">✈️</div>
+        <div><div class="opt-text">Viajar mais — liberdade geográfica</div><div class="opt-sub">Trabalhar de qualquer lugar do mundo</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,2,'dividas')">
+        <div class="opt-icon">💳</div>
+        <div><div class="opt-text">Quitar dívidas e ter tranquilidade</div><div class="opt-sub">Parar de se preocupar com as contas</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,2,'tempo')">
+        <div class="opt-icon">⏰</div>
+        <div><div class="opt-text">Ter mais tempo livre para a família</div><div class="opt-sub">Não depender de horário de chefe</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,2,'investir')">
+        <div class="opt-icon">📈</div>
+        <div><div class="opt-text">Reinvestir e multiplicar o capital</div><div class="opt-sub">Construir patrimônio de verdade</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-2" disabled onclick="nextSlide(3, 15)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 3 — Problema atual -->
+  <div class="slide" id="slide-3">
+    <div class="step-tag" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)">✦ Pergunta 3 de 12</div>
+    <div class="question">Qual é o seu <span>maior obstáculo</span> hoje para ter uma renda extra?</div>
+    <div class="sub">Seja honesto — quanto mais precisarmos entender seu caso, melhor a recomendação no final.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,3,'tempo')">
+        <div class="opt-icon">⏳</div>
+        <div><div class="opt-text">Não tenho tempo</div><div class="opt-sub">Meu dia é lotado e não consigo mais uma coisa</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,3,'dinheiro')">
+        <div class="opt-icon">💰</div>
+        <div><div class="opt-text">Não tenho capital para investir</div><div class="opt-sub">Minha renda mal cobre o mês</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,3,'conhecimento')">
+        <div class="opt-icon">🧠</div>
+        <div><div class="opt-text">Não sei como começar</div><div class="opt-sub">Parece complicado demais para mim</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,3,'medo')">
+        <div class="opt-icon">😰</div>
+        <div><div class="opt-text">Medo de perder dinheiro</div><div class="opt-sub">Já tentei antes e não funcionou</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-3" disabled onclick="nextSlide(4, 10)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 4 — REVEAL: Robô resolve -->
+  <div class="slide" id="slide-4">
+    <div class="step-tag" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)">✦ Revelação importante</div>
+    <div class="reveal-box">
+      <div class="reveal-icon">🤖</div>
+      <div class="reveal-title">E se todas essas barreiras sumissem?</div>
+      <div class="reveal-text">
+        <strong style="color:#fff">Sem tempo?</strong> O robô opera enquanto você dorme.<br>
+        <strong style="color:#fff">Sem capital?</strong> Dá pra começar com R$ 30 na conta demo.<br>
+        <strong style="color:#fff">Sem conhecimento?</strong> O sistema configura tudo sozinho.<br>
+        <strong style="color:#fff">Medo de perder?</strong> Tem stop loss automático que protege sua banca.
+      </div>
+    </div>
+    <div class="sub" style="text-align:center">O Alpha Dolar é uma plataforma de trading automatizado que opera sozinha na Deriv — uma das maiores corretoras do mundo.</div>
+    <button class="btn-next" onclick="nextSlide(5, 20)">Entendi, quero ver como funciona →</button>
+  </div>
+
+  <!-- SLIDE 5 — VÍDEO / DEMO -->
+  <div class="slide" id="slide-5">
+    <div class="step-tag" style="background:rgba(14,165,233,0.1);color:var(--blue);border:1px solid rgba(14,165,233,0.2)">✦ Veja ao vivo</div>
+    <div class="question">Olha o robô <span>operando em tempo real</span></div>
+    <div class="video-box" style="margin-bottom:16px">
+      <div class="video-label">🔴 AO VIVO</div>
+      <div style="text-align:center;padding:20px">
+        <div style="font-size:48px;margin-bottom:12px">🤖</div>
+        <div style="font-size:14px;color:var(--muted);margin-bottom:16px">Assista o robô operando sozinho</div>
+        <div class="video-play" onclick="this.innerHTML='▶ Reproduzindo...'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <div style="margin-top:16px;font-size:13px;color:var(--green);font-weight:600">📹 Adicione aqui um vídeo ou gif do dashboard operando</div>
+      </div>
+    </div>
+    <div class="sub" style="text-align:center">Mais de <strong style="color:#fff">800 traders ativos</strong> usando agora mesmo. Win rate médio de <strong style="color:var(--green)">74%</strong>.</div>
+    <button class="btn-next" onclick="nextSlide(6, 15)">Incrível! Continuar →</button>
+  </div>
+
+  <!-- SLIDE 6 — Qualificação tempo -->
+  <div class="slide" id="slide-6">
+    <div class="step-tag" style="background:rgba(245,158,11,0.1);color:var(--gold);border:1px solid rgba(245,158,11,0.2)">✦ Pergunta 6 de 12</div>
+    <div class="question">Quanto tempo por dia você conseguiria dedicar pra <span>acompanhar</span> seus resultados?</div>
+    <div class="sub">Não é pra operar — só pra verificar como está indo. O robô faz o resto sozinho.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,6,'zero')">
+        <div class="opt-icon">😴</div>
+        <div><div class="opt-text">Quase zero — quero tudo automático</div><div class="opt-sub">Configure e esqueça</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,6,'pouco')">
+        <div class="opt-icon">📱</div>
+        <div><div class="opt-text">5-15 minutos por dia</div><div class="opt-sub">Verifico pelo celular de manhã e à noite</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,6,'medio')">
+        <div class="opt-icon">💻</div>
+        <div><div class="opt-text">30 minutos a 1 hora</div><div class="opt-sub">Consigo acompanhar de perto quando quero</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,6,'muito')">
+        <div class="opt-icon">🎯</div>
+        <div><div class="opt-text">Tenho bastante tempo disponível</div><div class="opt-sub">Quero explorar ao máximo a plataforma</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-6" disabled onclick="nextSlide(7, 15)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 7 — Capital disponível -->
+  <div class="slide" id="slide-7">
+    <div class="step-tag" style="background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2)">✦ Pergunta 7 de 12</div>
+    <div class="question">Qual valor você teria para <span>começar</span>?</div>
+    <div class="sub">Sem compromisso nenhum — isso vai ajudar a calcular o potencial de retorno para o seu caso.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,7,'demo')">
+        <div class="opt-icon">🆓</div>
+        <div><div class="opt-text">Quero testar grátis primeiro (conta demo)</div><div class="opt-sub">R$ 0 de risco, resultado real pra ver</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,7,'pequeno')">
+        <div class="opt-icon">💵</div>
+        <div><div class="opt-text">R$ 50 a R$ 200</div><div class="opt-sub">Quero começar pequeno e ir crescendo</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,7,'medio')">
+        <div class="opt-icon">💰</div>
+        <div><div class="opt-text">R$ 200 a R$ 1.000</div><div class="opt-sub">Tenho uma reserva para investir</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,7,'grande')">
+        <div class="opt-icon">🏦</div>
+        <div><div class="opt-text">R$ 1.000 ou mais</div><div class="opt-sub">Quero resultados mais expressivos</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-7" disabled onclick="nextSlide(8, 20)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 8 — MILESTONE + REVEAL HORÁRIO -->
+  <div class="slide" id="slide-8">
+    <div class="milestone">
+      <div class="milestone-icon">🏆</div>
+      <div class="milestone-title">Você está indo muito bem!</div>
+      <div class="milestone-coins">🪙 <span id="midCoins">0</span> moedas acumuladas</div>
+      <div class="milestone-text">Enquanto você responde, nossa IA já está montando seu perfil personalizado. Falta pouco!</div>
+    </div>
+    <div class="reveal-box">
+      <div style="font-size:32px;margin-bottom:10px">⏰</div>
+      <div class="reveal-title">Você sabia disso?</div>
+      <div class="reveal-text">O horário com <strong style="color:var(--gold)">maior win rate</strong> na plataforma é entre <strong style="color:#fff">14h e 16h</strong> (horário de Brasília) — com score de <strong style="color:var(--green)">88%</strong>. O Alpha Clock mostra isso em tempo real, sem você precisar calcular nada.</div>
+    </div>
+    <button class="btn-next" onclick="nextSlide(9, 25)">Uau! Continuar →</button>
+  </div>
+
+  <!-- SLIDE 9 — Experiência -->
+  <div class="slide" id="slide-9">
+    <div class="step-tag" style="background:rgba(168,85,247,0.1);color:var(--purple);border:1px solid rgba(168,85,247,0.2)">✦ Pergunta 9 de 12</div>
+    <div class="question">Qual é sua experiência com <span>trading ou investimentos</span>?</div>
+    <div class="sub">Não tem resposta certa ou errada. Só queremos recomendar o caminho ideal para você.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,9,'zero')">
+        <div class="opt-icon">🐣</div>
+        <div><div class="opt-text">Sou iniciante completo</div><div class="opt-sub">Nunca investi nem fiz trading</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,9,'basico')">
+        <div class="opt-icon">📚</div>
+        <div><div class="opt-text">Sei o básico, já ouvi falar</div><div class="opt-sub">Nunca operei mas entendo a ideia</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,9,'medio')">
+        <div class="opt-icon">⚡</div>
+        <div><div class="opt-text">Já operei, mas de forma amadora</div><div class="opt-sub">Perdi dinheiro ou não teve consistência</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,9,'avancado')">
+        <div class="opt-icon">🎯</div>
+        <div><div class="opt-text">Tenho experiência real</div><div class="opt-sub">Opero há pelo menos 6 meses</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-9" disabled onclick="nextSlide(10, 15)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 10 — Objeção: Funciona mesmo? -->
+  <div class="slide" id="slide-10">
+    <div class="step-tag" style="background:rgba(14,165,233,0.1);color:var(--blue);border:1px solid rgba(14,165,233,0.2)">✦ Pergunta 10 de 12</div>
+    <div class="question">Seja sincero: você acredita que um robô pode <span>realmente gerar renda</span>?</div>
+    <div class="sub">Muita gente já chegou aqui cética. Tudo bem. Mas veja o que os dados dizem antes de responder.</div>
+    <div class="reveal-box" style="margin-bottom:20px;text-align:left">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center">
+        <div><div style="font-size:28px;font-weight:900;color:var(--blue)">800+</div><div style="font-size:11px;color:var(--muted)">traders ativos agora</div></div>
+        <div><div style="font-size:28px;font-weight:900;color:var(--green)">74%</div><div style="font-size:11px;color:var(--muted)">win rate médio</div></div>
+        <div><div style="font-size:28px;font-weight:900;color:var(--purple)">R$30</div><div style="font-size:11px;color:var(--muted)">para começar grátis</div></div>
+        <div><div style="font-size:28px;font-weight:900;color:var(--gold)">7 dias</div><div style="font-size:11px;color:var(--muted)">de garantia</div></div>
+      </div>
+    </div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,10,'sim')">
+        <div class="opt-icon">✅</div>
+        <div><div class="opt-text">Sim, acredito que pode funcionar</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,10,'talvez')">
+        <div class="opt-icon">🤔</div>
+        <div><div class="opt-text">Talvez — quero ver antes de acreditar</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,10,'nao')">
+        <div class="opt-icon">❓</div>
+        <div><div class="opt-text">Ainda tenho dúvidas</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-10" disabled onclick="nextSlide(11, 15)">Continuar →</button>
+  </div>
+
+  <!-- SLIDE 11 — Liberdade geográfica -->
+  <div class="slide" id="slide-11">
+    <div class="step-tag" style="background:rgba(245,158,11,0.1);color:var(--gold);border:1px solid rgba(245,158,11,0.2)">✦ Última pergunta!</div>
+    <div class="question">Onde você sonha em estar <span>daqui a 1 ano</span>?</div>
+    <div class="sub">Essa última resposta vai completar seu perfil e definir a melhor recomendação para você.</div>
+    <div class="options">
+      <div class="opt" onclick="selectOpt(this,11,'livre')">
+        <div class="opt-icon">🌍</div>
+        <div><div class="opt-text">Livre para trabalhar de qualquer lugar</div><div class="opt-sub">Laptop, praia, café — onde eu quiser</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,11,'estavel')">
+        <div class="opt-icon">🏠</div>
+        <div><div class="opt-text">Financeiramente estável</div><div class="opt-sub">Sem apertar, sem preocupar com contas</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,11,'rico')">
+        <div class="opt-icon">🚀</div>
+        <div><div class="opt-text">Com renda que substituiu o emprego</div><div class="opt-sub">Nunca mais depender de chefe</div></div>
+      </div>
+      <div class="opt" onclick="selectOpt(this,11,'aprendendo')">
+        <div class="opt-icon">📈</div>
+        <div><div class="opt-text">Aprendendo e crescendo no mercado</div><div class="opt-sub">Me tornando um trader de verdade</div></div>
+      </div>
+    </div>
+    <button class="btn-next" id="btn-11" disabled onclick="nextSlide(12, 30)">Ver meu resultado →</button>
+  </div>
+
+  <!-- SLIDE 12 — RESULTADO FINAL -->
+  <div class="slide" id="slide-12">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;letter-spacing:2px;text-transform:uppercase">✦ Seu perfil personalizado</div>
+      <div class="milestone-coins" style="justify-content:center;margin-bottom:0">🪙 <span id="finalCoins">0</span> moedas conquistadas!</div>
+    </div>
+    <div class="final-profile" id="finalProfile">
+      <div class="profile-badge" id="profileBadge">🚀</div>
+      <div class="profile-name" id="profileName">Seu Perfil</div>
+      <div class="profile-desc" id="profileDesc">Descrição</div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:12px;letter-spacing:1px;text-transform:uppercase">✦ Recomendado para você</div>
+    <div class="rec-cards" id="recCards"></div>
+    <a href="/home" class="btn-gratis">🆓 Acessar Plataforma Gratuitamente →</a>
+    <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted)">Sem cartão de crédito · Sem compromisso · Conta demo grátis</div>
+  </div>
+
+</div>
+
+<script>
+let coins = 0;
+let answers = {};
+let currentSlide = 1;
+
+function selectOpt(el, slide, val) {
+  document.querySelectorAll('#slide-'+slide+' .opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  answers[slide] = val;
+  const btn = document.getElementById('btn-'+slide);
+  if (btn) btn.removeAttribute('disabled');
+}
+
+function addCoins(amount) {
+  coins += amount;
+  const el = document.getElementById('coinsDisplay');
+  el.textContent = coins;
+  el.style.transform = 'scale(1.3)';
+  setTimeout(() => el.style.transform = 'scale(1)', 300);
+  // Coin pop animation
+  const pop = document.createElement('div');
+  pop.className = 'coin-pop';
+  pop.textContent = '+'+amount+'🪙';
+  pop.style.cssText = 'top:60px;right:20px;color:#f59e0b;font-weight:700;font-size:14px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 1000);
+}
+
+function nextSlide(to, coinReward) {
+  addCoins(coinReward);
+  const curr = document.getElementById('slide-'+currentSlide);
+  const next = document.getElementById('slide-'+to);
+  curr.classList.remove('active');
+  curr.classList.add('exit');
+  setTimeout(() => curr.classList.remove('exit'), 500);
+  next.classList.add('active');
+  currentSlide = to;
+  // Update progress
+  const pct = (to / 12) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  // Update mid coins display
+  if (to === 8) document.getElementById('midCoins').textContent = coins;
+  if (to === 12) buildFinalSlide();
+  window.scrollTo(0, 0);
+}
+
+function buildFinalSlide() {
+  document.getElementById('finalCoins').textContent = coins;
+  // Confetti
+  for (let i = 0; i < 30; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className = 'confetti-piece';
+      const colors = ['#0ea5e9','#a855f7','#22c55e','#f59e0b','#ec4899'];
+      c.style.cssText = `left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*0.5}s`;
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 2200);
+    }, i * 50);
+  }
+
+  // Definir perfil baseado nas respostas
+  let badge, name, desc, recs;
+  const exp = answers[9];
+  const capital = answers[7];
+  const obj = answers[1];
+
+  if (exp === 'zero' || exp === 'basico') {
+    badge = '🌱'; name = 'Trader Iniciante com Potencial';
+    desc = 'Você está no começo da jornada — e isso é ótimo. Com as ferramentas certas, iniciantes conseguem resultados consistentes muito mais rápido do que imagina. O caminho mais seguro para você começa com a conta demo e o robô simples.';
+    recs = [
+      {icon:'🆓', nome:'Começar com Conta Demo', preco:'Grátis — sem risco', link:'/home', cor:'#22c55e', cta:'Começar grátis'},
+      {icon:'🏦', nome:'Alpha Bank', preco:'R$ 19,90 vitalício — protege sua banca', link:'/checkout?produto=alpha-bank', cor:'#22c55e', cta:'Ver detalhes'},
+    ];
+  } else if (exp === 'medio') {
+    badge = '⚡'; name = 'Trader em Evolução';
+    desc = 'Você já tem experiência mas quer consistência. A maioria dos traders amadores perde por dois motivos: falta de gestão de banca e operar no emocional. O Alpha Dolar resolve os dois automaticamente.';
+    recs = [
+      {icon:'🧠', nome:'IA Avançado', preco:'R$ 97,00 vitalício — machine learning real', link:'/checkout?produto=ia-avancado', cor:'#a855f7', cta:'Ver detalhes'},
+      {icon:'🏦', nome:'Alpha Bank', preco:'R$ 19,90 — gestão automática de banca', link:'/checkout?produto=alpha-bank', cor:'#22c55e', cta:'Ver detalhes'},
+    ];
+  } else {
+    badge = '🎯'; name = 'Trader Avançado';
+    desc = 'Você tem experiência real e sabe o valor de uma boa ferramenta. As estratégias VIP com análise neural são feitas para traders como você — que entendem que win rate consistente vale mais que qualquer promessa.';
+    recs = [
+      {icon:'💎', nome:'Estratégias VIP', preco:'R$ 97,00 — 7 IAs com win rate até 82%', link:'/checkout?produto=estrategias-vip', cor:'#0ea5e9', cta:'Ver detalhes'},
+      {icon:'⭐', nome:'Premium Elite', preco:'R$ 147,00 — pacote completo', link:'/checkout?produto=premium-elite', cor:'#f59e0b', cta:'Ver detalhes'},
+    ];
+  }
+
+  document.getElementById('profileBadge').textContent = badge;
+  document.getElementById('profileName').textContent = name;
+  document.getElementById('profileDesc').textContent = desc;
+
+  const container = document.getElementById('recCards');
+  container.innerHTML = recs.map(r => `
+    <a href="${r.link}" class="rec-card">
+      <div class="rec-card-icon" style="background:rgba(255,255,255,0.04)">${r.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div class="rec-card-nome">${r.nome}</div>
+        <div class="rec-card-preco">${r.preco}</div>
+      </div>
+      <div class="rec-card-cta" style="background:rgba(255,255,255,0.06);color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700">${r.cta} →</div>
+    </a>
+  `).join('');
+}
+</script>
+</body>
+</html>
