@@ -378,6 +378,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 })();
 
 let coins=0, answers={}, cur=1;
+const _sid = 'qs_' + Math.random().toString(36).substr(2,9) + '_' + Date.now();
+function _track(step, answer, completed){
+  fetch('/api/quiz/track', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({quiz:'quiz', session_id:_sid, step, answer:answer||'', completed:completed||0})
+  }).catch(()=>{});
+}
 const total=11;
 
 function pick(el,slide,val){
@@ -404,6 +410,7 @@ function addCoins(n){
 }
 
 function go(to,reward){
+  _track(to, answers[cur]||'', to===11 ? 1 : 0);
   addCoins(reward);
   const from=document.getElementById('s'+cur);
   const next=document.getElementById('s'+to);

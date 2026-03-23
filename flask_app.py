@@ -904,6 +904,93 @@ def listar_clientes():
         return jsonify({'erro': str(e)}), 500
 
 # ─────────────────────────────────────────────
+# ANALYTICS — QUIZ TRACKING
+# ─────────────────────────────────────────────
+import sqlite3 as _sq
+
+def _get_analytics_db():
+    conn = _sq.connect('/home/dirlei/alpha-dolar-2.0/analytics.db')
+    conn.row_factory = _sq.Row
+    conn.execute('''CREATE TABLE IF NOT EXISTS quiz_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quiz TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        step INTEGER NOT NULL,
+        answer TEXT,
+        ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS quiz_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        quiz TEXT NOT NULL,
+        session_id TEXT UNIQUE NOT NULL,
+        started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_step INTEGER DEFAULT 1,
+        completed INTEGER DEFAULT 0,
+        completed_at TIMESTAMP
+    )''')
+    conn.commit()
+    return conn
+
+@app.route('/api/quiz/track', methods=['POST'])
+def quiz_track():
+    try:
+        d = request.json or {}
+        quiz = d.get('quiz','unknown')
+        session_id = d.get('session_id','')
+        step = int(d.get('step', 1))
+        answer = d.get('answer','')
+        completed = int(d.get('completed', 0))
+        conn = _get_analytics_db()
+        # Upsert session
+        conn.execute('''INSERT INTO quiz_sessions (quiz, session_id, last_step, completed, completed_at)
+            VALUES (?,?,?,?, CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END)
+            ON CONFLICT(session_id) DO UPDATE SET
+                last_step = MAX(last_step, excluded.last_step),
+                completed = MAX(completed, excluded.completed),
+                completed_at = CASE WHEN excluded.completed = 1 AND completed_at IS NULL THEN CURRENT_TIMESTAMP ELSE completed_at END
+        ''', (quiz, session_id, step, completed, completed))
+        # Insert event
+        conn.execute('INSERT INTO quiz_events (quiz, session_id, step, answer) VALUES (?,?,?,?)',
+            (quiz, session_id, step, answer))
+        conn.commit()
+        conn.close()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)}), 200
+
+@app.route('/api/quiz/stats', methods=['GET'])
+def quiz_stats():
+    key = request.args.get('key')
+    if key != 'alpha2026':
+        return jsonify({'erro': 'nao autorizado'}), 403
+    try:
+        conn = _get_analytics_db()
+        quizzes = ['quiz', 'quiz-parceiro']
+        result = {}
+        for q in quizzes:
+            total = conn.execute('SELECT COUNT(DISTINCT session_id) as n FROM quiz_sessions WHERE quiz=?',(q,)).fetchone()['n']
+            completed = conn.execute('SELECT COUNT(*) as n FROM quiz_sessions WHERE quiz=? AND completed=1',(q,)).fetchone()['n']
+            by_step = conn.execute('''
+                SELECT last_step, COUNT(*) as n FROM quiz_sessions WHERE quiz=? GROUP BY last_step ORDER BY last_step
+            ''', (q,)).fetchall()
+            last7 = conn.execute('''
+                SELECT DATE(started_at) as dia, COUNT(DISTINCT session_id) as n
+                FROM quiz_sessions WHERE quiz=? AND started_at >= DATE('now','-7 days')
+                GROUP BY dia ORDER BY dia
+            ''', (q,)).fetchall()
+            result[q] = {
+                'total': total,
+                'completed': completed,
+                'conversion': round(completed/total*100,1) if total > 0 else 0,
+                'by_step': [{'step': r['last_step'], 'count': r['n']} for r in by_step],
+                'last7': [{'dia': r['dia'], 'count': r['n']} for r in last7],
+            }
+        conn.close()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+# ─────────────────────────────────────────────
 # SUPABASE CONFIG
 # ─────────────────────────────────────────────
 SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co'
