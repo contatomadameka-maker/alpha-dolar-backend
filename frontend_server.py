@@ -55,6 +55,10 @@ def guia_estrategias_vip():
 def guia_premium_elite():
     return send_from_directory('web', 'guia-premium-elite.html')
 
+@app.route('/quiz-parceiro')
+def quiz_parceiro():
+    return send_from_directory('web', 'quiz-parceiro.html')
+
 @app.route('/quiz')
 def quiz():
     return send_from_directory('web', 'quiz.html')
