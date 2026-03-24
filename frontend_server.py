@@ -127,6 +127,44 @@ def salvar_cliente():
         print('Supabase erro:', e)
     return jsonify({'ok': True})
 
+@app.route('/api/operacoes', methods=['GET'])
+def api_operacoes():
+    import sqlite3 as sq
+    bot_name = request.args.get('bot_name', '')
+    deriv_id = request.args.get('deriv_id', '')
+    limit    = int(request.args.get('limit', 100))
+    try:
+        conn = sq.connect('/home/dirlei/alpha-dolar-2.0/alpha_dolar.db')
+        conn.row_factory = sq.Row
+        if bot_name and deriv_id:
+            rows = conn.execute('SELECT * FROM operacoes WHERE bot_name=? AND cliente_id=? ORDER BY criado_em DESC LIMIT ?', (bot_name, deriv_id, limit)).fetchall()
+        elif bot_name:
+            rows = conn.execute('SELECT * FROM operacoes WHERE bot_name=? ORDER BY criado_em DESC LIMIT ?', (bot_name, limit)).fetchall()
+        elif deriv_id:
+            rows = conn.execute('SELECT * FROM operacoes WHERE cliente_id=? ORDER BY criado_em DESC LIMIT ?', (deriv_id, limit)).fetchall()
+        else:
+            rows = conn.execute('SELECT * FROM operacoes ORDER BY criado_em DESC LIMIT ?', (limit,)).fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+@app.route('/api/clientes', methods=['GET'])
+def api_clientes():
+    import sqlite3 as sq
+    bot_name = request.args.get('bot_name', '')
+    try:
+        conn = sq.connect('/home/dirlei/alpha-dolar-2.0/alpha_dolar.db')
+        conn.row_factory = sq.Row
+        if bot_name:
+            rows = conn.execute('SELECT * FROM clientes WHERE bot_name=? ORDER BY ultimo_acesso DESC', (bot_name,)).fetchall()
+        else:
+            rows = conn.execute('SELECT * FROM clientes ORDER BY ultimo_acesso DESC').fetchall()
+        conn.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
 @app.route('/api/quiz/track', methods=['POST'])
 def quiz_track():
     try:
