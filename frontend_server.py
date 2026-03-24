@@ -78,6 +78,55 @@ def quiz_parceiro():
 def quiz():
     return send_from_directory('web', 'quiz.html')
 
+@app.route('/api/salvar-cliente', methods=['POST'])
+def salvar_cliente():
+    import sqlite3 as sq
+    data = request.json or {}
+    try:
+        # Salva no SQLite local
+        conn = sq.connect('/home/dirlei/alpha-dolar-2.0/alpha_dolar.db')
+        conn.execute('''INSERT INTO clientes (deriv_id, nome, email, token_demo, token_real, account_type, ultimo_acesso, bot_name)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+            ON CONFLICT(deriv_id) DO UPDATE SET
+                token_demo = excluded.token_demo,
+                token_real = excluded.token_real,
+                ultimo_acesso = CURRENT_TIMESTAMP,
+                bot_name = excluded.bot_name
+        ''', (
+            data.get('deriv_id'), data.get('nome'), data.get('email'),
+            data.get('token_demo'), data.get('token_real'),
+            data.get('account_type', 'demo'), data.get('bot_name', 'default')
+        ))
+        conn.commit(); conn.close()
+    except Exception as e:
+        print('SQLite erro:', e)
+    # Salva no Supabase também
+    try:
+        import urllib.request, json as _json
+        SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co'
+        SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo'
+        payload = _json.dumps({
+            'deriv_id': data.get('deriv_id'),
+            'nome': data.get('nome'),
+            'email': data.get('email'),
+            'token_demo': data.get('token_demo'),
+            'token_real': data.get('token_real'),
+            'account_type': data.get('account_type', 'demo'),
+            'bot_name': data.get('bot_name', 'default')
+        }).encode()
+        req = urllib.request.Request(
+            SUPA_URL + '/rest/v1/clientes',
+            data=payload, method='POST'
+        )
+        req.add_header('Content-Type', 'application/json')
+        req.add_header('apikey', SUPA_KEY)
+        req.add_header('Authorization', 'Bearer ' + SUPA_KEY)
+        req.add_header('Prefer', 'resolution=merge-duplicates')
+        urllib.request.urlopen(req, timeout=5)
+    except Exception as e:
+        print('Supabase erro:', e)
+    return jsonify({'ok': True})
+
 @app.route('/api/quiz/track', methods=['POST'])
 def quiz_track():
     try:
