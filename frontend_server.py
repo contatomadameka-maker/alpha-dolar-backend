@@ -114,15 +114,18 @@ def salvar_cliente():
             'account_type': data.get('account_type', 'demo'),
             'bot_name': data.get('bot_name', 'default')
         }).encode()
+        from datetime import datetime as _dt
+        payload_dict = json.loads(payload.decode())
+        payload_dict['ultimo_acesso'] = _dt.utcnow().isoformat()
+        payload = json.dumps(payload_dict).encode()
         req = urllib.request.Request(
-            SUPA_URL + '/rest/v1/clientes',
+            SUPA_URL + '/rest/v1/clientes?on_conflict=deriv_id',
             data=payload, method='POST'
         )
         req.add_header('Content-Type', 'application/json')
         req.add_header('apikey', SUPA_KEY)
         req.add_header('Authorization', 'Bearer ' + SUPA_KEY)
         req.add_header('Prefer', 'resolution=merge-duplicates,return=minimal')
-        req.add_header('on_conflict', 'deriv_id')
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         print('Supabase erro:', e)
