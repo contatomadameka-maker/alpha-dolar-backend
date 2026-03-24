@@ -121,7 +121,8 @@ def salvar_cliente():
         req.add_header('Content-Type', 'application/json')
         req.add_header('apikey', SUPA_KEY)
         req.add_header('Authorization', 'Bearer ' + SUPA_KEY)
-        req.add_header('Prefer', 'resolution=merge-duplicates')
+        req.add_header('Prefer', 'resolution=merge-duplicates,return=minimal')
+        req.add_header('on_conflict', 'deriv_id')
         urllib.request.urlopen(req, timeout=5)
     except Exception as e:
         print('Supabase erro:', e)
