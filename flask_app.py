@@ -746,6 +746,19 @@ class DerivBot:
         trade_history.insert(0, result)
         if len(trade_history) > 100: trade_history.pop()
         print(f"{'✅' if won else '❌'} {contract_type}: ${profit:+.2f} | Saldo: ${current_stats['saldo_atual']:.2f}")
+        # Salvar operacao no banco
+        try:
+            import sqlite3 as _sq2
+            _conn = _sq2.connect('/home/dirlei/alpha-dolar-2.0/alpha_dolar.db')
+            _cliente_id = self.config.get('deriv_id') or self.config.get('account_id') or 'unknown'
+            _bot_name   = self.config.get('bot_name', 'default')
+            _conn.execute('''INSERT INTO operacoes (cliente_id, bot_name, tipo, stake, resultado, lucro)
+                VALUES (?, ?, ?, ?, ?, ?)''',
+                (_cliente_id, _bot_name, contract_type, stake, 'win' if won else 'loss', round(profit, 2)))
+            _conn.commit()
+            _conn.close()
+        except Exception as _e:
+            print(f"DB erro: {_e}")
 
 
 # ─────────────────────────────────────────────
@@ -780,6 +793,10 @@ def start_bot():
     global_config.update(config)
     if data.get('token'):      global_config['deriv_token']  = data['token']
     if data.get('account_type'): global_config['account_type'] = data['account_type']
+    if data.get('deriv_id'):     global_config['deriv_id']     = data['deriv_id']
+    if data.get('bot_name'):     global_config['bot_name']     = data['bot_name']
+    if config.get('deriv_id'):   global_config['deriv_id']     = config['deriv_id']
+    if config.get('bot_name'):   global_config['bot_name']     = config['bot_name']
 
     if bots_state[bot_type]['running']:
         return jsonify({'error': 'Bot já rodando'}), 400
