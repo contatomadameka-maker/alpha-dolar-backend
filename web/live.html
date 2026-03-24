@@ -4,17 +4,19 @@
 <!-- ══ ALPHA GUARD ══ -->
 <script>
 (function(){
+  // Modo fake/live com chave — pula verificação
+  var urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('key') === 'alpha2026') return;
+  var fakeCookie = document.cookie.split(';').some(function(c){ return c.trim() === 'live_access=alpha2026'; });
+  if (fakeCookie) return;
   try {
     var raw = localStorage.getItem('deriv_accounts');
     if (!raw) throw 'sem_token';
     var contas = JSON.parse(raw);
     if (!contas || contas.length === 0) throw 'sem_contas';
-    // Verifica se pelo menos um token existe
     var temToken = contas.some(function(c){ return c.token && c.token.length > 5; });
     if (!temToken) throw 'token_invalido';
-    // Tudo OK — usuário autenticado
   } catch(e) {
-    // Sem login válido — redireciona para login
     window.location.replace('/login');
   }
 })();
