@@ -5177,7 +5177,30 @@ window._proModo='fixo';
 window.proSetModo=function(modo){window._proModo=modo;const fixo=document.getElementById('proModoFixo');const auto=document.getElementById('proModoAuto');const painel=document.getElementById('proAutoPainel');if(modo==='fixo'){fixo.style.background='rgba(0,210,255,0.15)';fixo.style.borderColor='rgba(0,210,255,0.4)';fixo.style.color='#00d2ff';auto.style.background='transparent';auto.style.borderColor='rgba(100,116,139,0.3)';auto.style.color='#64748b';document.getElementById('proContractType').disabled=false;if(painel)painel.style.display='none';const mn=document.getElementById('proModoNeg');const mna=document.getElementById('proModoNegAuto');if(mn)mn.style.display='grid';if(mna)mna.style.display='none';}else{auto.style.background='rgba(168,85,247,0.15)';auto.style.borderColor='rgba(168,85,247,0.4)';auto.style.color='#a855f7';fixo.style.background='transparent';fixo.style.borderColor='rgba(100,116,139,0.3)';fixo.style.color='#64748b';document.getElementById('proContractType').disabled=true;if(painel)painel.style.display='block';const mn2=document.getElementById('proModoNeg');const mna2=document.getElementById('proModoNegAuto');if(mn2)mn2.style.display='none';if(mna2)mna2.style.display='block';}};
 window.proSetMult=function(val,el){document.querySelectorAll('.pro-mult-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('proMultiplier').value=val;window._proState.mult=val;};
 window.proVozChange=function(cb){window._proState.vozAtiva=cb.checked;const thumb=document.getElementById('proVozThumb');const slider=document.getElementById('proVozSlider');if(cb.checked){thumb.style.left='22px';slider.style.background='#a855f7';}else{thumb.style.left='2px';slider.style.background='#374151';}};
-function proFalar(t){if(!window._proState.vozAtiva)return;if(!('speechSynthesis' in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=1.05;u.pitch=1.0;u.volume=0.9;const vozes=window.speechSynthesis.getVoices();const voz=vozes.find(v=>v.lang==='pt-BR'&&v.name.toLowerCase().includes('female'))||vozes.find(v=>v.lang==='pt-BR')||vozes.find(v=>v.lang.startsWith('pt'));if(voz)u.voice=voz;window.speechSynthesis.speak(u);}
+function proFalar(t){
+  if(!window._proState.vozAtiva)return;
+  if(!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  const _falar=()=>{
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang='pt-BR';u.rate=1.05;u.pitch=1.0;u.volume=1.0;
+    const vozes=window.speechSynthesis.getVoices();
+    const voz=vozes.find(v=>v.lang==='pt-BR'&&v.name.toLowerCase().includes('luciana'))
+      ||vozes.find(v=>v.lang==='pt-BR')
+      ||vozes.find(v=>v.lang.startsWith('pt'));
+    if(voz)u.voice=voz;
+    u.onstart=()=>{
+      window._vozTimer=setInterval(()=>{
+        if(window.speechSynthesis.paused)window.speechSynthesis.resume();
+      },3000);
+    };
+    u.onend=()=>clearInterval(window._vozTimer);
+    u.onerror=()=>clearInterval(window._vozTimer);
+    window.speechSynthesis.speak(u);
+  };
+  // Chrome Mac fix: precisa de pequeno delay apos cancel
+  setTimeout(_falar, 100);
+}
 function proAddFeed(msg,cor){const feed=document.getElementById('proFeed');if(!feed)return;const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const div=document.createElement('div');div.style.cssText='color:'+(cor||'#94a3b8')+';padding:2px 0;border-bottom:1px solid rgba(168,85,247,0.08);';div.textContent='['+ts+'] '+msg;const ph=feed.querySelector('div[style*="text-align:center"]');if(ph)ph.remove();feed.appendChild(div);feed.scrollTop=feed.scrollHeight;}
 window.proAnalisarTipo = function proAnalisarTipo(ct, d) {
   if(!d||d.length<20)return{score:0,barrier:null,desc:'...'};
