@@ -114,9 +114,10 @@ def salvar_cliente():
             'account_type': data.get('account_type', 'demo'),
             'bot_name': data.get('bot_name', 'default')
         }).encode()
-        from datetime import datetime as _dt
+        from datetime import datetime as _dt, timezone, timedelta
         payload_dict = json.loads(payload.decode())
-        payload_dict['ultimo_acesso'] = _dt.utcnow().isoformat()
+        _tz_br = timezone(timedelta(hours=-3))
+        payload_dict['ultimo_acesso'] = _dt.now(_tz_br).isoformat()
         payload = json.dumps(payload_dict).encode()
         req = urllib.request.Request(
             SUPA_URL + '/rest/v1/clientes?on_conflict=deriv_id',
