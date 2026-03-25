@@ -663,8 +663,15 @@ async function carregarDados(botName) {
     }
 
     // 2. Operações — campo bot_name no banco
-    const resOps = await fetch(`${API}/api/operacoes?bot_name=${encodeURIComponent(botName)}`);
-    const ops    = await resOps.json();
+    const resOps = await fetch(`${API}/api/operacoes?bot_name=${encodeURIComponent(botName)}&limit=500`);
+    const opsRaw = await resOps.json();
+    // Deduplicar operacoes com mesmo valor em menos de 2 segundos
+    const ops = opsRaw.filter((op, i) => {
+      if (i === 0) return true;
+      const prev = opsRaw[i-1];
+      const tDiff = Math.abs(new Date(op.criado_em) - new Date(prev.criado_em));
+      return !(tDiff < 2000 && op.lucro === prev.lucro && op.stake === prev.stake);
+    });
     renderOperacoes(ops);
     calcularKPIs(ops);
 
