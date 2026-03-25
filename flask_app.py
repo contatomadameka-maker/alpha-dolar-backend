@@ -626,7 +626,7 @@ class DerivBot:
     async def _run_with_deriv(self):
         connected = await self.connect_deriv()
         if not connected:
-            self._run_simulation()
+            print('❌ Conexão Deriv falhou — NÃO iniciando simulação para conta real')
             return
         await self.subscribe_ticks()
         current_stats['status_texto'] = 'Coletando dados...'
@@ -746,18 +746,24 @@ class DerivBot:
         trade_history.insert(0, result)
         if len(trade_history) > 100: trade_history.pop()
         print(f"{'✅' if won else '❌'} {contract_type}: ${profit:+.2f} | Saldo: ${current_stats['saldo_atual']:.2f}")
-        # Salvar operacao no banco — apenas conta real
+        # Salvar operacao no banco — apenas conta real, sem duplicatas
         try:
-            import sqlite3 as _sq2
+            import sqlite3 as _sq2, time as _time
             _account_type = self.config.get('account_type', 'demo')
             _cliente_id   = self.config.get('deriv_id') or self.config.get('account_id') or 'unknown'
             _bot_name     = self.config.get('bot_name', 'default')
             if _account_type == 'real' and _cliente_id != 'unknown':
                 _conn = _sq2.connect('/home/dirlei/alpha-dolar-2.0/alpha_dolar.db')
-                _conn.execute('''INSERT INTO operacoes (cliente_id, bot_name, tipo, stake, resultado, lucro)
-                    VALUES (?, ?, ?, ?, ?, ?)''',
-                    (_cliente_id, _bot_name, contract_type, stake, 'win' if won else 'loss', round(profit, 2)))
-                _conn.commit()
+                # Verifica se ja existe operacao identica nos ultimos 2 segundos
+                _dup = _conn.execute('''SELECT id FROM operacoes
+                    WHERE cliente_id=? AND bot_name=? AND stake=? AND resultado=? AND lucro=?
+                    AND criado_em >= datetime('now', '-2 seconds')''',
+                    (_cliente_id, _bot_name, stake, 'win' if won else 'loss', round(profit, 2))).fetchone()
+                if not _dup:
+                    _conn.execute('''INSERT INTO operacoes (cliente_id, bot_name, tipo, stake, resultado, lucro)
+                        VALUES (?, ?, ?, ?, ?, ?)''',
+                        (_cliente_id, _bot_name, contract_type, stake, 'win' if won else 'loss', round(profit, 2)))
+                    _conn.commit()
                 _conn.close()
         except Exception as _e:
             print(f"DB erro: {_e}")
