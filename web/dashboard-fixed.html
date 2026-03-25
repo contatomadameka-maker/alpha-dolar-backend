@@ -9197,6 +9197,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Inicializa hints ao carregar
   setTimeout(iaAdvOnChange, 1000);
+  // Auto salvar cliente ao carregar dashboard
+  try {
+    const _contas = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+    const _tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
+    const _conta = _contas.find(c => Boolean(c.isDemo) === (_tipo === 'demo')) || _contas[0];
+    const _contaReal = _contas.find(c => !c.isDemo);
+    const _contaDemo = _contas.find(c => c.isDemo);
+    if (_conta) {
+      const _derivId = _conta.acct || _conta.loginid || _conta.account || '';
+      const _email = localStorage.getItem('alpha_email') || '';
+      const _nome = localStorage.getItem('alpha_nome') || '';
+      if (_derivId) {
+        fetch('/api/salvar-cliente', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            deriv_id: _derivId,
+            nome: _nome,
+            email: _email,
+            account_type: _tipo,
+            bot_name: 'BOT Dirlei 01',
+            token_demo: _contaDemo?.token || '',
+            token_real: _contaReal?.token || ''
+          })
+        }).catch(() => {});
+      }
+    }
+  } catch(_e) {}
+
 }); // fim DOMContentLoaded
 </script>
 
