@@ -892,6 +892,99 @@ init_db()
 def checkout():
     return send_from_directory('web', 'checkout.html')
 
+@app.route('/api/pro/analisar', methods=['POST'])
+def pro_analisar():
+    import random, math
+    d = request.json or {}
+    digits = d.get('digits', [])
+    ct = d.get('ct', 'DIGITEVEN')
+    modo = d.get('modo', 'fixo')
+
+    if len(digits) < 20:
+        return jsonify({'score':0,'entrar':False,'desc':'Coletando...','barrier':None,'ct':ct})
+
+    def analisar_tipo(ct, d):
+        u20=d[-20:]; u10=d[-10:]; u30=d[-30:] if len(d)>=30 else d[:]
+        pares=sum(1 for x in u20 if x%2==0); rp=pares/20
+        media_u10=sum(u10)/10; last=d[-1]; last_par=last%2
+        streak=1
+        for i in range(len(d)-2, max(len(d)-9,-1), -1):
+            if d[i]%2==last_par: streak+=1
+            else: break
+        score=0; barrier=None; desc=''
+        if ct=='DIGITEVEN':
+            s1=rp if rp>=0.60 else (rp*0.85 if rp>=0.55 else rp*0.5)
+            s2=min(0.55+streak*0.05,0.80) if streak>=4 and last_par==1 else (0.58 if streak<=2 and last_par==0 else 0.45)
+            s3=0.65 if rp>=0.55 else 0.40
+            score=s1*0.45+s2*0.35+s3*0.20
+            desc=f'Par:{round(rp*100)}% Str:{streak}'
+        elif ct=='DIGITODD':
+            ri=1-rp
+            s1=ri if ri>=0.60 else (ri*0.85 if ri>=0.55 else ri*0.5)
+            s2=min(0.55+streak*0.05,0.80) if streak>=4 and last_par==0 else (0.58 if streak<=2 and last_par==1 else 0.45)
+            s3=0.65 if ri>=0.55 else 0.40
+            score=s1*0.45+s2*0.35+s3*0.20
+            desc=f'Impar:{round(ri*100)}% Str:{streak}'
+        elif ct=='DIGITOVER':
+            baixos=sum(1 for x in u10 if x<5)
+            s1=0.75 if baixos>=7 else (0.65 if baixos>=6 else (0.55 if baixos>=5 else 0.30))
+            seqB=0
+            for i in range(len(d)-1, max(len(d)-6,-1), -1):
+                if d[i]<5: seqB+=1
+                else: break
+            s2=0.70 if seqB>=3 else (0.60 if seqB>=2 else 0.40)
+            s3=0.70 if media_u10<4 else (0.60 if media_u10<4.5 else 0.35)
+            score=s1*0.40+s2*0.35+s3*0.25
+            desc=f'Baixos:{baixos}/10'
+        elif ct=='DIGITUNDER':
+            altos=sum(1 for x in u10 if x>=5)
+            s1=0.75 if altos>=7 else (0.65 if altos>=6 else (0.55 if altos>=5 else 0.30))
+            seqA=0
+            for i in range(len(d)-1, max(len(d)-6,-1), -1):
+                if d[i]>=5: seqA+=1
+                else: break
+            s2=0.70 if seqA>=3 else (0.60 if seqA>=2 else 0.40)
+            s3=0.70 if media_u10>5.5 else (0.60 if media_u10>5 else 0.35)
+            score=s1*0.40+s2*0.35+s3*0.25
+            desc=f'Altos:{altos}/10'
+        elif ct=='DIGITMATCH':
+            freq=[0]*10
+            for x in u30: freq[x]+=1
+            max_f=max(freq); dig_f=freq.index(max_f); pct=max_f/len(u30)
+            s1=0.75 if pct>=0.20 else (0.65 if pct>=0.15 else (0.55 if pct>=0.12 else 0.35))
+            recente=sum(1 for x in d[-5:] if x==dig_f)
+            s2=0.70 if recente>=2 else (0.55 if recente>=1 else 0.35)
+            b1=sum(1 for x in u10 if x==dig_f); b2=sum(1 for x in u20[:10] if x==dig_f)
+            s3=0.70 if b1>=2 and b2>=2 else (0.55 if b1>=2 or b2>=2 else 0.35)
+            score=s1*0.40+s2*0.35+s3*0.25
+            barrier=dig_f; desc=f'Digito:{dig_f} Freq:{round(pct*100)}%'
+        elif ct=='DIGITDIFF':
+            freq=[0]*10
+            for x in u20: freq[x]+=1
+            max_f=max(freq); entropia=max_f/20
+            s1=0.75 if entropia<=0.15 else (0.65 if entropia<=0.20 else (0.55 if entropia<=0.25 else 0.35))
+            last_dig=d[-1]; rep=sum(1 for x in d[-5:-1] if x==last_dig)
+            s2=0.70 if rep==0 else (0.50 if rep==1 else 0.30)
+            score=s1*0.45+s2*0.35+0.50*0.20
+            barrier=last_dig; desc=f'Entr:{round(entropia*100)}%'
+        return {'score':round(score*100), 'barrier':barrier, 'desc':desc}
+
+    if modo == 'auto':
+        tipos=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER','DIGITMATCH','DIGITDIFF']
+        melhor={'score':0,'ct':'DIGITEVEN','barrier':None,'desc':''}
+        todos={}
+        for t in tipos:
+            r=analisar_tipo(t,digits)
+            todos[t]=r['score']
+            if r['score']>melhor['score']:
+                melhor={'score':r['score'],'ct':t,'barrier':r['barrier'],'desc':r['desc']}
+        entrar=melhor['score']>=45
+        return jsonify({'score':melhor['score'],'entrar':entrar,'desc':'AUTO->'+melhor['ct']+' '+melhor['desc'],'barrier':melhor['barrier'],'ct':melhor['ct'],'todos':todos})
+    else:
+        r=analisar_tipo(ct,digits)
+        entrar=r['score']>=52
+        return jsonify({'score':r['score'],'entrar':entrar,'desc':r['desc'],'barrier':r['barrier'],'ct':ct})
+
 @app.route('/api/salvar-cliente', methods=['POST'])
 def salvar_cliente():
     data = request.json
