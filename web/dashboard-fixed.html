@@ -5202,10 +5202,22 @@ function proFalar(t){
   setTimeout(_falar, 100);
 }
 function proAddFeed(msg,cor){const feed=document.getElementById('proFeed');if(!feed)return;const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const div=document.createElement('div');div.style.cssText='color:'+(cor||'#94a3b8')+';padding:2px 0;border-bottom:1px solid rgba(168,85,247,0.08);';div.textContent='['+ts+'] '+msg;const ph=feed.querySelector('div[style*="text-align:center"]');if(ph)ph.remove();feed.appendChild(div);feed.scrollTop=feed.scrollHeight;}
-// ── ANÁLISE MOVIDA PARA BACKEND ──
+// ── ANÁLISE — versão local para sinais visuais ──
 window.proAnalisarTipo = function proAnalisarTipo(ct, d) {
-  // Stub local — cálculo real no backend
-  return {score:0, barrier:null, desc:'...'};
+  if(!d||d.length<20)return{score:0,barrier:null,desc:'...'};
+  const u20=d.slice(-20),u10=d.slice(-10),u30=d.length>=30?d.slice(-30):d.slice();
+  const pares=u20.filter(x=>x%2===0).length,rp=pares/20;
+  const media=u10.reduce((a,b)=>a+b,0)/10,last=d[d.length-1],lp=last%2;
+  let streak=1;
+  for(let i=d.length-2;i>=0&&i>=d.length-8;i--){if(d[i]%2===lp)streak++;else break;}
+  let score=0,barrier=null,desc='';
+  if(ct==='DIGITEVEN'){const s1=rp>=0.60?rp:rp>=0.55?rp*0.85:rp*0.5;const s2=streak>=4&&lp===1?Math.min(0.55+streak*0.05,0.80):streak<=2&&lp===0?0.58:0.45;const s3=rp>=0.55?0.65:0.40;score=(s1*0.45)+(s2*0.35)+(s3*0.20);desc='Par:'+Math.round(rp*100)+'%';}
+  else if(ct==='DIGITODD'){const ri=1-rp;const s1=ri>=0.60?ri:ri>=0.55?ri*0.85:ri*0.5;const s2=streak>=4&&lp===0?Math.min(0.55+streak*0.05,0.80):streak<=2&&lp===1?0.58:0.45;const s3=ri>=0.55?0.65:0.40;score=(s1*0.45)+(s2*0.35)+(s3*0.20);desc='Impar:'+Math.round(ri*100)+'%';}
+  else if(ct==='DIGITOVER'){const b=u10.filter(x=>x<5).length;const s1=b>=7?0.75:b>=6?0.65:b>=5?0.55:0.30;let sq=0;for(let i=d.length-1;i>=0&&i>=d.length-5;i--){if(d[i]<5)sq++;else break;}const s2=sq>=3?0.70:sq>=2?0.60:0.40;const s3=media<4?0.70:media<4.5?0.60:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);desc='Baixos:'+b+'/10';}
+  else if(ct==='DIGITUNDER'){const a=u10.filter(x=>x>=5).length;const s1=a>=7?0.75:a>=6?0.65:a>=5?0.55:0.30;let sq=0;for(let i=d.length-1;i>=0&&i>=d.length-5;i--){if(d[i]>=5)sq++;else break;}const s2=sq>=3?0.70:sq>=2?0.60:0.40;const s3=media>5.5?0.70:media>5?0.60:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);desc='Altos:'+a+'/10';}
+  else if(ct==='DIGITMATCH'){const freq=Array(10).fill(0);u30.forEach(x=>freq[x]++);const mf=Math.max(...freq),df=freq.indexOf(mf),pct=mf/u30.length;const s1=pct>=0.20?0.75:pct>=0.15?0.65:pct>=0.12?0.55:0.35;const rec=d.slice(-5).filter(x=>x===df).length;const s2=rec>=2?0.70:rec>=1?0.55:0.35;const b1=u10.filter(x=>x===df).length,b2=u20.slice(0,10).filter(x=>x===df).length;const s3=(b1>=2&&b2>=2)?0.70:(b1>=2||b2>=2)?0.55:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);barrier=df;desc='Dig:'+df+' '+Math.round(pct*100)+'%';}
+  else if(ct==='DIGITDIFF'){const freq=Array(10).fill(0);u20.forEach(x=>freq[x]++);const mf=Math.max(...freq),ent=mf/20;const s1=ent<=0.15?0.75:ent<=0.20?0.65:ent<=0.25?0.55:0.35;const rep=d.slice(-5,-1).filter(x=>x===last).length;const s2=rep===0?0.70:rep===1?0.50:0.30;score=(s1*0.45)+(s2*0.35)+(0.50*0.20);barrier=last;desc='Ent:'+Math.round(ent*100)+'%';}
+  return{score:Math.round(score*100),barrier,desc};
 }
 
 function proAnalisar(ct){
