@@ -554,6 +554,21 @@ def start_bot():
                 except Exception as e:
                     print(f"Erro ao salvar operação: {e}")
 
+                # Enviar resultado para o Telegram com imagem
+                try:
+                    from backend.telegram_signals import sinal_resultado
+                    usou_gale = get_user_state(deriv_id, bot_type).get('mart_step', 0)
+                    sinal_resultado(
+                        tipo=direction,
+                        mercado=symbol_used,
+                        resultado='won' if won else 'lost',
+                        lucro=round(profit, 2),
+                        win_rate=wr,
+                        usou_gale=usou_gale
+                    )
+                except Exception as e:
+                    print(f"Erro ao enviar resultado Telegram: {e}")
+
             # Salvar estado no Supabase para auto-restart
             try:
                 _salvar_estado(bot_type, {
