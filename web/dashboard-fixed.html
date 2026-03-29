@@ -2946,11 +2946,11 @@ body { overflow-x: hidden !important; }
                 const martStep     = data.mart_step !== undefined ? parseInt(data.mart_step) : 0;
                 const martMax      = data.mart_max  !== undefined ? parseInt(data.mart_max)  : 3;
                 const isRunning    = data.running || data.bot_running || false;
-                const waitingSignal = data.waiting_signal || false;
-                if (waitingSignal) {
-                    if (!window._cronoInterval && window.iniciarCronometro) window.iniciarCronometro();
-                } else {
-                    if (window._cronoInterval && window.pararCronometro) window.pararCronometro();
+                // Cronômetro roda sempre que bot está rodando
+                if (isRunning && !window._cronoInterval && window.iniciarCronometro) {
+                    window.iniciarCronometro();
+                } else if (!isRunning && window._cronoInterval && window.pararCronometro) {
+                    window.pararCronometro();
                 }
                 // Processa logs de multi-estratégia
                 if (data.trades && window._multiStrategyAtivo) {
