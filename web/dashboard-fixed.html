@@ -342,6 +342,7 @@
         .log-action   { color: #e0e0e0; font-size: 15px; }
         .log-win      { color: #00e676; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(0,230,118,0.3); }
         .log-multi    { color: #00d2ff; font-weight: 700; font-size: 13px; text-shadow: 0 0 8px rgba(0,210,255,0.3); }
+        @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
         .log-loss     { color: #ff5252; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(255,82,82,0.3); }
         .log-stoploss { color: #ff1744; font-weight: 700; font-size: 15px; background: rgba(255,23,68,0.08); border-left: 3px solid #ff1744; padding-left: 6px; }
         .log-longcode { color: #78909c; font-size: 13px; font-style: italic; }
@@ -2072,7 +2073,7 @@ body { overflow-x: hidden !important; }
                 <div class="dc-bar" id="dcBar2"></div>
                 <div class="dc-bar" id="dcBar3"></div>
             </div>
-            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal...</div>
+            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;"></span></div>
 
             <div class="watchdog-banner" id="watchdogBanner">
                 ⚠️ Bot travado aguardando sinal há <span id="watchdogSecs">0</span>s
@@ -2113,7 +2114,7 @@ body { overflow-x: hidden !important; }
             </div>
             <button class="btn-parar-robo" id="stopBotBtn">
                 <span class="stop-icon">⬛</span>
-                <span id="stopBotText">Parar Robô</span>
+                <span class="btn-pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#00e676;display:inline-block;margin-right:6px;animation:pulseDot 1s infinite;"></span><span id="stopBotText">Parar Robô</span>
             </button>
         </div>
     </div>
@@ -2374,6 +2375,7 @@ body { overflow-x: hidden !important; }
             const mercadoFmt = formatarMercado(mercado);
 
             const sinal    = isWin ? '▲' : '▼';
+            if (window.pararCronometro) window.pararCronometro();
             const prefixo  = isWin ? 'Ganho' : 'Perda';
             const corClass = isWin ? 'log-win' : 'log-loss';
             let linhaResultado = `${sinal} ${prefixo} $${Math.abs(lucroNum).toFixed(2)} | ${tipo} | ${mercadoFmt}`;
@@ -2415,7 +2417,7 @@ body { overflow-x: hidden !important; }
                     if (b1) b1.className = 'dc-bar';
                     if (b2) b2.className = 'dc-bar';
                     if (b3) b3.className = 'dc-bar';
-                    if (lb) lb.textContent = 'Aguardando sinal...';
+                    if (lb) lb.textContent = 'Aguardando sinal...'; if (window.iniciarCronometro) window.iniciarCronometro();
                 }, 3500);
             })();
 
@@ -3034,7 +3036,7 @@ body { overflow-x: hidden !important; }
                         const ct = document.getElementById('dcTradeBars');
                         if (b1) { b1.className='dc-bar'; b2.className='dc-bar'; b3.className='dc-bar'; }
                         if (ct) ct.classList.add('show');
-                        if (lb) lb.textContent = 'Aguardando sinal...';
+                        if (lb) lb.textContent = 'Aguardando sinal...'; if (window.iniciarCronometro) window.iniciarCronometro();
                     }
                 } else if (data.waiting_signal === false && isRunning) {
                     atualizarMensagem('operando', '⚡ Executando operação...');
@@ -7985,6 +7987,35 @@ window.verificarTrialDemo = async function(produto) {
 
 
 // ========== MULTI-ESTRATÉGIA ==========
+
+// ========== CRONÔMETRO AGUARDANDO SINAL ==========
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        if (el) {
+            const m = Math.floor(window._cronoSegundos / 60);
+            const s = window._cronoSegundos % 60;
+            el.textContent = m > 0
+                ? m + 'm ' + String(s).padStart(2,'0') + 's'
+                : window._cronoSegundos + 's';
+        }
+    }, 1000);
+};
+
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+
 window._multiStrategyAtivo = false;
 
 window.toggleMultiStrategy = function() {
@@ -9122,7 +9153,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (lb) lb.textContent = `🔮 Virtual ${st.virtContador}/${st.perdas}`;
         setTimeout(() => {
           if (b1) b1.className = 'dc-bar';
-          if (lb) lb.textContent = 'Aguardando sinal...';
+          if (lb) lb.textContent = 'Aguardando sinal...'; if (window.iniciarCronometro) window.iniciarCronometro();
         }, 1500);
       }
       return; // não entra real ainda
