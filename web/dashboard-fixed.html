@@ -3333,7 +3333,7 @@ body { overflow-x: hidden !important; }
                     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
                     const produto = tier === 'vip' ? 'estrategias-vip' : 'premium-elite';
                     try {
-                        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.' + produto + '&select=id',
+                        const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.' + produto + '&select=id',
                             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
                         const d = await r.json();
                         if (d && d.length > 0) {
@@ -5117,7 +5117,7 @@ window.abrirAlphaIaPro=async function(){
   const SUPA_URL='https://urlthgicnomfbyklesou.supabase.co';
   const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
   try{
-    const r=await fetch(SUPA_URL+'/rest/v1/produtos_liberados?email=eq.'+encodeURIComponent(email)+'&produto=eq.ia-pro&select=id',
+    const r=await fetch(SUPA_URL+'/rest/v1/produtos_ativos?email=eq.'+encodeURIComponent(email)+'&produto=eq.ia-pro&select=id',
       {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
     const d=await r.json();
     if(!(d&&d.length>0)){window.location.href='/checkout?produto=ia-pro';return;}
@@ -5774,7 +5774,7 @@ window.verificarModoBaixoRisco = async function() {
     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
     try {
-        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
         const d = await r.json();
         if (d && d.length > 0) {
@@ -5798,7 +5798,7 @@ window.abrirAlphaBank = async function() {
     }
     try {
         const r = await fetch(
-            SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-bank&select=id',
+            SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-bank&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
         );
         const d = await r.json();
@@ -6358,7 +6358,7 @@ window.abrirAlphaPattern = async function() {
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
     try {
-        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-pattern&select=id',
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-pattern&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
         const d = await r.json();
         if (d && d.length > 0) {
@@ -6645,7 +6645,7 @@ window.abrirAlphaClock = async function() {
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
     try {
-        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-clock&select=id',
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-clock&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
         const d = await r.json();
         if (d && d.length > 0) {
@@ -6921,7 +6921,7 @@ window.abrirAlphaCopy = async function() {
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
     try {
-        const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-copy&select=id',
+        const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-copy&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
         const d = await r.json();
         if (d && d.length > 0) {
@@ -8517,7 +8517,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const email = localStorage.getItem('alpha_email') || '';
       const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
       const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
-      fetch(SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
+      fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
         { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
       ).then(function(r) { return r.json(); }).then(function(d) {
         if (d && d.length > 0) {
