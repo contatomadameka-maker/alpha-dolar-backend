@@ -20,10 +20,12 @@ sys.path.insert(0, backend_path)
 
 app = Flask(__name__, static_folder='web', static_url_path='')
 CORS(app)
+register_cakto_webhook(app)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
 import traceback as _tb
+from webhook_cakto import register_cakto_webhook
 print(f"📁 project_path: {project_path}")
 print(f"📁 backend_path: {backend_path}")
 print(f"📁 sys.path: {sys.path[:3]}")
