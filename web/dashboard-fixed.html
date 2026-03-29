@@ -5120,7 +5120,7 @@ window.abrirAlphaIaPro=async function(){
     const r=await fetch(SUPA_URL+'/rest/v1/produtos_ativos?email=eq.'+encodeURIComponent(email)+'&produto=eq.ia-pro&select=id',
       {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
     const d=await r.json();
-    if(!(d&&d.length>0)){window.location.href='/checkout?produto=ia-pro';return;}
+    if(!(d&&d.length>0)){await window.ativarTrial('ia-pro','Alpha IA Pro',()=>{const m=document.getElementById('alphaIaProModal');if(m)m.style.display='block';});return;}
   }catch(e){}
   const m=document.getElementById('alphaIaProModal');
   m.style.display='block';
@@ -5780,7 +5780,7 @@ window.verificarModoBaixoRisco = async function() {
         if (d && d.length > 0) {
             selectTradingMode('lowRisk', '🛡️', 'Baixo risco');
         } else {
-            window.location.href = '/checkout?produto=premium-elite';
+            window.ativarTrial('premium-elite','Premium Elite',()=>{}); return;
         }
     } catch(e) {
         selectTradingMode('lowRisk', '🛡️', 'Baixo risco');
@@ -5792,9 +5792,7 @@ window.abrirAlphaBank = async function() {
     const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
     const email = localStorage.getItem('alpha_email') || '';
     if (!email) {
-        const ok = confirm('Alpha Bank\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 19,90 vitalicio!');
-        if (ok) window.open('https://pay.cakto.com.br/qktokbt_813127','_blank');
-        return;
+        window.ativarTrial('alpha-bank','Alpha Bank',()=>{ document.getElementById('alphaBankModal').style.display='block'; bankAtualizar(); }); return;
     }
     try {
         const r = await fetch(
@@ -5806,8 +5804,7 @@ window.abrirAlphaBank = async function() {
             document.getElementById('alphaBankModal').style.display = 'block';
             bankAtualizar();
         } else {
-            const ok = confirm('Alpha Bank\n\nVoce ainda nao tem acesso.\n\nClique OK para adquirir por R$ 19,90 vitalicio!');
-            if (ok) window.open('https://pay.cakto.com.br/qktokbt_813127','_blank');
+            window.ativarTrial('alpha-bank','Alpha Bank',()=>{ document.getElementById('alphaBankModal').style.display='block'; bankAtualizar(); });
         }
     } catch(e) {
         document.getElementById('alphaBankModal').style.display = 'block';
@@ -6364,7 +6361,7 @@ window.abrirAlphaPattern = async function() {
         if (d && d.length > 0) {
             document.getElementById('alphaPatternModal').style.display = 'block';
         } else {
-            window.location.href = '/checkout?produto=alpha-pattern';
+            window.ativarTrial('alpha-pattern','Alpha Pattern',()=>{}); return;
         }
     } catch(e) {
         document.getElementById('alphaPatternModal').style.display = 'block';
@@ -6655,7 +6652,7 @@ window.abrirAlphaClock = async function() {
             if (_clockInterval) clearInterval(_clockInterval);
             _clockInterval = setInterval(clockTick, 1000);
         } else {
-            window.location.href = '/checkout?produto=alpha-clock';
+            window.ativarTrial('alpha-clock','Alpha Clock',()=>{}); return;
         }
     } catch(e) {
         document.getElementById('alphaClockModal').style.display = 'block';
@@ -6928,7 +6925,7 @@ window.abrirAlphaCopy = async function() {
             document.getElementById('alphaCopyModal').style.display = 'block';
             copyCarregarStats();
         } else {
-            window.location.href = '/checkout?produto=alpha-copy';
+            window.ativarTrial('alpha-copy','Alpha Copy',()=>{}); return;
         }
     } catch(e) {
         document.getElementById('alphaCopyModal').style.display = 'block';
@@ -7903,6 +7900,44 @@ window.proAtualizarStatusVirtual = function() {
 </script>
 
 
+
+<script>
+// ========== TRIAL 24H DEMO ==========
+window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
+    const email = localStorage.getItem('alpha_email') || '';
+    if (!email) { window.location.href = '/checkout?produto=' + produto; return; }
+
+    const confirmar = confirm(
+        nomeExibicao + '\n\n' +
+        'Você ainda não tem acesso.\n\n' +
+        '🎁 Quer ativar 1 TRIAL GRÁTIS de 24h (apenas modo demo)?\n\n' +
+        'Clique OK para ativar o trial\nou Cancelar para adquirir o plano completo.'
+    );
+
+    if (!confirmar) { window.location.href = '/checkout?produto=' + produto; return; }
+
+    try {
+        const r = await fetch('https://alpha-dolar-backend.onrender.com/api/trial/ativar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, produto: produto })
+        });
+        const d = await r.json();
+
+        if (d.status === 'ok') {
+            alert('✅ Trial de 24h ativado!\nApenas modo DEMO disponível.\nBom teste!');
+            if (callbackAoLiberar) callbackAoLiberar();
+        } else if (d.erro && d.erro.includes('Trial ja utilizado')) {
+            alert('Seu trial já foi utilizado.\nAdquira o plano completo para continuar.');
+            window.location.href = '/checkout?produto=' + produto;
+        } else {
+            window.location.href = '/checkout?produto=' + produto;
+        }
+    } catch(e) {
+        window.location.href = '/checkout?produto=' + produto;
+    }
+};
+</script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -8528,7 +8563,7 @@ document.addEventListener('DOMContentLoaded', function() {
           iaAdvSyncMercado();
         } else {
           if (confirm('IA Avançado\n\nVoce nao tem acesso ainda.\n\nDeseja adquirir por R$ 97,00?')) {
-            window.location.href = '/checkout?produto=ia-avancado';
+            window.ativarTrial('ia-avancado','IA Avançado',()=>{}); return;
           }
         }
       }).catch(function(e) { console.log('Erro Supabase:', e); });
