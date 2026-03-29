@@ -3400,7 +3400,15 @@ body { overflow-x: hidden !important; }
                             document.getElementById('strategyModal')?.classList.remove('active');
                         } else {
                             const checkout = tier === 'vip' ? 'estrategias-vip' : 'premium-elite';
-                            window.location.href = '/checkout?produto=' + checkout;
+                            await window.ativarTrial(checkout,
+                                tier === 'vip' ? 'Estratégias VIP' : 'Premium Elite',
+                                () => {
+                                    const nameEl = document.getElementById('selectedStrategy');
+                                    if (nameEl) nameEl.textContent = strategy.name;
+                                    if (typeof window.selectStrategyGlobal === 'function') window.selectStrategyGlobal(strategy);
+                                    document.getElementById('strategyModal')?.classList.remove('active');
+                                }
+                            );
                         }
                     } catch(e) {
                         const nameEl = document.getElementById('selectedStrategy');
