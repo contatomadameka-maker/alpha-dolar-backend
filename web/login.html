@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpha Dolar 2.0 — Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold:     #f59e0b;
+            --gold-lt:  #fcd34d;
+            --gold-dk:  #d97706;
+            --dark:     #050806;
+            --panel:    rgba(5,8,6,.92);
+            --border:   rgba(240,180,41,.18);
+            --border-hi:rgba(240,180,41,.4);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            min-height: 100vh;
+            background: var(--dark);
+            font-family: 'Syne', sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+
+        canvas#bg {
+            position: fixed; inset: 0;
+            width: 100%; height: 100%;
+            pointer-events: none; z-index: 0;
+        }
+        .bg-radial {
+            position: fixed; inset: 0; z-index: 1;
+            background:
+                radial-gradient(ellipse 60% 60% at 50% 50%, rgba(245,158,11,.055) 0%, transparent 70%),
+                radial-gradient(ellipse 100% 50% at 50% 100%, rgba(245,158,11,.04) 0%, transparent 60%);
+        }
+
+        .orn {
+            position: fixed; width: 80px; height: 80px;
+            border-color: rgba(240,180,41,.15); border-style: solid; z-index: 3;
+        }
+        .orn.tl { top:20px; left:20px;   border-width: 1px 0 0 1px; }
+        .orn.tr { top:20px; right:20px;  border-width: 1px 1px 0 0; }
+        .orn.bl { bottom:20px; left:20px;  border-width: 0 0 1px 1px; }
+        .orn.br { bottom:20px; right:20px; border-width: 0 1px 1px 0; }
+        .orn::after { content:''; position:absolute; width:6px; height:6px; border-radius:50%; background:rgba(240,180,41,.3); }
+        .orn.tl::after{top:-3px;left:-3px;} .orn.tr::after{top:-3px;right:-3px;}
+        .orn.bl::after{bottom:-3px;left:-3px;} .orn.br::after{bottom:-3px;right:-3px;}
+
+        .card {
+            position: relative; z-index: 10;
+            width: 100%; max-width: 440px; margin: 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            backdrop-filter: blur(40px);
+            box-shadow:
+                0 0 0 1px rgba(240,180,41,.05),
+                0 0 80px rgba(245,158,11,.1),
+                0 40px 100px rgba(0,0,0,.85),
+                inset 0 1px 0 rgba(240,180,41,.12),
+                inset 0 -1px 0 rgba(240,180,41,.05);
+            animation: card-in .9s cubic-bezier(.16,1,.3,1) both;
+            overflow: hidden;
+        }
+        @keyframes card-in {
+            from { opacity:0; transform: translateY(40px) scale(.96); }
+            to   { opacity:1; transform: translateY(0) scale(1); }
+        }
+        .card-line {
+            position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), var(--gold-lt), var(--gold), transparent);
+            box-shadow: 0 0 12px rgba(245,158,11,.5);
+        }
+        .card-body { padding: 48px 44px 40px; }
+
+        .emblem {
+            width: 84px; height: 84px;
+            margin: 0 auto 20px;
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .em-ring {
+            position: absolute; border-radius: 50%;
+            border: 1px solid; animation: espin linear infinite;
+        }
+        .em-ring:nth-child(1) { inset:0;  border-color:rgba(240,180,41,.25); animation-duration:10s; }
+        .em-ring:nth-child(2) { inset:10px; border-color:rgba(240,180,41,.15); animation-duration:7s; animation-direction:reverse; border-style:dashed; }
+        .em-ring:nth-child(3) { inset:20px; border-color:rgba(240,180,41,.1);  animation-duration:14s; }
+        @keyframes espin { to { transform: rotate(360deg); } }
+        .em-core {
+            position: relative; z-index: 1;
+            font-family: 'Orbitron', monospace; font-size: 36px; font-weight: 900;
+            background: linear-gradient(160deg, var(--gold-lt) 0%, var(--gold) 50%, var(--gold-dk) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: core-pulse 2.5s ease-in-out infinite alternate;
+        }
+        @keyframes core-pulse {
+            from { filter: drop-shadow(0 0 8px  rgba(245,158,11,.5)); }
+            to   { filter: drop-shadow(0 0 22px rgba(245,158,11,.9)); }
+        }
+
+        .title {
+            text-align: center; font-family: 'Orbitron', monospace;
+            font-size: 22px; font-weight: 900; letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--gold-lt), var(--gold), var(--gold-dk));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .subtitle {
+            text-align: center; font-size: 10px; letter-spacing: 4px;
+            color: rgba(240,180,41,.25); font-family: 'Orbitron', monospace;
+            margin-bottom: 36px;
+        }
+
+        .stats {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px; margin-bottom: 28px;
+        }
+        .stat {
+            padding: 12px 8px;
+            background: rgba(240,180,41,.04); border: 1px solid rgba(240,180,41,.09);
+            border-radius: 12px; text-align: center; transition: border-color .2s;
+        }
+        .stat:hover { border-color: rgba(240,180,41,.2); }
+        .stat-val { font-family:'Orbitron',monospace; font-size:14px; font-weight:700; color:var(--gold); margin-bottom:3px; }
+        .stat-lbl { font-size:8px; color:rgba(240,180,41,.3); font-family:'Orbitron',monospace; letter-spacing:1px; }
+        .stat-live .stat-val { display:flex; align-items:center; justify-content:center; gap:5px; }
+        .live-dot { width:6px; height:6px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px #22c55e; animation:ldot 1.5s ease-in-out infinite; }
+        @keyframes ldot { 50% { opacity:.3; } }
+
+        .divider { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+        .div-line { flex:1; height:1px; background:var(--border); }
+        .div-txt { font-size:9px; color:rgba(240,180,41,.2); font-family:'Orbitron',monospace; letter-spacing:2px; }
+
+        .btn {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%; padding: 17px 24px;
+            border-radius: 14px; border: none;
+            font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700;
+            letter-spacing: 1px; cursor: pointer; text-decoration: none;
+            transition: all .22s cubic-bezier(.16,1,.3,1); margin-bottom: 10px;
+        }
+        .btn:last-of-type { margin-bottom: 0; }
+        .btn:active { transform: scale(.98); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold-dk), var(--gold), var(--gold-lt));
+            color: #0a0700;
+            box-shadow: 0 4px 24px rgba(245,158,11,.35), inset 0 1px 0 rgba(255,255,255,.2);
+        }
+        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 36px rgba(245,158,11,.55),inset 0 1px 0 rgba(255,255,255,.2); }
+        .btn-outline { background:transparent; color:rgba(240,180,41,.7); border:1px solid rgba(240,180,41,.2); }
+        .btn-outline:hover { transform:translateY(-2px); background:rgba(240,180,41,.06); border-color:rgba(240,180,41,.4); color:var(--gold); }
+
+        .footer { margin-top:24px; text-align:center; }
+        .footer-powered { font-size:10px; color:rgba(240,180,41,.15); font-family:'Orbitron',monospace; letter-spacing:2px; }
+        .footer-warn { margin-top:10px; font-size:10px; color:rgba(255,255,255,.1); line-height:1.6; }
+
+        #authState { display:none; }
+        #authState.active { display:block; }
+        .auth-icon { font-size:56px; text-align:center; margin-bottom:12px; animation:bounce .5s cubic-bezier(.16,1,.3,1); }
+        @keyframes bounce { from{transform:scale(0);}to{transform:scale(1);} }
+        .auth-name { font-family:'Orbitron',monospace; font-size:16px; color:var(--gold); text-align:center; margin-bottom:4px; }
+        .auth-sub { text-align:center; color:rgba(240,180,41,.3); font-size:12px; margin-bottom:24px; }
+        .acct-cards { display:flex; gap:10px; margin-bottom:24px; }
+        .acct-card { flex:1; padding:16px; background:rgba(240,180,41,.04); border:1px solid rgba(240,180,41,.12); border-radius:14px; }
+        .acct-label { font-size:9px; color:rgba(240,180,41,.3); font-family:'Orbitron',monospace; letter-spacing:2px; margin-bottom:4px; }
+        .acct-id    { font-size:11px; color:rgba(240,180,41,.5); font-family:monospace; margin-bottom:6px; }
+        .acct-bal   { font-family:'Orbitron',monospace; font-size:18px; font-weight:700; color:var(--gold); }
+
+        .loading { position:fixed;inset:0;z-index:9999;background:rgba(5,8,6,.95);backdrop-filter:blur(16px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px; }
+        .loading.active { display:flex; }
+        .spinner { width:48px;height:48px;border:2px solid rgba(240,180,41,.1);border-top-color:var(--gold);border-radius:50%;animation:espin .7s linear infinite;box-shadow:0 0 20px rgba(245,158,11,.2); }
+        .loading-txt { font-family:'Orbitron',monospace;font-size:11px;letter-spacing:3px;color:rgba(240,180,41,.5); }
+
+        .toast { position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(20,14,4,.97);color:var(--gold);padding:14px 24px;border-radius:12px;opacity:0;transition:all .3s;z-index:99999;border:1px solid rgba(240,180,41,.2);box-shadow:0 4px 20px rgba(0,0,0,.5);font-family:'Orbitron',monospace;font-size:11px;letter-spacing:1px; }
+        .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div class="bg-radial"></div>
+<div class="orn tl"></div><div class="orn tr"></div>
+<div class="orn bl"></div><div class="orn br"></div>
+
+<div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div class="loading-txt" id="loadingTxt">AGUARDE...</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="card">
+    <div class="card-line"></div>
+    <div class="card-body">
+
+        <div id="loginState">
+            <div class="emblem">
+                <div class="em-ring"></div>
+                <div class="em-ring"></div>
+                <div class="em-ring"></div>
+                <div class="em-core">$</div>
+            </div>
+            <div class="title">ALPHA DOLAR</div>
+            <div class="subtitle">TRADING BOT 2.0</div>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-val">71%</div>
+                    <div class="stat-lbl">WIN RATE</div>
+                </div>
+                <div class="stat stat-live">
+                    <div class="stat-val"><span class="live-dot"></span>LIVE</div>
+                    <div class="stat-lbl">STATUS</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-val">24/7</div>
+                    <div class="stat-lbl">OPERANDO</div>
+                </div>
+            </div>
+
+            <div class="divider">
+                <div class="div-line"></div>
+                <span class="div-txt">ACESSO SEGURO</span>
+                <div class="div-line"></div>
+            </div>
+
+            <button class="btn btn-primary" onclick="autenticar()">
+                <span>🔑</span><span>ENTRAR COM DERIV</span>
+            </button>
+            <a class="btn btn-outline"
+               href="https://deriv.partners/rx?sidc=72538F17-C625-49E9-A0DC-8D4A4B83E65F&utm_campaign=dynamicworks&utm_medium=affiliate&utm_source=CU301082"
+               target="_blank" rel="noopener">
+               <span>👤</span><span>CRIAR CONTA NA DERIV</span>
+            </a>
+
+            <div class="footer">
+                <div class="footer-powered">POWERED BY DERIV OAUTH 2.0 · APP ID 128988</div>
+                <p class="footer-warn">A Deriv oferece produtos de alto risco. Negocie apenas com recursos que pode perder.</p>
+            </div>
+        </div>
+
+        <div id="authState">
+            <div class="auth-icon">✅</div>
+            <div class="auth-name" id="authName">BEM-VINDO!</div>
+            <div class="auth-sub">Conta verificada com sucesso</div>
+            <div class="acct-cards" id="acctCards"></div>
+            <button class="btn btn-primary" onclick="entrar()">
+                <span>⚡</span><span>ENTRAR NA PLATAFORMA</span>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+// ✅ CONFIGURAR POR TRADER
+window.BOT_NAME = "BOT Dirlei 01";
+// ══════════════════════════════════════
+
+const APP_ID  = '128988';
+const BACKEND = 'https://alpha-dolar-backend.onrender.com';
+const OAUTH_URL = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=PT&brand=deriv`;
+
+// ── CIRCUIT CANVAS BACKGROUND ──
+(function(){
+    const canvas = document.getElementById('bg');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const lines = Array.from({length:40}, () => ({
+        x: Math.random(), y: Math.random(),
+        dir: Math.random() > .5 ? 'h' : 'v',
+        len: Math.random() * .12 + .04,
+        spd: Math.random() * .0006 + .0003,
+        prog: Math.random(),
+        alpha: Math.random() * .3 + .08,
+        width: Math.random() > .8 ? 1.5 : 1
+    }));
+    const nodes = Array.from({length:18}, () => ({
+        x: Math.random(), y: Math.random(),
+        size: Math.random() * 2 + 1.5,
+        alpha: Math.random() * .25 + .1,
+        phase: Math.random() * Math.PI * 2
+    }));
+
+    let t = 0;
+    function draw(){
+        ctx.clearRect(0, 0, W, H);
+        lines.forEach(l => {
+            l.prog += l.spd;
+            if (l.prog > 1.3) { l.prog = -.2; l.x = Math.random(); l.y = Math.random(); }
+            const x1 = l.x * W, y1 = l.y * H;
+            const x2 = l.dir === 'h' ? x1 + l.len * W : x1;
+            const y2 = l.dir === 'v' ? y1 + l.len * H : y1;
+            ctx.strokeStyle = `rgba(180,130,30,${l.alpha * .3})`;
+            ctx.lineWidth = l.width;
+            ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+            const p = Math.max(0, Math.min(1, l.prog));
+            const gx = x1 + (x2-x1) * p, gy = y1 + (y2-y1) * p;
+            const g = ctx.createRadialGradient(gx,gy,0,gx,gy,14);
+            g.addColorStop(0, `rgba(245,158,11,${l.alpha*1.5})`);
+            g.addColorStop(1, 'rgba(245,158,11,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(gx,gy,14,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = `rgba(252,211,77,${l.alpha*2.5})`;
+            ctx.beginPath(); ctx.arc(gx,gy,l.width+.5,0,Math.PI*2); ctx.fill();
+        });
+        nodes.forEach(n => {
+            const pulse = Math.sin(t * .02 + n.phase) * .5 + .5;
+            const a = n.alpha * (.4 + pulse * .6);
+            ctx.fillStyle = `rgba(245,158,11,${a})`;
+            ctx.beginPath(); ctx.arc(n.x*W, n.y*H, n.size + pulse*1.5, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = `rgba(245,158,11,${a*.3})`;
+            ctx.lineWidth = .5;
+            ctx.beginPath(); ctx.arc(n.x*W, n.y*H, n.size*3 + pulse*3, 0, Math.PI*2); ctx.stroke();
+        });
+        t++; requestAnimationFrame(draw);
+    }
+    draw();
+})();
+
+// ── HELPERS ──
+const setLoading = (on, txt='AGUARDE...') => {
+    document.getElementById('loadingTxt').innerText = txt;
+    document.getElementById('loading').classList.toggle('active', on);
+};
+
+window.autenticar = () => {
+    setLoading(true, 'REDIRECIONANDO PARA A DERIV...');
+    setTimeout(() => { window.location.href = OAUTH_URL; }, 600);
+};
+
+function buscarInfoConta(token) {
+    return new Promise(resolve => {
+        const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+        const timer = setTimeout(() => { ws.close(); resolve(null); }, 8000);
+        ws.onopen    = () => ws.send(JSON.stringify({ authorize: token }));
+        ws.onmessage = e => {
+            const d = JSON.parse(e.data);
+            if (d.msg_type === 'authorize') { clearTimeout(timer); ws.close(); resolve(d.error ? null : d.authorize); }
+        };
+        ws.onerror = () => { clearTimeout(timer); resolve(null); };
+    });
+}
+
+async function processarCallback() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('acct1')) return false;
+
+    // Limpa dados antigos — evita conflito entre usuários
+    ['deriv_accounts','deriv_conta_ativa','deriv_token_demo','deriv_token_real','deriv_balance_demo','deriv_balance_real','alpha_plano','alpha_usuario_ativo'].forEach(k => localStorage.removeItem(k));
+
+    setLoading(true, 'VERIFICANDO CONTAS...');
+    const raw = [];
+    let i = 1;
+    while (params.get(`acct${i}`)) {
+        raw.push({
+            acct:   params.get(`acct${i}`),
+            token:  params.get(`token${i}`),
+            cur:    params.get(`cur${i}`),
+            isDemo: params.get(`acct${i}`).startsWith('VRTC')
+        });
+        i++;
+    }
+
+    setLoading(true, 'AUTENTICANDO...');
+    const contas = await Promise.all(raw.map(async c => {
+        const info = await buscarInfoConta(c.token);
+        return {
+            acct:         c.acct,
+            token:        c.token,
+            currency:     c.cur || info?.currency || 'USD',
+            balance:      info?.balance ?? null,
+            fullname:     info?.fullname || '',
+            email:        info?.email   || '',
+            account_type: c.isDemo ? 'demo' : 'real',
+            isDemo:       c.isDemo
+        };
+    }));
+
+    localStorage.setItem('deriv_accounts',    JSON.stringify(contas));
+    localStorage.setItem('deriv_conta_ativa', 'demo');
+    const demo = contas.find(c =>  c.isDemo);
+    const real = contas.find(c => !c.isDemo);
+    if (demo) { localStorage.setItem('deriv_token_demo',   demo.token); localStorage.setItem('deriv_balance_demo', demo.balance); }
+    if (real) { localStorage.setItem('deriv_token_real',   real.token); localStorage.setItem('deriv_balance_real', real.balance); }
+
+    const principal = real || demo || contas[0];
+    try {
+        setLoading(true, 'SALVANDO DADOS...');
+        await fetch(`${BACKEND}/api/salvar-cliente`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deriv_id:     principal.acct,
+                nome:         principal.fullname || '',
+                email:        principal.email    || '',
+                token_demo:   demo?.token  || '',
+                token_real:   real?.token  || '',
+                account_type: real ? 'real' : 'demo',
+                bot_name:     window.BOT_NAME || 'default'
+            })
+        });
+    } catch(e) { console.warn('Erro ao salvar cliente:', e); }
+
+    window.history.replaceState({}, '', window.location.pathname);
+    setLoading(false);
+    mostrarAutenticado(contas);
+    return true;
+}
+
+function mostrarAutenticado(contas) {
+    document.getElementById('loginState').style.display = 'none';
+    document.getElementById('authState').classList.add('active');
+    const nome = contas.find(c => c.fullname)?.fullname || 'TRADER';
+    document.getElementById('authName').innerText = nome.toUpperCase();
+    const container = document.getElementById('acctCards');
+    container.innerHTML = '';
+    contas.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'acct-card';
+        div.innerHTML = `
+            <div class="acct-label">${c.isDemo ? '🧪 DEMO' : '💰 REAL'}</div>
+            <div class="acct-id">${c.acct}</div>
+            <div class="acct-bal">${c.balance != null ? `${c.currency} ${parseFloat(c.balance).toFixed(2)}` : '—'}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+window.entrar = async () => {
+    setLoading(true, 'VERIFICANDO ACESSO...');
+    try {
+        const contas = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+        const conta = contas.find(c => !c.isDemo) || contas[0];
+        if (!conta) { window.location.href = '/home'; return; }
+        const deriv_id = conta.acct || conta.loginid || '';
+        const nome = conta.fullname || '';
+        const email = conta.email || '';
+        const BACKEND = 'https://alpha-dolar-backend.onrender.com';
+        const res = await fetch(`${BACKEND}/api/usuario/verificar`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({deriv_id, nome, email})
+        });
+        const data = await res.json();
+        if (!data.success) {
+            // Se backend offline, deixa entrar (fallback)
+            window.location.href = '/home';
+            return;
+        }
+        if (!data.ativo) {
+            // Usuário sem plano ativo
+            setLoading(false);
+            document.getElementById('loginState').innerHTML = `
+                <div style="text-align:center;padding:32px 20px;">
+                    <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+                    <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px;">Acesso Bloqueado</div>
+                    <div style="font-size:14px;color:#94a3b8;margin-bottom:24px;">Você ainda não tem um plano ativo.<br>Entre em contato para assinar.</div>
+                    <a href="https://wa.me/5547996214217?text=Quero+assinar+o+Alpha+Dolar" 
+                       style="display:inline-block;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;padding:12px 28px;border-radius:10px;font-weight:700;text-decoration:none;">
+                        📱 Assinar via WhatsApp
+                    </a>
+                </div>`;
+            return;
+        }
+        // Salva plano no localStorage
+        localStorage.setItem('alpha_plano', data.plano || 'free');
+        localStorage.setItem('alpha_usuario_ativo', 'true');
+        setLoading(true, 'CARREGANDO PLATAFORMA...');
+        setTimeout(() => { window.location.href = '/home'; }, 700);
+    } catch(e) {
+        // Fallback — se erro, deixa entrar
+        window.location.href = '/home';
+    }
+};
+
+try {
+    const raw = localStorage.getItem('deriv_accounts');
+    if (raw) { const contas = JSON.parse(raw); if (contas?.length > 0) mostrarAutenticado(contas); }
+} catch {}
+
+if (new URLSearchParams(window.location.search).has('acct1')) processarCallback();
+</script>
+</body>
+</html>

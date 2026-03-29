@@ -1,6 +1,25 @@
+# Python
+flask/
+werkzeug/
+blinker/
+click/
+jinja2/
+markupsafe/
+itsdangerous/
+flask_cors/
+venv/
+bin/
 __pycache__/
 *.pyc
-.env
-*.log
-venv/
-.DS_Store
+*.swp
+
+# Backups
+*.bak*
+*.backup*
+
+# Outros
+data/
+index.html
+videos.html
+videos.html.bak*
+frontend_server.py

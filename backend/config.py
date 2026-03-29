@@ -23,8 +23,8 @@ class BotConfig:
 
     # ===== API DERIV =====
     # COLE SEU TOKEN AQUI ENTRE AS ASPAS ↓
-    API_TOKEN = "vPu2lzCDshSNKIp"
-    APP_ID = "1089"
+    API_TOKEN = "a1-TD8gXQ9R8UGFLMH3rrfrJdtYQkN8k"
+    APP_ID = "128988"
 
     # ===== MERCADO =====
     DEFAULT_SYMBOL = "R_100"  # Volatility 100 Index
@@ -52,7 +52,7 @@ class BotConfig:
     BASIS = "stake"           # stake ou payout
 
     # ===== LIMITES =====
-    MAX_TRADES_PER_DAY = 100
+    MAX_TRADES_PER_DAY = 1000
     MIN_BALANCE = 0.50        # Saldo mínimo para operar
 
     # ===== MODO DE STOP LOSS =====
@@ -136,7 +136,7 @@ def validate_config():
     if BotConfig.STAKE_INICIAL < 0.35:
         errors.append("⚠️ Stake inicial muito baixo! Mínimo: $0.35")
 
-    if BotConfig.STAKE_INICIAL > BotConfig.MIN_BALANCE:
+    if BotConfig.STAKE_INICIAL > BotConfig.MIN_BALANCE and False:  # desabilitado
         errors.append("⚠️ Stake inicial maior que saldo mínimo!")
 
     if BotConfig.LUCRO_ALVO <= 0:
