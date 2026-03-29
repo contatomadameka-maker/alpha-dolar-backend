@@ -343,6 +343,7 @@
         .log-win      { color: #00e676; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(0,230,118,0.3); }
         .log-multi    { color: #00d2ff; font-weight: 700; font-size: 13px; text-shadow: 0 0 8px rgba(0,210,255,0.3); }
         @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+        @keyframes spinBtn { to { transform: rotate(360deg); } }
         .log-loss     { color: #ff5252; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(255,82,82,0.3); }
         .log-stoploss { color: #ff1744; font-weight: 700; font-size: 15px; background: rgba(255,23,68,0.08); border-left: 3px solid #ff1744; padding-left: 6px; }
         .log-longcode { color: #78909c; font-size: 13px; font-style: italic; }
@@ -2114,7 +2115,7 @@ body { overflow-x: hidden !important; }
             </div>
             <button class="btn-parar-robo" id="stopBotBtn">
                 <span class="stop-icon">⬛</span>
-                <span class="btn-pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#00e676;display:inline-block;margin-right:6px;animation:pulseDot 1s infinite;"></span><span id="stopBotText">Parar Robô</span>
+                <span style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;display:inline-block;margin-right:8px;animation:spinBtn 0.8s linear infinite;"></span><span id="stopBotText">Parar Robô</span>
             </button>
         </div>
     </div>
@@ -2945,6 +2946,12 @@ body { overflow-x: hidden !important; }
                 const martStep     = data.mart_step !== undefined ? parseInt(data.mart_step) : 0;
                 const martMax      = data.mart_max  !== undefined ? parseInt(data.mart_max)  : 3;
                 const isRunning    = data.running || data.bot_running || false;
+                const waitingSignal = data.waiting_signal || false;
+                if (waitingSignal && window._cronoInterval === null) {
+                    if (window.iniciarCronometro) window.iniciarCronometro();
+                } else if (!waitingSignal) {
+                    if (window.pararCronometro) window.pararCronometro();
+                }
                 // Processa logs de multi-estratégia
                 if (data.trades && window._multiStrategyAtivo) {
                     const trades = data.trades || [];
@@ -3143,6 +3150,7 @@ body { overflow-x: hidden !important; }
                     _ultimoTradeTimestamp = Date.now();
                     startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
                     window.registrarEvento('Começando a análise', 'analysis');
+                    if (window.iniciarCronometro) window.iniciarCronometro();
                     setTimeout(() => { atualizarMensagem('conectado'); window.registrarEvento('Analisando Mercado..', 'analysis'); }, 2000);
                     setTimeout(() => {
                         atualizarMensagem('primeiraOperacao');
