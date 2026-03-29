@@ -8006,13 +8006,12 @@ window.iniciarCronometro = function() {
     window._cronoInterval = setInterval(() => {
         window._cronoSegundos++;
         const el = document.getElementById('dcCronometro');
-        if (el) {
-            const m = Math.floor(window._cronoSegundos / 60);
-            const s = window._cronoSegundos % 60;
-            el.textContent = m > 0
-                ? m + 'm ' + String(s).padStart(2,'0') + 's'
-                : window._cronoSegundos + 's';
-        }
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
     }, 1000);
 };
 
