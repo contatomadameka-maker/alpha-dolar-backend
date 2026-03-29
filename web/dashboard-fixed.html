@@ -7903,6 +7903,39 @@ window.proAtualizarStatusVirtual = function() {
 
 <script>
 // ========== TRIAL 24H DEMO ==========
+
+// ========== BLOQUEIO CONTA REAL NO TRIAL ==========
+window.verificarTrialDemo = async function(produto) {
+    const email = localStorage.getItem('alpha_email') || '';
+    if (!email) return;
+
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    try {
+        const r = await fetch(
+            SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) +
+            '&produto=eq.' + produto + '&tipo=eq.trial&ativo=eq.true&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
+        );
+        const d = await r.json();
+        if (d && d.length > 0) {
+            // É trial — bloqueia botão real em todos os modais
+            ['proBtnReal','realBtnIA','btnContaReal','btnReal'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.3';
+                    btn.style.cursor = 'not-allowed';
+                    btn.title = 'Trial disponível apenas em conta DEMO';
+                }
+            });
+            // Força conta demo
+            localStorage.setItem('deriv_conta_ativa', 'demo');
+        }
+    } catch(e) {}
+};
+
 window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
     const email = localStorage.getItem('alpha_email') || '';
     if (!email) { window.location.href = '/checkout?produto=' + produto; return; }
@@ -7927,6 +7960,7 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
         if (d.status === 'ok') {
             alert('✅ Trial de 24h ativado!\nApenas modo DEMO disponível.\nBom teste!');
             if (callbackAoLiberar) callbackAoLiberar();
+            window.verificarTrialDemo(produto);
         } else if (d.erro && d.erro.includes('Trial ja utilizado')) {
             alert('Seu trial já foi utilizado.\nAdquira o plano completo para continuar.');
             window.location.href = '/checkout?produto=' + produto;
