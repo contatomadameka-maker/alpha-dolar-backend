@@ -2947,10 +2947,10 @@ body { overflow-x: hidden !important; }
                 const martMax      = data.mart_max  !== undefined ? parseInt(data.mart_max)  : 3;
                 const isRunning    = data.running || data.bot_running || false;
                 const waitingSignal = data.waiting_signal || false;
-                if (waitingSignal && window._cronoInterval === null) {
-                    if (window.iniciarCronometro) window.iniciarCronometro();
-                } else if (!waitingSignal) {
-                    if (window.pararCronometro) window.pararCronometro();
+                if (waitingSignal) {
+                    if (!window._cronoInterval && window.iniciarCronometro) window.iniciarCronometro();
+                } else {
+                    if (window._cronoInterval && window.pararCronometro) window.pararCronometro();
                 }
                 // Processa logs de multi-estratégia
                 if (data.trades && window._multiStrategyAtivo) {
