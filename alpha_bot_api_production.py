@@ -1520,3 +1520,55 @@ def enviar_sinal_manual_prod():
     ok = sinal_manual(texto, direcao=direcao)
     return jsonify({'success': ok})
 
+
+
+# ==================== TRIAL 24H ====================
+@app.route('/api/trial/ativar', methods=['POST'])
+def ativar_trial():
+    import requests as req
+    from datetime import datetime, timedelta, timezone
+
+    dados = request.get_json(silent=True) or {}
+    email = dados.get('email', '').strip().lower()
+    produto = dados.get('produto', '').strip()
+
+    if not email or not produto:
+        return jsonify({'erro': 'Email e produto obrigatorios'}), 400
+
+    SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co'
+    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo'
+    HEADERS = {
+        'apikey': SUPABASE_KEY,
+        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation',
+    }
+
+    # Verifica se ja usou trial neste produto
+    check = req.get(
+        f"{SUPABASE_URL}/rest/v1/produtos_liberados?email=eq.{email}&produto=eq.{produto}&tipo=eq.trial&select=id",
+        headers=HEADERS, timeout=10
+    )
+    if check.json():
+        return jsonify({'erro': 'Trial ja utilizado para este produto'}), 403
+
+    # Ativa trial 24h
+    expiracao = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    insert = req.post(
+        f"{SUPABASE_URL}/rest/v1/produtos_liberados",
+        headers=HEADERS,
+        json={
+            'email'         : email,
+            'produto'       : produto,
+            'tipo'          : 'trial',
+            'ativo'         : True,
+            'origem'        : 'trial',
+            'data_expiracao': expiracao,
+        },
+        timeout=10
+    )
+
+    if insert.status_code in (200, 201):
+        return jsonify({'status': 'ok', 'expiracao': expiracao}), 200
+    else:
+        return jsonify({'erro': 'Erro ao ativar trial'}), 500
