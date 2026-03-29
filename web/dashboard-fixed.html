@@ -341,6 +341,7 @@
         .log-analysis { color: #4a9eff; font-size: 15px; }
         .log-action   { color: #e0e0e0; font-size: 15px; }
         .log-win      { color: #00e676; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(0,230,118,0.3); }
+        .log-multi    { color: #00d2ff; font-weight: 700; font-size: 13px; text-shadow: 0 0 8px rgba(0,210,255,0.3); }
         .log-loss     { color: #ff5252; font-weight: 700; font-size: 15px; text-shadow: 0 0 8px rgba(255,82,82,0.3); }
         .log-stoploss { color: #ff1744; font-weight: 700; font-size: 15px; background: rgba(255,23,68,0.08); border-left: 3px solid #ff1744; padding-left: 6px; }
         .log-longcode { color: #78909c; font-size: 13px; font-style: italic; }
@@ -2942,6 +2943,22 @@ body { overflow-x: hidden !important; }
                 const martStep     = data.mart_step !== undefined ? parseInt(data.mart_step) : 0;
                 const martMax      = data.mart_max  !== undefined ? parseInt(data.mart_max)  : 3;
                 const isRunning    = data.running || data.bot_running || false;
+                // Processa logs de multi-estratégia
+                if (data.trades && window._multiStrategyAtivo) {
+                    const trades = data.trades || [];
+                    const ultimoIdx = window._ultimoTradeIdx || 0;
+                    trades.slice(ultimoIdx).forEach(t => {
+                        if (t.type === 'log' && t.level === 'multi' && window._addLogLine) {
+                            window._addLogLine(t.message, 'log-multi');
+                        }
+                    });
+                    window._ultimoTradeIdx = trades.length;
+                }
+                // Atualiza estratégia atual se multi ativo
+                if (window._multiStrategyAtivo && data.strategy_name) {
+                    const el = document.getElementById('botDisplayStrategy');
+                    if (el) el.innerText = '⚡ ' + data.strategy_name;
+                }
                 const stopReason   = data.stop_reason || null;
                 const stopMessage  = data.stop_message || null;
 
@@ -3110,7 +3127,9 @@ body { overflow-x: hidden !important; }
                     document.getElementById('botDisplayTarget').innerText   = '$' + _target;
                     document.getElementById('botDisplayStop').innerText     = '$' + _stop;
                     document.getElementById('botDisplayMarket').innerText   = window.selectedMarketName   || 'Volatility 100 Index';
-                    document.getElementById('botDisplayStrategy').innerText = window.selectedStrategyName || 'Alpha Bot 1';
+                    document.getElementById('botDisplayStrategy').innerText = window._multiStrategyAtivo
+                        ? '⚡ Multi-Estratégia'
+                        : (window.selectedStrategyName || 'Alpha Bot 1');
                     document.getElementById('botDisplayMode').innerText     = window.selectedTradingModeName || 'Veloz';
                     document.getElementById('botDisplayRisk').innerText     = window.selectedRiskModeName    || 'Conservador';
 
