@@ -382,6 +382,8 @@ def start_bot():
             trading_mode   = config.get('trading_mode', 'faster')
             risk_mode      = config.get('risk_mode', 'conservative')
             strategy_id    = config.get('strategy', 'alpha_bot_1')
+            multi_strategies = config.get('multi_strategies', [])
+            is_multi = strategy_id == 'multi' and multi_strategies
             stop_loss_type = config.get('stop_loss_type', 'value')
             max_losses     = int(config.get('max_losses', 5))
 
@@ -392,8 +394,25 @@ def start_bot():
             BotConfig.LIMITE_PERDA  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
 
             try:
-                factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
-                strategy = factory(trading_mode, risk_mode)
+                if is_multi:
+                    _multi_lista = list(multi_strategies)
+                    import random
+                    random.shuffle(_multi_lista)
+                    _multi_idx = [0]  # lista mutável para closure
+                    def _get_next_strategy():
+                        idx = _multi_idx[0] % len(_multi_lista)
+                        sid = _multi_lista[idx]
+                        _multi_idx[0] = (idx + 1) % len(_multi_lista)
+                        # Sorteia próxima aleatória diferente da atual
+                        if len(_multi_lista) > 1:
+                            opcoes = [s for s in _multi_lista if s != sid]
+                            return STRATEGY_MAP.get(random.choice(opcoes), STRATEGY_MAP['alpha_bot_1'])(trading_mode, risk_mode)
+                        return STRATEGY_MAP.get(sid, STRATEGY_MAP['alpha_bot_1'])(trading_mode, risk_mode)
+                    strategy = _get_next_strategy()
+                else:
+                    _get_next_strategy = None
+                    factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
+                    strategy = factory(trading_mode, risk_mode)
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
@@ -435,6 +454,16 @@ def start_bot():
                 wr    = round((wins / total) * 100, 1) if total > 0 else 0
 
                 if hasattr(bot, "atualizar_apos_trade"): bot.atualizar_apos_trade(won, profit)
+                # Multi-estratégia: troca após perda
+                if not won and is_multi and _get_next_strategy and get_user_state(deriv_id, bot_type).get('running'):
+                    try:
+                        nova_strategy = _get_next_strategy()
+                        bot.strategy = nova_strategy
+                        nome_nova = type(nova_strategy).__name__
+                        get_user_state(deriv_id, bot_type)['strategy_name'] = nome_nova
+                        print(f"⚡ Multi-estratégia: trocando para {nome_nova}")
+                    except Exception as _me:
+                        print(f"Erro troca estratégia: {_me}")
                 # Atualiza mart_step de forma genérica para qualquer estratégia
                 _max = get_user_state(deriv_id, bot_type).get('mart_max', 3)
                 _step = get_user_state(deriv_id, bot_type).get('mart_step', 0)
