@@ -462,6 +462,14 @@ def start_bot():
                         nome_nova = type(nova_strategy).__name__
                         get_user_state(deriv_id, bot_type)['strategy_name'] = nome_nova
                         print(f"⚡ Multi-estratégia: trocando para {nome_nova}")
+                        # Adiciona ao feed de logs visível no frontend
+                        _trades = get_user_state(deriv_id, bot_type).get('trades', [])
+                        _trades.append({
+                            'type'   : 'log',
+                            'message': f'⚡ Multi-Estratégia: trocando para {nome_nova}',
+                            'level'  : 'multi',
+                            'time'   : datetime.now().strftime('%H:%M:%S'),
+                        })
                     except Exception as _me:
                         print(f"Erro troca estratégia: {_me}")
                 # Atualiza mart_step de forma genérica para qualquer estratégia
@@ -747,6 +755,7 @@ def get_bot_stats(bot_type):
         'stats': stats, 'stop_reason': stop_reason, 'stop_message': stop_message,
         'bot_running': is_running, 'waiting_signal': waiting_signal,
         'mart_step': mart_step, 'mart_max': mart_max,
+         'strategy_name': get_user_state(deriv_id, bot_type).get('strategy_name', ''),
         'saldo_atual': stats.get('balance', 0), 'lucro_liquido': stats.get('saldo_liquido', 0),
         'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
