@@ -1357,6 +1357,33 @@ body { overflow-x: hidden !important; }
                     </div>
                 </div>
 
+                
+                <div class="form-group" id="multiStrategyGroup">
+                    <label>Modo Multi-Estratégia</label>
+                    <div onclick="toggleMultiStrategy()" id="multiStrategyBtn" style="
+                        display:flex; align-items:center; justify-content:space-between;
+                        background:rgba(0,210,255,0.05); border:1px solid rgba(0,210,255,0.15);
+                        border-radius:12px; padding:12px 16px; cursor:pointer;
+                        transition:all 0.2s;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:20px;">⚡</span>
+                            <div>
+                                <div style="color:#e2e8f0; font-size:13px; font-weight:600;">Usar Todas as Estratégias</div>
+                                <div style="color:#64748b; font-size:11px;" id="multiStrategyDesc">Troca automaticamente após cada perda</div>
+                            </div>
+                        </div>
+                        <div id="multiStrategyToggle" style="
+                            width:40px; height:22px; border-radius:11px;
+                            background:#1e2230; border:1px solid rgba(100,116,139,0.3);
+                            position:relative; transition:all 0.3s;">
+                            <div id="multiStrategyDot" style="
+                                width:16px; height:16px; border-radius:50%;
+                                background:#64748b; position:absolute;
+                                top:2px; left:2px; transition:all 0.3s;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Modo de negociação</label>
                     <div class="custom-select" id="modeSelect" onclick="openTradingModeModal()">
@@ -2734,7 +2761,8 @@ body { overflow-x: hidden !important; }
                     symbol:          marketSymbol,
                     trading_mode:    window.selectedTradingMode  || 'faster',
                     risk_mode:       window.selectedRiskMode     || 'conservative',
-                    strategy:        window.selectedStrategyId   || 'alpha_bot_1',
+                    strategy:        window._multiStrategyAtivo ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
+                    multi_strategies: window._multiStrategyAtivo ? await window.getEstrategiasDisponiveis() : [],
                     stop_loss_type:  window.selectedStopLossType || 'value',
                     max_losses:      window.selectedMaxLosses    || 5
                 }
@@ -7934,6 +7962,73 @@ window.verificarTrialDemo = async function(produto) {
             localStorage.setItem('deriv_conta_ativa', 'demo');
         }
     } catch(e) {}
+};
+
+
+// ========== MULTI-ESTRATÉGIA ==========
+window._multiStrategyAtivo = false;
+
+window.toggleMultiStrategy = function() {
+    window._multiStrategyAtivo = !window._multiStrategyAtivo;
+    const toggle = document.getElementById('multiStrategyToggle');
+    const dot    = document.getElementById('multiStrategyDot');
+    const desc   = document.getElementById('multiStrategyDesc');
+    const select = document.getElementById('strategySelect');
+
+    if (window._multiStrategyAtivo) {
+        toggle.style.background = 'rgba(0,210,255,0.3)';
+        toggle.style.borderColor = 'rgba(0,210,255,0.5)';
+        dot.style.background = '#00d2ff';
+        dot.style.left = '22px';
+        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
+        desc.style.color = '#00d2ff';
+        if (select) select.style.opacity = '0.3';
+    } else {
+        toggle.style.background = '#1e2230';
+        toggle.style.borderColor = 'rgba(100,116,139,0.3)';
+        dot.style.background = '#64748b';
+        dot.style.left = '2px';
+        desc.textContent = 'Troca automaticamente após cada perda';
+        desc.style.color = '#64748b';
+        if (select) select.style.opacity = '1';
+    }
+};
+
+window.getEstrategiasDisponiveis = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    // Estratégias free — sempre disponíveis
+    const free = ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'];
+
+    // Verifica VIP
+    let temVip = false;
+    let temPremium = false;
+    try {
+        const rv = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.estrategias-vip&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dv = await rv.json();
+        temVip = dv && dv.length > 0;
+    } catch(e) {}
+
+    // Verifica Premium
+    try {
+        const rp = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dp = await rp.json();
+        temPremium = dp && dp.length > 0;
+    } catch(e) {}
+
+    const vip     = ['alpha_mind','quantum_trader','titan_core','alpha_pulse','alpha_smart','alpha_analytics','alpha_sniper'];
+    const premium = ['mega_alpha_1','mega_alpha_2','mega_alpha_3','alpha_elite','alpha_nexus'];
+
+    let lista = [...free];
+    if (temVip)     lista = [...lista, ...vip];
+    if (temPremium) lista = [...lista, ...premium];
+
+    // Embaralha aleatoriamente
+    return lista.sort(() => Math.random() - 0.5);
 };
 
 window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
