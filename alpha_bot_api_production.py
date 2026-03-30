@@ -1784,13 +1784,18 @@ def get_financeiro_bot(bot_nome):
 
     mes_inicio = datetime.utcnow().strftime('%Y-%m-01')
 
-    # Clientes afiliados deste bot
+    # Clientes afiliados deste bot — busca por bot_name OU bot_afiliado
     cli_r = req.get(
-        f"{SUPA_URL}/rest/v1/clientes?via_afiliado=eq.true&bot_name=eq.{bot_nome}&select=deriv_id",
+        f"{SUPA_URL}/rest/v1/clientes?via_afiliado=eq.true&select=deriv_id,bot_name,bot_afiliado",
         headers=headers
     )
-    clientes_af = cli_r.json() if cli_r.status_code == 200 else []
-    ids_af = {c['deriv_id'] for c in clientes_af}
+    todos_clientes_af = cli_r.json() if cli_r.status_code == 200 else []
+    # Filtra por bot_name OU bot_afiliado (case insensitive)
+    ids_af = {
+        c['deriv_id'] for c in todos_clientes_af
+        if (c.get('bot_name','').lower() == bot_nome.lower() or
+            c.get('bot_afiliado','').lower() == bot_nome.lower())
+    }
 
     # Operacoes do bot
     ops_r = req.get(
