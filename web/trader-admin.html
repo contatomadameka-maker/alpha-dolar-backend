@@ -392,6 +392,22 @@ body::before {
   .topbar { padding: 0 14px; }
   .bot-header { flex-direction: column; align-items: flex-start; }
 }
+
+  .btn-filtro-t {
+    background: rgba(100,116,139,0.1);
+    border: 1px solid rgba(100,116,139,0.2);
+    color: #64748b;
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .btn-filtro-t.active {
+    background: rgba(0,210,255,0.15);
+    border-color: rgba(0,210,255,0.4);
+    color: #00d2ff;
+  }
+
 </style>
 </head>
 <body>
@@ -490,6 +506,23 @@ body::before {
       <div class="panel">
         <div class="panel-hdr">
           <h3>💰 Revenue Share & Comissão</h3>
+
+    <!-- FILTRO DE PERÍODO TRADER -->
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;background:rgba(0,0,0,0.2);border-radius:10px;padding:12px;">
+      <div style="color:#64748b;font-size:11px;font-weight:600;">📅 PERÍODO:</div>
+      <button onclick="filtrarTrader('hoje')" class="btn-filtro-t" id="ft-hoje">Hoje</button>
+      <button onclick="filtrarTrader('7d')"   class="btn-filtro-t" id="ft-7d">7d</button>
+      <button onclick="filtrarTrader('30d')"  class="btn-filtro-t" id="ft-30d">30d</button>
+      <button onclick="filtrarTrader('mes')"  class="btn-filtro-t active" id="ft-mes">Este mês</button>
+      <button onclick="filtrarTrader('3m')"   class="btn-filtro-t" id="ft-3m">3m</button>
+      <button onclick="filtrarTrader('6m')"   class="btn-filtro-t" id="ft-6m">6m</button>
+      <button onclick="filtrarTrader('1a')"   class="btn-filtro-t" id="ft-1a">1 ano</button>
+      <input type="date" id="ftDataInicio" style="background:#1e2230;border:1px solid rgba(100,116,139,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;">
+      <span style="color:#64748b;font-size:11px;">até</span>
+      <input type="date" id="ftDataFim" style="background:#1e2230;border:1px solid rgba(100,116,139,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:11px;">
+      <button onclick="filtrarTraderPersonalizado()" style="background:rgba(0,210,255,0.15);border:1px solid rgba(0,210,255,0.3);color:#00d2ff;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">Aplicar</button>
+    </div>
+
         </div>
         <div class="panel-body">
           <div class="receita-card">
@@ -663,6 +696,7 @@ async function carregarDados(botName) {
       document.getElementById('botDerivId').textContent = bot.deriv_id || '—';
       document.getElementById('botCadastro').textContent = bot.criado_em
         ? new Date(bot.criado_em).toLocaleDateString('pt-BR') : '—';
+      window._botAtualNome = bot.nome;
       // Gera link de afiliado
       const linkEl = document.getElementById('linkAfiliado');
       if (linkEl) {

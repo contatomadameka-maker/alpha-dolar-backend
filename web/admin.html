@@ -120,6 +120,23 @@
   .login-box input:focus{border-color:var(--cyan);}
   .btn-login{width:100%;padding:12px;background:var(--cyan);border:none;color:#000;border-radius:8px;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:15px;}
   .login-erro{color:var(--red);font-size:12px;margin-top:8px;display:none;}
+
+  .btn-filtro {
+    background: rgba(100,116,139,0.1);
+    border: 1px solid rgba(100,116,139,0.2);
+    color: #64748b;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-filtro:hover, .btn-filtro.active {
+    background: rgba(0,210,255,0.15);
+    border-color: rgba(0,210,255,0.4);
+    color: #00d2ff;
+  }
+
 </style>
 </head>
 <body>
@@ -160,6 +177,27 @@
 
   <!-- Nota explicativa -->
   <div style="background:rgba(74,158,255,.06);border:1px solid rgba(74,158,255,.2);border-radius:10px;padding:12px 18px;margin-bottom:24px;font-size:12px;color:#4a9eff;font-family:'Space Mono',monospace;line-height:1.6">
+
+    <!-- FILTRO DE PERÍODO -->
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="color:#64748b;font-size:12px;font-weight:600;letter-spacing:1px;">📅 PERÍODO:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="filtrarPeriodo('hoje')" class="btn-filtro" id="filtro-hoje">Hoje</button>
+        <button onclick="filtrarPeriodo('7d')"   class="btn-filtro" id="filtro-7d">7 dias</button>
+        <button onclick="filtrarPeriodo('30d')"  class="btn-filtro" id="filtro-30d">30 dias</button>
+        <button onclick="filtrarPeriodo('mes')"  class="btn-filtro active" id="filtro-mes">Este mês</button>
+        <button onclick="filtrarPeriodo('3m')"   class="btn-filtro" id="filtro-3m">3 meses</button>
+        <button onclick="filtrarPeriodo('6m')"   class="btn-filtro" id="filtro-6m">6 meses</button>
+        <button onclick="filtrarPeriodo('1a')"   class="btn-filtro" id="filtro-1a">1 ano</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="date" id="filtroDataInicio" style="background:#1e2230;border:1px solid rgba(100,116,139,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;">
+        <span style="color:#64748b;">até</span>
+        <input type="date" id="filtroDataFim" style="background:#1e2230;border:1px solid rgba(100,116,139,0.3);color:#e2e8f0;border-radius:6px;padding:4px 8px;font-size:12px;">
+        <button onclick="filtrarPersonalizado()" style="background:rgba(0,210,255,0.15);border:1px solid rgba(0,210,255,0.3);color:#00d2ff;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;">Aplicar</button>
+      </div>
+    </div>
+
     📊 <strong>Como é calculado:</strong> Perdas dos clientes − Ganhos dos clientes = Lucro líquido da Deriv → × 30% = Revenue Share estimado do dono do bot → × 20% = sua comissão
   </div>
 
@@ -357,6 +395,65 @@ function verificarSenha(){
     document.getElementById('login-erro').style.display = 'block';
   }
 }
+
+// ── FILTROS DE PERÍODO ────────────────────────────
+let filtroAtivo = { from: null, to: null };
+
+function getDataISO(date) {
+  return date.toISOString().split('T')[0];
+}
+
+function filtrarPeriodo(tipo) {
+  const hoje = new Date();
+  let from, to = new Date();
+
+  if (tipo === 'hoje') {
+    from = new Date(hoje); from.setHours(0,0,0,0);
+  } else if (tipo === '7d') {
+    from = new Date(hoje); from.setDate(from.getDate() - 7);
+  } else if (tipo === '30d') {
+    from = new Date(hoje); from.setDate(from.getDate() - 30);
+  } else if (tipo === 'mes') {
+    from = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  } else if (tipo === '3m') {
+    from = new Date(hoje); from.setMonth(from.getMonth() - 3);
+  } else if (tipo === '6m') {
+    from = new Date(hoje); from.setMonth(from.getMonth() - 6);
+  } else if (tipo === '1a') {
+    from = new Date(hoje); from.setFullYear(from.getFullYear() - 1);
+  }
+
+  // Atualiza inputs de data
+  document.getElementById('filtroDataInicio').value = getDataISO(from);
+  document.getElementById('filtroDataFim').value    = getDataISO(to);
+
+  // Atualiza botão ativo
+  document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('filtro-' + tipo);
+  if (btn) btn.classList.add('active');
+
+  filtroAtivo = { from: getDataISO(from), to: getDataISO(to) };
+  carregarFinanceiroReal();
+}
+
+function filtrarPersonalizado() {
+  const from = document.getElementById('filtroDataInicio').value;
+  const to   = document.getElementById('filtroDataFim').value;
+  if (!from || !to) return;
+  document.querySelectorAll('.btn-filtro').forEach(b => b.classList.remove('active'));
+  filtroAtivo = { from, to };
+  carregarFinanceiroReal();
+}
+
+// Inicializa com mês atual
+(function() {
+  const hoje = new Date();
+  const from = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  document.getElementById('filtroDataInicio').value = getDataISO(from);
+  document.getElementById('filtroDataFim').value    = getDataISO(hoje);
+  filtroAtivo = { from: getDataISO(from), to: getDataISO(hoje) };
+})();
+
 if(localStorage.getItem('admin_auth') === '1'){
   document.getElementById('login-screen').style.display = 'none';
   carregar();
