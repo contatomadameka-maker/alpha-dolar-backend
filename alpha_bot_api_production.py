@@ -1704,7 +1704,7 @@ def get_financeiro_admin():
     # 3. Busca operacoes do mes atual
     mes_inicio = datetime.utcnow().strftime('%Y-%m-01')
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?criado_em=gte.{mes_inicio}&select=cliente_id,resultado,lucro,bot_name",
+        f"{SUPA_URL}/rest/v1/operacoes?criado_em=gte.{date_from}&criado_em=lte.{date_to}&select=cliente_id,resultado,lucro,bot_name,stake",
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
@@ -1790,7 +1790,10 @@ def get_financeiro_bot(bot_nome):
     SUPA_KEY = os.environ.get('SUPABASE_KEY', '')
     headers  = {'apikey': SUPA_KEY, 'Authorization': f'Bearer {SUPA_KEY}'}
 
-    mes_inicio = datetime.utcnow().strftime('%Y-%m-01')
+    # Aceita filtro de data via query params
+    date_from = request.args.get('date_from', datetime.utcnow().strftime('%Y-%m-01'))
+    date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
+    mes_inicio = date_from
 
     # Clientes afiliados deste bot — busca por bot_name OU bot_afiliado
     cli_r = req.get(
@@ -1807,7 +1810,7 @@ def get_financeiro_bot(bot_nome):
 
     # Operacoes do bot
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?bot_name=eq.{bot_nome}&criado_em=gte.{mes_inicio}&select=cliente_id,resultado,lucro",
+        f"{SUPA_URL}/rest/v1/operacoes?bot_name=eq.{bot_nome}&criado_em=gte.{date_from}&criado_em=lte.{date_to}&select=cliente_id,resultado,lucro,stake",
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
