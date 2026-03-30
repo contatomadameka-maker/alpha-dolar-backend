@@ -997,3 +997,38 @@ window.addEventListener('DOMContentLoaded', function(){
   filtroTrader = { from: getISO(from), to: getISO(hoje) };
 });
 </script>
+<script>
+const API = window.API_BASE || 'https://alpha-dolar-backend.onrender.com';
+
+async function carregarFinanceiroReal(botName) {
+  try {
+    if (!filtroTrader.from) {
+      const hoje = new Date();
+      const from = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      filtroTrader = { from: getISO(from), to: getISO(hoje) };
+    }
+    const params = `?date_from=${filtroTrader.from}&date_to=${filtroTrader.to}`;
+    const r = await fetch(`${API}/api/admin/financeiro/${encodeURIComponent(botName)}${params}`);
+    const d = await r.json();
+    if (d.status !== 'ok') return;
+
+    const s = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = '$ ' + parseFloat(val||0).toFixed(2); };
+    s('rsGanhos',  d.ganhos_afiliado);
+    s('rsPerdas',  d.perdas_afiliado);
+    s('rsLucro',   Math.max(0, d.net_revenue));
+    s('rsShare',   d.revenue_share_30);
+    s('rsPagar',   d.pagar_alpha_20);
+    s('rsLiquido', d.seu_lucro_80);
+    s('rsMarkup',       d.markup_estimado);
+    s('rsMarkupAlpha',  d.markup_alpha_20);
+    s('rsMarkupTrader', d.markup_trader_80);
+    s('rsTotalPagar',   d.total_pagar_alpha);
+    s('rsTotalLucro',   d.total_lucro_trader);
+    s('proximoPagamento', d.total_lucro_trader);
+
+    const notaEl = document.getElementById('rsNotaAfiliados');
+    if (notaEl) notaEl.textContent = `⚠️ Calculado sobre ${d.clientes_afiliado} clientes via link afiliado (de ${d.clientes_total} total)`;
+
+  } catch(e) { console.warn('Financeiro erro:', e); }
+}
+</script>
