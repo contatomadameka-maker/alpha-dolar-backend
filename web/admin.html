@@ -1096,3 +1096,53 @@ async function verificarExpirados() {
 
 </body>
 </html>
+<script>
+async function carregarFinanceiroReal() {
+  try {
+    if (!filtroAtivo.from) {
+      const hoje = new Date();
+      const from = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      filtroAtivo = { from: getDataISO(from), to: getDataISO(hoje) };
+    }
+    const params = `?date_from=${filtroAtivo.from}&date_to=${filtroAtivo.to}`;
+    const r = await fetch(`${BACKEND}/api/admin/financeiro${params}`);
+    const d = await r.json();
+    if (d.status !== 'ok') return;
+
+    const el = (id) => document.getElementById(id);
+    const totalRevShare    = d.bots.reduce((s,b) => s + (b.revenue_share_30 || 0), 0);
+    const totalMarkupEst   = d.bots.reduce((s,b) => s + (b.markup_estimado || 0), 0);
+    const totalComissao    = d.bots.reduce((s,b) => s + (b.revenue_share_30 || 0) * 0.20, 0);
+    const totalMarkupAlpha = d.bots.reduce((s,b) => s + (b.markup_alpha_20 || 0), 0);
+    const totalGeral       = totalComissao + totalMarkupAlpha;
+
+    if (el('total-revenue-share'))   el('total-revenue-share').textContent   = '$' + totalRevShare.toFixed(2);
+    if (el('total-markup-estimado')) el('total-markup-estimado').textContent = '$' + totalMarkupEst.toFixed(2);
+    if (el('total-comissao'))        el('total-comissao').textContent        = '$' + totalComissao.toFixed(2);
+    if (el('total-markup-alpha'))    el('total-markup-alpha').textContent    = '$' + totalMarkupAlpha.toFixed(2);
+    if (el('total-geral'))           el('total-geral').textContent           = '$' + totalGeral.toFixed(2);
+
+    // Atualiza KPIs
+    if (el('kpi-ganhos')) el('kpi-ganhos').textContent = '$' + (d.total_ganhos_af || 0).toFixed(2);
+    if (el('kpi-perdas')) el('kpi-perdas').textContent = '$' + (d.total_perdas_af || 0).toFixed(2);
+    if (el('kpi-cobrar')) el('kpi-cobrar').textContent = '$' + totalComissao.toFixed(2);
+
+    // Markup real Deriv
+    if (el('kpi-markup')) el('kpi-markup').textContent = '$' + parseFloat(d.markup_deriv_usd || 0).toFixed(2);
+    if (el('kpi-markup-trades')) el('kpi-markup-trades').textContent = (d.markup_trades || 0) + ' trades';
+
+    // Atualiza dados de afiliados em cada bot
+    d.bots.forEach(bot => {
+      const botEl = document.getElementById('bot-rs-' + bot.nome.replace(/\s+/g,'_'));
+      if (botEl) {
+        botEl.innerHTML = `
+          <div style="font-size:11px;color:#64748b;margin-bottom:4px;">⚠️ Somente clientes via link afiliado (${bot.clientes_afiliado})</div>
+          <div style="font-size:12px;">Ganhos af.: <span style="color:#00e676">$${(bot.ganhos_afiliado||0).toFixed(2)}</span> &nbsp; Perdas af.: <span style="color:#ff5252">$${(bot.perdas_afiliado||0).toFixed(2)}</span></div>
+          <div style="font-size:12px;">Net Revenue: <span style="color:#fff">$${Math.max(0,bot.net_revenue||0).toFixed(2)}</span> &nbsp; Revenue Share (30%): <span style="color:#00d2ff">$${(bot.revenue_share_30||0).toFixed(2)}</span></div>
+          <div style="font-size:12px;">Markup est.: <span style="color:#00d2ff">$${(bot.markup_estimado||0).toFixed(2)}</span> &nbsp; Sua comissão: <span style="color:#f59e0b">$${((bot.revenue_share_30||0)*0.20+(bot.markup_alpha_20||0)).toFixed(2)}</span></div>
+        `;
+      }
+    });
+  } catch(e) { console.warn('Financeiro admin erro:', e); }
+}
+</script>
