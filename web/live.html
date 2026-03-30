@@ -1483,7 +1483,7 @@ body { overflow-x: hidden !important; }
                                 <div style="color:#64748b;font-size:11px;" id="multiStrategyDescLive">Troca automaticamente após cada perda</div>
                             </div>
                         </div>
-                        <!-- removido --> onchange="onMultiChangeLive(this.checked)" style="width:22px;height:22px;cursor:pointer;accent-color:#00d2ff;">
+
                     </label>
                 </div>
                 <div class="form-group">
@@ -2865,8 +2865,8 @@ body { overflow-x: hidden !important; }
                     symbol:          marketSymbol,
                     trading_mode:    window.selectedTradingMode  || 'faster',
                     risk_mode:       window.selectedRiskMode     || 'conservative',
-                    strategy:        window._multiStrategyAtivoLive ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
-                    multi_strategies: window._multiStrategyAtivoLive ? ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'] : [],
+                    strategy:        window._multiStrategyAtivo ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
+                    multi_strategies: window._multiStrategyAtivo ? ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'] : [],
                     stop_loss_type:  window.selectedStopLossType || 'value',
                     max_losses:      window.selectedMaxLosses    || 5
                 }
@@ -7942,23 +7942,7 @@ window.proAtualizarStatusVirtual = function() {
 
 
 
-// ========== MULTI-ESTRATÉGIA LIVE ==========
-window._multiStrategyAtivoLive = false;
 
-window.onMultiChangeLive = function(checked) {
-    window._multiStrategyAtivoLive = checked;
-    const desc   = document.getElementById('multiStrategyDescLive');
-    const select = document.getElementById('strategySelect');
-    if (checked) {
-        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
-        desc.style.color = '#00d2ff';
-        if (select) select.style.opacity = '0.3';
-    } else {
-        desc.textContent = 'Troca automaticamente após cada perda';
-        desc.style.color = '#64748b';
-        if (select) select.style.opacity = '1';
-    }
-};
 
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
