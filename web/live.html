@@ -3050,6 +3050,17 @@ body { overflow-x: hidden !important; }
                 const martStep     = data.mart_step !== undefined ? parseInt(data.mart_step) : 0;
                 const martMax      = data.mart_max  !== undefined ? parseInt(data.mart_max)  : 3;
                 const isRunning    = data.running || data.bot_running || false;
+                // Cronômetro roda sempre que bot está rodando
+                if (isRunning && !window._cronoInterval && window.iniciarCronometro) {
+                    window.iniciarCronometro();
+                } else if (!isRunning && window._cronoInterval && window.pararCronometro) {
+                    window.pararCronometro();
+                }
+                // Atualiza estratégia atual se multi ativo
+                if (window._multiStrategyAtivo && data.strategy_name) {
+                    const el = document.getElementById('botDisplayStrategy');
+                    if (el) el.innerText = '⚡ ' + data.strategy_name;
+                }
                 const stopReason   = data.stop_reason || null;
                 const stopMessage  = data.stop_message || null;
 
