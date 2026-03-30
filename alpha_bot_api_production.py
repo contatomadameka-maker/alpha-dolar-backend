@@ -1701,8 +1701,10 @@ def get_financeiro_admin():
     # IDs dos clientes afiliados
     ids_afiliados = {c['deriv_id'] for c in clientes_afiliado}
 
-    # 3. Busca operacoes do mes atual
-    mes_inicio = datetime.utcnow().strftime('%Y-%m-01')
+    # 3. Aceita filtro de data via query params
+    date_from = request.args.get('date_from', datetime.utcnow().strftime('%Y-%m-01'))
+    date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
+    mes_inicio = date_from
     ops_r = req.get(
         f"{SUPA_URL}/rest/v1/operacoes?criado_em=gte.{date_from}&criado_em=lte.{date_to}&select=cliente_id,resultado,lucro,bot_name,stake",
         headers=headers
