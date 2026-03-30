@@ -1610,3 +1610,70 @@ def ativar_trial():
         return jsonify({'status': 'ok', 'expiracao': expiracao}), 200
     else:
         return jsonify({'erro': 'Erro ao ativar trial'}), 500
+
+
+# ==================== MARKUP DERIV ====================
+@app.route('/api/markup/stats', methods=['GET'])
+def get_markup_stats():
+    import websocket
+    import json
+    import threading
+
+    token = os.environ.get('DERIV_ADMIN_TOKEN', '')
+    app_id = os.environ.get('DERIV_APP_ID', '128988')
+
+    if not token:
+        return jsonify({'erro': 'DERIV_ADMIN_TOKEN não configurado'}), 500
+
+    resultado = {'dados': None, 'erro': None}
+    evento = threading.Event()
+
+    def on_message(ws, message):
+        data = json.loads(message)
+        if data.get('msg_type') == 'authorize':
+            ws.send(json.dumps({
+                'app_markup_statistics': 1,
+                'date_from': '2026-01-01',
+                'date_to':   '2026-12-31',
+            }))
+        elif data.get('msg_type') == 'app_markup_statistics':
+            resultado['dados'] = data.get('app_markup_statistics', {})
+            ws.close()
+            evento.set()
+        elif 'error' in data:
+            resultado['erro'] = data['error'].get('message', 'Erro desconhecido')
+            ws.close()
+            evento.set()
+
+    def on_error(ws, error):
+        resultado['erro'] = str(error)
+        evento.set()
+
+    ws = websocket.WebSocketApp(
+        f'wss://ws.derivws.com/websockets/v3?app_id={app_id}',
+        on_message=on_message,
+        on_error=on_error,
+    )
+    ws.send = lambda msg: ws.sock.send(msg) if ws.sock else None
+
+    def on_open(ws):
+        ws.send(json.dumps({'authorize': token}))
+
+    ws.on_open = on_open
+    t = threading.Thread(target=ws.run_forever)
+    t.daemon = True
+    t.start()
+    evento.wait(timeout=15)
+
+    if resultado['erro']:
+        return jsonify({'erro': resultado['erro']}), 500
+    if not resultado['dados']:
+        return jsonify({'erro': 'Timeout ou sem dados'}), 504
+
+    stats = resultado['dados']
+    return jsonify({
+        'status': 'ok',
+        'markup_usd': stats.get('markup_usd', 0),
+        'markup_transactions_count': stats.get('markup_transactions_count', 0),
+        'app_id': app_id,
+    }), 200
