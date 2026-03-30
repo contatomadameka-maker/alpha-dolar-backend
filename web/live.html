@@ -1473,35 +1473,18 @@ body { overflow-x: hidden !important; }
                     </div>
                 </div>
 
-                
-                        <input type="checkbox" id="multiCheckLive" onchange="onMultiChangeLive(this.checked)" style="width:22px;height:22px;cursor:pointer;accent-color:#00d2ff;">
-                    </label>
-                </div>
-                <div class="form-group" id="multiStrategyGroup">
+                <div class="form-group" id="multiStrategyGroupLive">
                     <label>Modo Multi-Estratégia</label>
-                    <div onclick="toggleMultiStrategy()" id="multiStrategyBtn" style="
-                        display:flex; align-items:center; justify-content:space-between;
-                        background:rgba(0,210,255,0.05); border:1px solid rgba(0,210,255,0.15);
-                        border-radius:12px; padding:12px 16px; cursor:pointer;
-                        transition:all 0.2s;">
-                        <div style="display:flex; align-items:center; gap:10px;">
+                    <label for="multiCheckLive" style="display:flex;align-items:center;justify-content:space-between;background:rgba(0,210,255,0.05);border:1px solid rgba(0,210,255,0.15);border-radius:12px;padding:12px 16px;cursor:pointer;">
+                        <div style="display:flex;align-items:center;gap:10px;pointer-events:none;">
                             <span style="font-size:20px;">⚡</span>
                             <div>
-                                <div style="color:#e2e8f0; font-size:13px; font-weight:600;">Usar Todas as Estratégias</div>
-                                <div style="color:#64748b; font-size:11px;" id="multiStrategyDesc">Troca automaticamente após cada perda</div>
+                                <div style="color:#e2e8f0;font-size:13px;font-weight:600;">Usar Todas as Estratégias</div>
+                                <div style="color:#64748b;font-size:11px;" id="multiStrategyDescLive">Troca automaticamente após cada perda</div>
                             </div>
                         </div>
-                        <div id="multiStrategyToggle" style="
-                            width:40px; height:22px; border-radius:11px;
-                            background:#1e2230; border:1px solid rgba(100,116,139,0.3);
-                            position:relative; transition:all 0.3s;">
-                            <div id="multiStrategyDot" style="
-                                width:16px; height:16px; border-radius:50%;
-                                background:#64748b; position:absolute;
-                                top:2px; left:2px; transition:all 0.3s;">
-                            </div>
-                        </div>
-                    </div>
+                        <input type="checkbox" id="multiCheckLive" onchange="onMultiChangeLive(this.checked)" style="width:22px;height:22px;cursor:pointer;accent-color:#00d2ff;">
+                    </label>
                 </div>
                 <div class="form-group">
                     <label>Modo de negociação</label>
@@ -7962,7 +7945,20 @@ window.proAtualizarStatusVirtual = function() {
 // ========== MULTI-ESTRATÉGIA LIVE ==========
 window._multiStrategyAtivoLive = false;
 
-
+window.onMultiChangeLive = function(checked) {
+    window._multiStrategyAtivoLive = checked;
+    const desc   = document.getElementById('multiStrategyDescLive');
+    const select = document.getElementById('strategySelect');
+    if (checked) {
+        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
+        desc.style.color = '#00d2ff';
+        if (select) select.style.opacity = '0.3';
+    } else {
+        desc.textContent = 'Troca automaticamente após cada perda';
+        desc.style.color = '#64748b';
+        if (select) select.style.opacity = '1';
+    }
+};
 
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
@@ -10226,30 +10222,4 @@ window.proAtualizarStatusVirtual = function() {
 
 
 </body>
-</html><script>
-window._multiStrategyAtivo = false;
-window.toggleMultiStrategy = function() {
-    window._multiStrategyAtivo = !window._multiStrategyAtivo;
-    const toggle = document.getElementById('multiStrategyToggle');
-    const dot    = document.getElementById('multiStrategyDot');
-    const desc   = document.getElementById('multiStrategyDesc');
-    const select = document.getElementById('strategySelect');
-    if (window._multiStrategyAtivo) {
-        toggle.style.background = 'rgba(0,210,255,0.3)';
-        toggle.style.borderColor = 'rgba(0,210,255,0.5)';
-        dot.style.background = '#00d2ff';
-        dot.style.left = '22px';
-        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
-        desc.style.color = '#00d2ff';
-        if (select) select.style.opacity = '0.3';
-    } else {
-        toggle.style.background = '#1e2230';
-        toggle.style.borderColor = 'rgba(100,116,139,0.3)';
-        dot.style.background = '#64748b';
-        dot.style.left = '2px';
-        desc.textContent = 'Troca automaticamente após cada perda';
-        desc.style.color = '#64748b';
-        if (select) select.style.opacity = '1';
-    }
-};
-</script>
+</html>
