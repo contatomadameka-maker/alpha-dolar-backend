@@ -905,7 +905,6 @@ window.addEventListener('load', function() {
     letter-spacing: 1px !important;
   }
 }
-@keyframes spinBtn { to { transform: rotate(360deg); } }
 </style>
 <style>#btnHome{display:none;color:#00d2ff;font-size:18px;text-decoration:none;padding:4px 8px;border-radius:8px;border:1px solid rgba(0,210,255,0.3);margin-right:4px;align-items:center}@media(max-width:600px){#btnHome{display:flex}}</style><!-- ALPHA DOLAR FAVICON -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><rect width='256' height='256' rx='52' fill='%230d1018'/%3E<rect width='256' height='256' rx='52' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'/%3E<text x='32' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='%2300d2ff'>A</text><text x='58' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'>%24</text></svg>">
@@ -2191,7 +2190,7 @@ body { overflow-x: hidden !important; }
                 <div class="dc-bar" id="dcBar2"></div>
                 <div class="dc-bar" id="dcBar3"></div>
             </div>
-            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;"></span></div>
+            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal...</div>
 
             <div class="watchdog-banner" id="watchdogBanner">
                 ⚠️ Bot travado aguardando sinal há <span id="watchdogSecs">0</span>s
@@ -2883,8 +2882,8 @@ body { overflow-x: hidden !important; }
                     symbol:          marketSymbol,
                     trading_mode:    window.selectedTradingMode  || 'faster',
                     risk_mode:       window.selectedRiskMode     || 'conservative',
-                    strategy:        window._multiStrategyAtivo ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
-                    multi_strategies: window._multiStrategyAtivo ? ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'] : [],
+                    strategy:        window._multiStrategyAtivoLive ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
+                    multi_strategies: window._multiStrategyAtivoLive ? ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'] : [],
                     stop_loss_type:  window.selectedStopLossType || 'value',
                     max_losses:      window.selectedMaxLosses    || 5
                 }
