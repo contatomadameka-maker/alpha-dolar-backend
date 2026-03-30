@@ -1473,6 +1473,31 @@ body { overflow-x: hidden !important; }
                     </div>
                 </div>
 
+                <div class="form-group" id="multiStrategyGroupLive">
+                    <label>Modo Multi-Estratégia</label>
+                    <div onclick="toggleMultiStrategyLive()" id="multiStrategyBtnLive" style="
+                        display:flex; align-items:center; justify-content:space-between;
+                        background:rgba(0,210,255,0.05); border:1px solid rgba(0,210,255,0.15);
+                        border-radius:12px; padding:12px 16px; cursor:pointer; transition:all 0.2s;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:20px;">⚡</span>
+                            <div>
+                                <div style="color:#e2e8f0; font-size:13px; font-weight:600;">Usar Todas as Estratégias</div>
+                                <div style="color:#64748b; font-size:11px;" id="multiStrategyDescLive">Troca automaticamente após cada perda</div>
+                            </div>
+                        </div>
+                        <div id="multiStrategyToggleLive" style="
+                            width:40px; height:22px; border-radius:11px;
+                            background:#1e2230; border:1px solid rgba(100,116,139,0.3);
+                            position:relative; transition:all 0.3s;">
+                            <div id="multiStrategyDotLive" style="
+                                width:16px; height:16px; border-radius:50%;
+                                background:#64748b; position:absolute;
+                                top:2px; left:2px; transition:all 0.3s;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Modo de negociação</label>
                     <div class="custom-select" id="modeSelect" onclick="openTradingModeModal()">
@@ -2852,7 +2877,8 @@ body { overflow-x: hidden !important; }
                     symbol:          marketSymbol,
                     trading_mode:    window.selectedTradingMode  || 'faster',
                     risk_mode:       window.selectedRiskMode     || 'conservative',
-                    strategy:        window.selectedStrategyId   || 'alpha_bot_1',
+                    strategy:        window._multiStrategyAtivoLive ? 'multi' : (window.selectedStrategyId || 'alpha_bot_1'),
+                    multi_strategies: window._multiStrategyAtivoLive ? ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'] : [],
                     stop_loss_type:  window.selectedStopLossType || 'value',
                     max_losses:      window.selectedMaxLosses    || 5
                 }
@@ -7924,6 +7950,39 @@ window.proAtualizarStatusVirtual = function() {
 </script>
 
 
+
+
+
+
+// ========== MULTI-ESTRATÉGIA LIVE ==========
+window._multiStrategyAtivoLive = false;
+
+window.toggleMultiStrategyLive = function() {
+    const toggle = document.getElementById('multiStrategyToggleLive');
+    const dot    = document.getElementById('multiStrategyDotLive');
+    const desc   = document.getElementById('multiStrategyDescLive');
+    const select = document.getElementById('strategySelect');
+
+    window._multiStrategyAtivoLive = !window._multiStrategyAtivoLive;
+    if (window._multiStrategyAtivoLive) {
+        toggle.style.background = 'rgba(0,210,255,0.3)';
+        toggle.style.borderColor = 'rgba(0,210,255,0.5)';
+        dot.style.background = '#00d2ff';
+        dot.style.left = '22px';
+        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
+        desc.style.color = '#00d2ff';
+        if (select) select.style.opacity = '0.3';
+    } else {
+        toggle.style.background = '#1e2230';
+        toggle.style.borderColor = 'rgba(100,116,139,0.3)';
+        dot.style.background = '#64748b';
+        dot.style.left = '2px';
+        desc.textContent = 'Troca automaticamente após cada perda';
+        desc.style.color = '#64748b';
+        if (select) select.style.opacity = '1';
+    }
+};
+
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -9986,6 +10045,9 @@ window.proAtualizarStatusVirtual = function() {
     else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
 };
 </script>
+
+
+
 </body>
      ═══════════════════════════════════════════════════════════════ -->
 
@@ -10179,5 +10241,8 @@ window.proAtualizarStatusVirtual = function() {
     else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
 };
 </script>
+
+
+
 </body>
 </html>
