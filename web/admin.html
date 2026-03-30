@@ -155,6 +155,7 @@
     <div class="kpi green"><div class="kpi-label">GANHOS CLIENTES</div><div class="kpi-value green" id="kpi-ganhos">—</div><div class="kpi-sub">este mês</div></div>
     <div class="kpi red"><div class="kpi-label">PERDAS CLIENTES</div><div class="kpi-value red" id="kpi-perdas">—</div><div class="kpi-sub">este mês</div></div>
     <div class="kpi gold"><div class="kpi-label">SUA COMISSÃO (20%)</div><div class="kpi-value gold" id="kpi-cobrar">—</div><div class="kpi-sub">do Revenue Share est.</div></div>
+    <div class="kpi" style="border-color:rgba(0,210,255,0.3)"><div class="kpi-label">MARKUP DERIV (2%)</div><div class="kpi-value" id="kpi-markup" style="color:#00d2ff">—</div><div class="kpi-sub" id="kpi-markup-trades">carregando...</div></div>
   </div>
 
   <!-- Nota explicativa -->
@@ -426,6 +427,9 @@ function renderBots(){
         <span class="bot-status ${sus?'suspenso':'ativo'}">${sus?'SUSPENSO':'ATIVO'}</span>
       </div>
       <div class="bot-body">
+        <div id="bot-rs-${b.nome.replace(/\s+/g,'_')}" class="bot-financeiro-real" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px;">
+          <div style="color:#64748b;font-size:11px;">⏳ Carregando dados de afiliados...</div>
+        </div>
         <div class="bot-financeiro">
           <div class="fin-box">
             <div class="fin-val green">$${ganhos.toFixed(2)}</div>
