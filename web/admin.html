@@ -477,14 +477,16 @@ function filtrarPersonalizado() {
   carregarFinanceiroReal();
 }
 
-// Inicializa com mês atual
-(function() {
+// Inicializa com mês atual após DOM carregar
+window.addEventListener('DOMContentLoaded', function() {
   const hoje = new Date();
   const from = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  document.getElementById('filtroDataInicio').value = getDataISO(from);
-  document.getElementById('filtroDataFim').value    = getDataISO(hoje);
+  const elI = document.getElementById('filtroDataInicio');
+  const elF = document.getElementById('filtroDataFim');
+  if (elI) elI.value = getDataISO(from);
+  if (elF) elF.value = getDataISO(hoje);
   filtroAtivo = { from: getDataISO(from), to: getDataISO(hoje) };
-})();
+});
 
 if(localStorage.getItem('admin_auth') === '1'){
   document.getElementById('login-screen').style.display = 'none';
