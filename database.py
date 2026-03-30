@@ -24,7 +24,9 @@ def salvar_cliente(data):
         'token_demo': data.get('token_demo'),
         'token_real': data.get('token_real'),
         'account_type': data.get('account_type', 'demo'),
-        'bot_name': data.get('bot_name', ''),
+        'bot_name'     : data.get('bot_name', ''),
+        'via_afiliado' : data.get('via_afiliado', False),
+        'bot_afiliado' : data.get('bot_afiliado', ''),
     }
     # Tenta insert primeiro
     r = requests.post(url, json=payload, headers={**HEADERS, 'Prefer': 'return=representation'})
@@ -101,7 +103,15 @@ def salvar_bot(data):
         'Content-Type': 'application/json',
         'Prefer': 'resolution=merge-duplicates,return=representation'
     }
-    payload = {'nome': data.get('nome'), 'dono': data.get('dono'), 'deriv_id': data.get('deriv_id'), 'status': data.get('status','ativo')}
+    payload = {
+        'nome'          : data.get('nome'),
+        'dono'          : data.get('dono'),
+        'deriv_id'      : data.get('deriv_id'),
+        'status'        : data.get('status', 'ativo'),
+        'afiliado_link' : data.get('afiliado_link', ''),
+        'afiliado_token': data.get('afiliado_token', ''),
+        'markup_pct'    : data.get('markup_pct', 2.0),
+    }
     r = req.post(f"{SUPABASE_URL}/rest/v1/bots", json=payload, headers=headers)
     return r.status_code in [200, 201]
 
