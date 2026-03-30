@@ -564,27 +564,16 @@ function renderBots(){
         <div class="bot-financeiro">
           <div class="fin-box">
             <div class="fin-val green">$${ganhos.toFixed(2)}</div>
-            <div class="fin-lbl">GANHOS</div>
+            <div class="fin-lbl">GANHOS TOTAL</div>
           </div>
           <div class="fin-box">
             <div class="fin-val red">$${perdas.toFixed(2)}</div>
-            <div class="fin-lbl">PERDAS</div>
+            <div class="fin-lbl">PERDAS TOTAL</div>
           </div>
           <div class="fin-box">
             <div class="fin-val cyan">${ops.length}</div>
             <div class="fin-lbl">TRADES · ${wr}% WIN</div>
           </div>
-        </div>
-        <div class="rs-box">
-          <div class="rs-row">
-            <span class="rs-label">📈 LUCRO LÍQUIDO DERIV</span>
-            <span class="rs-valor">$${lucroLiqDeriv.toFixed(2)}</span>
-          </div>
-          <div class="rs-row">
-            <span class="rs-label">🔵 REVENUE SHARE DONO (30%)</span>
-            <span class="rs-valor">$${revShare.toFixed(2)}</span>
-          </div>
-          <div class="rs-sub">(perdas − ganhos × 30% estimado Deriv)</div>
         </div>
         <div class="bot-cobranca">
           <span class="cobranca-label">⚡ SUA COMISSÃO (20% do RS)</span>
