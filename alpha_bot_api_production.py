@@ -1706,7 +1706,7 @@ def get_financeiro_admin():
     date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
     mes_inicio = date_from
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?criado_em=gte.{date_from}&criado_em=lte.{date_to}&select=cliente_id,resultado,lucro,bot_name,stake",
+        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,resultado,lucro,bot_name,stake&criado_em=gte.{date_from}&limit=5000",
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
@@ -1812,7 +1812,7 @@ def get_financeiro_bot(bot_nome):
 
     # Operacoes do bot
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?bot_name=eq.{bot_nome}&criado_em=gte.{date_from}&criado_em=lte.{date_to}&select=cliente_id,resultado,lucro,stake",
+        f"{SUPA_URL}/rest/v1/operacoes?bot_name=eq.{bot_nome}&select=cliente_id,resultado,lucro,stake&criado_em=gte.{date_from}&limit=2000",
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
