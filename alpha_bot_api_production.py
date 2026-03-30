@@ -1738,6 +1738,11 @@ def get_financeiro_admin():
         total_ganhos_afiliado += ganhos_af
         total_perdas_afiliado += perdas_af
 
+        # Markup estimado por bot
+        total_stakes_bot = sum(float(o.get('stake', 0)) for o in ops_bot)
+        markup_est_bot   = round(total_stakes_bot * (markup_pct / 100), 2)
+        markup_alpha_bot = round(markup_est_bot * 0.20, 2)
+
         resultado_bots.append({
             'nome'              : bot_nome,
             'dono'              : bot.get('dono', ''),
@@ -1748,6 +1753,9 @@ def get_financeiro_admin():
             'net_revenue'       : net_af,
             'revenue_share_30'  : rev_share,
             'markup_pct'        : markup_pct,
+            'markup_estimado'   : markup_est_bot,
+            'markup_alpha_20'   : markup_alpha_bot,
+            'total_stakes'      : round(total_stakes_bot, 2),
             'clientes_afiliado' : len(ids_bot_afiliado),
         })
 
@@ -1817,20 +1825,37 @@ def get_financeiro_bot(bot_nome):
     pagar_alpha = round(rev_share * 0.20, 2)
     seu_lucro   = round(rev_share * 0.80, 2)
 
+    # Markup estimado (2% das stakes)
+    markup_pct = 0.02
+    total_stakes = sum(float(o.get('stake', 0)) for o in operacoes)
+    markup_estimado = round(total_stakes * markup_pct, 2)
+    markup_alpha_20 = round(markup_estimado * 0.20, 2)
+    markup_trader_80 = round(markup_estimado * 0.80, 2)
+
+    # Total a pagar para Alpha Dolar
+    total_pagar_alpha = round(pagar_alpha + markup_alpha_20, 2)
+    total_lucro_trader = round(seu_lucro + markup_trader_80, 2)
+
     return jsonify({
-        'status'            : 'ok',
-        'bot_nome'          : bot_nome,
-        'mes'               : mes_inicio,
-        'ganhos_total'      : round(ganhos_total, 2),
-        'perdas_total'      : round(perdas_total, 2),
-        'ganhos_afiliado'   : round(ganhos_af, 2),
-        'perdas_afiliado'   : round(perdas_af, 2),
-        'net_revenue'       : net_af,
-        'revenue_share_30'  : rev_share,
-        'pagar_alpha_20'    : pagar_alpha,
-        'seu_lucro_80'      : seu_lucro,
-        'clientes_afiliado' : len(ids_af),
-        'clientes_total'    : len(set(o.get('cliente_id') for o in operacoes)),
+        'status'              : 'ok',
+        'bot_nome'            : bot_nome,
+        'mes'                 : mes_inicio,
+        'ganhos_total'        : round(ganhos_total, 2),
+        'perdas_total'        : round(perdas_total, 2),
+        'ganhos_afiliado'     : round(ganhos_af, 2),
+        'perdas_afiliado'     : round(perdas_af, 2),
+        'net_revenue'         : net_af,
+        'revenue_share_30'    : rev_share,
+        'pagar_alpha_20'      : pagar_alpha,
+        'seu_lucro_80'        : seu_lucro,
+        'markup_estimado'     : markup_estimado,
+        'markup_alpha_20'     : markup_alpha_20,
+        'markup_trader_80'    : markup_trader_80,
+        'total_pagar_alpha'   : total_pagar_alpha,
+        'total_lucro_trader'  : total_lucro_trader,
+        'total_stakes'        : round(total_stakes, 2),
+        'clientes_afiliado'   : len(ids_af),
+        'clientes_total'      : len(set(o.get('cliente_id') for o in operacoes)),
     })
 
 
