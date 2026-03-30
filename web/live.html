@@ -905,7 +905,8 @@ window.addEventListener('load', function() {
     letter-spacing: 1px !important;
   }
 }
-</style>
+@keyframes spinBtn { to { transform: rotate(360deg); } }
+        </style>
 <style>#btnHome{display:none;color:#00d2ff;font-size:18px;text-decoration:none;padding:4px 8px;border-radius:8px;border:1px solid rgba(0,210,255,0.3);margin-right:4px;align-items:center}@media(max-width:600px){#btnHome{display:flex}}</style><!-- ALPHA DOLAR FAVICON -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><rect width='256' height='256' rx='52' fill='%230d1018'/%3E<rect width='256' height='256' rx='52' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'/%3E<text x='32' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='%2300d2ff'>A</text><text x='58' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'>%24</text></svg>">
 <style id="alpha-ia-pro-css">
@@ -2173,7 +2174,7 @@ body { overflow-x: hidden !important; }
                 <div class="dc-bar" id="dcBar2"></div>
                 <div class="dc-bar" id="dcBar3"></div>
             </div>
-            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal...</div>
+            <div class="dc-bar-label" id="dcBarLabel">Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;"></span></div>
 
             <div class="watchdog-banner" id="watchdogBanner">
                 ⚠️ Bot travado aguardando sinal há <span id="watchdogSecs">0</span>s
@@ -7944,6 +7945,32 @@ window.proAtualizarStatusVirtual = function() {
 
 
 
+
+<script>
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
+    }, 1000);
+};
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+</script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -10009,6 +10036,32 @@ window.proAtualizarStatusVirtual = function() {
 
 
 
+
+<script>
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
+    }, 1000);
+};
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+</script>
 </body>
      ═══════════════════════════════════════════════════════════════ -->
 
@@ -10205,5 +10258,51 @@ window.proAtualizarStatusVirtual = function() {
 
 
 
+
+<script>
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
+    }, 1000);
+};
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+</script>
 </body>
-</html>
+</html><script>
+window._multiStrategyAtivo = false;
+window.toggleMultiStrategy = function() {
+    window._multiStrategyAtivo = !window._multiStrategyAtivo;
+    const toggle = document.getElementById('multiStrategyToggle');
+    const dot    = document.getElementById('multiStrategyDot');
+    const desc   = document.getElementById('multiStrategyDesc');
+    const select = document.getElementById('strategySelect');
+    if (window._multiStrategyAtivo) {
+        if(toggle){toggle.style.background='rgba(0,210,255,0.3)';toggle.style.borderColor='rgba(0,210,255,0.5)';}
+        if(dot){dot.style.background='#00d2ff';dot.style.left='22px';}
+        if(desc){desc.textContent='⚡ ATIVO — trocando estratégia a cada perda';desc.style.color='#00d2ff';}
+        if(select)select.style.opacity='0.3';
+    } else {
+        if(toggle){toggle.style.background='#1e2230';toggle.style.borderColor='rgba(100,116,139,0.3)';}
+        if(dot){dot.style.background='#64748b';dot.style.left='2px';}
+        if(desc){desc.textContent='Troca automaticamente após cada perda';desc.style.color='#64748b';}
+        if(select)select.style.opacity='1';
+    }
+};
+</script>
