@@ -662,6 +662,14 @@ async function carregarDados(botName) {
       document.getElementById('botDerivId').textContent = bot.deriv_id || '—';
       document.getElementById('botCadastro').textContent = bot.criado_em
         ? new Date(bot.criado_em).toLocaleDateString('pt-BR') : '—';
+      // Gera link de afiliado
+      const linkEl = document.getElementById('linkAfiliado');
+      if (linkEl) {
+        const nomeLimpo = encodeURIComponent(bot.nome.toLowerCase().replace(/\s+/g,'-'));
+        linkEl.textContent = `https://alphadolar.online/?bot=${nomeLimpo}`;
+      }
+      // Carrega financeiro real
+      carregarFinanceiroReal(bot.nome);
 
       const badge = document.getElementById('botStatusBadge');
       if (bot.status === 'suspenso') {
