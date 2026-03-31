@@ -167,6 +167,7 @@
 <main>
   <!-- KPIs globais -->
   <div class="kpi-grid">
+    <div class="kpi" style="border-color:rgba(0,210,255,0.3)"><div class="kpi-label">MEMÓRIA RENDER</div><div class="kpi-value" id="kpi-memoria" style="color:#00d2ff;">—</div><div class="kpi-sub" id="kpi-memoria-sub">carregando...</div></div>
     <div class="kpi cyan"><div class="kpi-label">BOTS ATIVOS</div><div class="kpi-value cyan" id="kpi-bots">—</div><div class="kpi-sub">cadastrados</div></div>
     <div class="kpi gold"><div class="kpi-label">CLIENTES TOTAIS</div><div class="kpi-value gold" id="kpi-clientes">—</div><div class="kpi-sub">operando</div></div>
     <div class="kpi green"><div class="kpi-label">GANHOS CLIENTES</div><div class="kpi-value green" id="kpi-ganhos">—</div><div class="kpi-sub">este mês</div></div>
@@ -1083,6 +1084,24 @@ async function verificarExpirados() {
 })();
 </script>
 
+<script>
+async function carregarMemoria() {
+  try {
+    const r = await fetch('https://alpha-dolar-backend.onrender.com/api/admin/status');
+    const d = await r.json();
+    const el = document.getElementById('kpi-memoria');
+    const sub = document.getElementById('kpi-memoria-sub');
+    if (el) el.textContent = d.memoria_mb + ' MB';
+    if (sub) {
+      const pct = Math.round(d.memoria_mb / 512 * 100);
+      sub.textContent = pct + '% de 512MB';
+      el.style.color = pct > 80 ? '#ff5252' : pct > 60 ? '#f59e0b' : '#00d2ff';
+    }
+  } catch(e) {}
+}
+carregarMemoria();
+setInterval(carregarMemoria, 30000);
+</script>
 </body>
 </html>
 <script>
