@@ -409,6 +409,7 @@ def start_bot():
                             return STRATEGY_MAP.get(random.choice(opcoes), STRATEGY_MAP['alpha_bot_1'])(trading_mode, risk_mode)
                         return STRATEGY_MAP.get(sid, STRATEGY_MAP['alpha_bot_1'])(trading_mode, risk_mode)
                     strategy = _get_next_strategy()
+                    get_user_state(deriv_id, bot_type)['strategy_name'] = type(strategy).__name__
                 else:
                     _get_next_strategy = None
                     factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
