@@ -309,9 +309,9 @@ def start_bot():
         deriv_id     = data.get('deriv_id', '') or data.get('loginid', '')
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
-        stake_inicial = float(config.get('stake_inicial', 0.35))
-        lucro_alvo    = float(config.get('lucro_alvo', 2.0))
-        limite_perda  = float(config.get('limite_perda', 5.0))
+        stake_inicial = float(config.get('stake') or config.get('stake_inicial') or 0.35)
+        lucro_alvo    = float(config.get('target') or config.get('lucro_alvo') or 2.0)
+        limite_perda  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
 
         print(f"\n{'='*60}")
         print(f"📥 Iniciar bot: {bot_type} | conta: {account_type.upper()}")
