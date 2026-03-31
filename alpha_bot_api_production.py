@@ -1920,3 +1920,18 @@ def _buscar_markup_deriv():
         'markup_usd': resultado.get('markup_usd', 0),
         'markup_transactions_count': resultado.get('markup_transactions_count', 0),
     }
+
+@app.route('/api/admin/status', methods=['GET'])
+def get_admin_status():
+    import psutil, os
+    proc = psutil.Process(os.getpid())
+    mem = proc.memory_info()
+    bots_rodando = sum(1 for k,v in USER_STATES.items() if v.get('running'))
+    return jsonify({
+        'status': 'ok',
+        'memoria_mb': round(mem.rss / 1024 / 1024, 1),
+        'memoria_vms_mb': round(mem.vms / 1024 / 1024, 1),
+        'bots_rodando': bots_rodando,
+        'users_em_memoria': len(USER_STATES),
+        'uptime_s': round(psutil.Process(os.getpid()).create_time()),
+    })
