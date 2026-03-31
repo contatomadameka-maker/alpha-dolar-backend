@@ -464,6 +464,9 @@ def start_bot():
                         bot.strategy = nova_strategy
                         nome_nova = type(nova_strategy).__name__
                         get_user_state(deriv_id, bot_type)['strategy_name'] = nome_nova
+                        # Reseta lucro sessao ao trocar estrategia
+                        get_user_state(deriv_id, bot_type)['_lucro_sessao'] = 0.0
+                        get_user_state(deriv_id, bot_type)['mart_step'] = 0
                         print(f"⚡ Multi-estratégia: trocando para {nome_nova}")
                         # Adiciona ao feed de logs visível no frontend
                         _trades = get_user_state(deriv_id, bot_type).get('trades', [])
