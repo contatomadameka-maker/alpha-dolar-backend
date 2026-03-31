@@ -439,6 +439,7 @@ def start_bot():
             get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = 0.0
             get_user_state(deriv_id, bot_type)['_lucro_desde_ultimo_reset'] = 0.0
             get_user_state(deriv_id, bot_type)['_limite_perda'] = BotConfig.LIMITE_PERDA
+            get_user_state(deriv_id, bot_type)['_lucro_sessao'] = 0.0
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={get_user_state(deriv_id, bot_type).get('mart_step',0)}")
