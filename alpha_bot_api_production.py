@@ -1923,15 +1923,15 @@ def _buscar_markup_deriv():
 
 @app.route('/api/admin/status', methods=['GET'])
 def get_admin_status():
-    import os, resource
-    bots_rodando = sum(1 for k,v in USER_STATES.items() if v.get('running'))
     try:
+        import os, resource
         mem_mb = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
     except:
         mem_mb = -1
-    return jsonify({
-        'status': 'ok',
-        'memoria_mb': mem_mb,
-        'bots_rodando': bots_rodando,
-        'users_em_memoria': len(USER_STATES),
-    })
+    try:
+        bots_rodando = sum(1 for k,v in USER_STATES.items() if isinstance(v, dict) and v.get('running'))
+        users = len(USER_STATES)
+    except:
+        bots_rodando = -1
+        users = -1
+    return jsonify({'status':'ok','memoria_mb':mem_mb,'bots_rodando':bots_rodando,'users_em_memoria':users})
