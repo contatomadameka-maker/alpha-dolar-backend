@@ -438,6 +438,7 @@ def start_bot():
 
             get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = 0.0
             get_user_state(deriv_id, bot_type)['_lucro_desde_ultimo_reset'] = 0.0
+            get_user_state(deriv_id, bot_type)['_limite_perda'] = BotConfig.LIMITE_PERDA
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={get_user_state(deriv_id, bot_type).get('mart_step',0)}")
@@ -498,7 +499,7 @@ def start_bot():
                         get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] + abs(profit), 2)
 
                 perda_dc = get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho']
-                limite   = BotConfig.LIMITE_PERDA
+                limite   = get_user_state(deriv_id, bot_type).get('_limite_perda', BotConfig.LIMITE_PERDA)
 
                 if perda_dc >= limite and get_user_state(deriv_id, bot_type).get('running'):
                     get_user_state(deriv_id, bot_type)['stop_reason']  = 'stop_loss'
