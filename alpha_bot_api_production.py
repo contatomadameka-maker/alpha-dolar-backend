@@ -1923,15 +1923,15 @@ def _buscar_markup_deriv():
 
 @app.route('/api/admin/status', methods=['GET'])
 def get_admin_status():
-    import psutil, os
-    proc = psutil.Process(os.getpid())
-    mem = proc.memory_info()
+    import os, resource
     bots_rodando = sum(1 for k,v in USER_STATES.items() if v.get('running'))
+    try:
+        mem_mb = round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 1)
+    except:
+        mem_mb = -1
     return jsonify({
         'status': 'ok',
-        'memoria_mb': round(mem.rss / 1024 / 1024, 1),
-        'memoria_vms_mb': round(mem.vms / 1024 / 1024, 1),
+        'memoria_mb': mem_mb,
         'bots_rodando': bots_rodando,
         'users_em_memoria': len(USER_STATES),
-        'uptime_s': round(psutil.Process(os.getpid()).create_time()),
     })
