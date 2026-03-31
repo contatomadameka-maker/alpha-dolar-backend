@@ -3057,9 +3057,25 @@ body { overflow-x: hidden !important; }
                     window.pararCronometro();
                 }
                 // Atualiza estratégia atual se multi ativo
-                if (window._multiStrategyAtivo && data.strategy_name) {
+                // Atualiza estratégia se multi ativo
+                if (window._multiStrategyAtivo) {
                     const el = document.getElementById('botDisplayStrategy');
-                    if (el) el.innerText = '⚡ ' + data.strategy_name;
+                    if (data.strategy_name && data.strategy_name !== '') {
+                        if (el) el.innerText = '⚡ ' + data.strategy_name;
+                    }
+                    // Processa logs de troca de estratégia
+                    if (data.trades) {
+                        const ultimoIdx = window._ultimoTradeIdxLive || 0;
+                        data.trades.slice(ultimoIdx).forEach(t => {
+                            if (t.type === 'log' && t.level === 'multi' && window._addLogLine) {
+                                window._addLogLine(t.message, 'log-info');
+                                // Extrai nome da estratégia da mensagem
+                                const match = t.message.match(/trocando para (.+)/);
+                                if (match && el) el.innerText = '⚡ ' + match[1];
+                            }
+                        });
+                        window._ultimoTradeIdxLive = data.trades.length;
+                    }
                 }
                 const stopReason   = data.stop_reason || null;
                 const stopMessage  = data.stop_message || null;
