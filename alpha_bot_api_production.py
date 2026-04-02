@@ -1700,9 +1700,10 @@ def get_financeiro_admin():
     bots_r = req.get(f"{SUPA_URL}/rest/v1/bots?status=eq.ativo", headers=headers)
     bots   = bots_r.json() if bots_r.status_code == 200 else []
 
-    # 2. Busca clientes via afiliado
-    cli_r  = req.get(f"{SUPA_URL}/rest/v1/clientes?via_afiliado=eq.true&select=deriv_id,bot_afiliado,bot_name", headers=headers)
-    clientes_afiliado = cli_r.json() if cli_r.status_code == 200 else []
+    # 2. Busca TODOS os clientes (afiliados e não afiliados)
+    cli_r  = req.get(f"{SUPA_URL}/rest/v1/clientes?select=deriv_id,bot_afiliado,bot_name,via_afiliado", headers=headers)
+    todos_clientes = cli_r.json() if cli_r.status_code == 200 else []
+    clientes_afiliado = [c for c in todos_clientes if c.get('via_afiliado')]
 
     # IDs dos clientes afiliados
     ids_afiliados = {c['deriv_id'] for c in clientes_afiliado}
@@ -1729,8 +1730,10 @@ def get_financeiro_admin():
         # Clientes deste bot via afiliado
         ids_bot_afiliado = {c['deriv_id'] for c in clientes_afiliado if c.get('bot_afiliado') == bot_nome or c.get('bot_name') == bot_nome}
 
-        # Operacoes do bot
-        ops_bot = [o for o in operacoes if o.get('bot_name') == bot_nome]
+        # Clientes do bot (para buscar ops pelo cliente_id também)
+        ids_clientes_bot = {c['deriv_id'] for c in todos_clientes if c.get('bot_name') == bot_nome or c.get('bot_afiliado') == bot_nome}
+        # Busca ops pelo bot_name OU pelo cliente_id dos clientes do bot
+        ops_bot = [o for o in operacoes if o.get('bot_name') == bot_nome or o.get('cliente_id') in ids_clientes_bot]
 
         # Total geral do bot
         ganhos_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') == 'win')
