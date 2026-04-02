@@ -1943,4 +1943,9 @@ def get_admin_status():
     except:
         bots_rodando = -1
         users = -1
+    # Limpeza periódica de estados antigos
+    try:
+        from backend.state_manager import cleanup_old_states
+        cleanup_old_states()
+    except: pass
     return jsonify({'status':'ok','memoria_mb':mem_mb,'bots_rodando':bots_rodando,'users_em_memoria':users})
