@@ -466,6 +466,7 @@ function filtrarPeriodo(tipo) {
   if (btn) btn.classList.add('active');
 
   filtroAtivo = { from: getDataISO(from), to: getDataISO(to) };
+  renderKPIs(); renderBots();
   carregarFinanceiroReal();
 }
 
@@ -507,14 +508,22 @@ async function carregar(){
     bots      = await resB.json();
   } catch(e){ clientes = []; }
   renderKPIs(); renderBots(); renderClientes(); carregarProdutos(); carregarQuizStats();
+  carregarFinanceiroReal();
 }
 
 // ── HELPERS ───────────────────────────────────────
 function getMes(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
 
 function calcBot(botNome){
-  const m = getMes();
-  const ops = operacoes.filter(o => o.bot_name && o.bot_name.toLowerCase() === botNome.toLowerCase() && o.criado_em && o.criado_em.startsWith(m));
+  // Usa dados do filtro ativo se disponível
+  const from = filtroAtivo.from || getDataISO(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const to = filtroAtivo.to || getDataISO(new Date());
+  const ops = operacoes.filter(o => {
+    if (!o.bot_name || !o.criado_em) return false;
+    const nomeOk = o.bot_name.toLowerCase() === botNome.toLowerCase();
+    const dataOk = o.criado_em >= from && o.criado_em <= to + 'T23:59:59';
+    return nomeOk && dataOk;
+  });
   const ganhos  = ops.filter(o=>o.resultado==='win'||o.resultado==='ganhou').reduce((s,o)=>s+Math.abs(parseFloat(o.lucro)||0),0);
   const perdas  = ops.filter(o=>o.resultado==='loss'||o.resultado==='perdeu').reduce((s,o)=>s+Math.abs(parseFloat(o.lucro)||0),0);
   const lucroLiqDeriv = Math.max(0, perdas - ganhos); // Deriv só lucra quando clientes perdem mais
@@ -534,9 +543,10 @@ function renderKPIs(){
     totalPerdas += c.perdas;
     totalComissao += c.minhaComissao;
   });
-  document.getElementById('kpi-ganhos').textContent = `$${totalGanhos.toFixed(2)}`;
-  document.getElementById('kpi-perdas').textContent  = `$${totalPerdas.toFixed(2)}`;
-  document.getElementById('kpi-cobrar').textContent  = `$${totalComissao.toFixed(2)}`;
+  // KPIs financeiros são atualizados pelo carregarFinanceiroReal()
+  // document.getElementById('kpi-ganhos').textContent = `$${totalGanhos.toFixed(2)}`;
+  // document.getElementById('kpi-perdas').textContent  = `$${totalPerdas.toFixed(2)}`;
+  // document.getElementById('kpi-cobrar').textContent  = `$${totalComissao.toFixed(2)}`;
 }
 
 // ── RENDER BOTS ───────────────────────────────────
@@ -547,9 +557,13 @@ function renderBots(){
     return;
   }
   grid.innerHTML = bots.map((bot,i)=>{
-    const {ops,ganhos,perdas,lucroLiqDeriv,revShare,minhaComissao} = calcBot(bot.nome);
+    const _fd = (window._dadosFinanceiros || {})[bot.nome] || {};
+    const ganhos = _fd.ganhos_total || 0;
+    const perdas = _fd.perdas_total || 0;
+    const ops = [];
+    const wr = ganhos + perdas > 0 ? Math.round(ganhos / (ganhos + perdas) * 100) : 0;
+    const minhaComissao = (_fd.revenue_share_30 || 0) * 0.20;
     const sus = bot.status === 'suspenso';
-    const wr  = ops.length ? Math.round(ops.filter(o=>o.resultado==='win'||o.resultado==='ganhou').length/ops.length*100) : 0;
     return `<div class="bot-card ${sus?'suspended':''}" onclick="verDetalhe(${i})">
       <div class="bot-header">
         <div>
@@ -564,11 +578,11 @@ function renderBots(){
         </div>
         <div class="bot-financeiro">
           <div class="fin-box">
-            <div class="fin-val green">$${ganhos.toFixed(2)}</div>
+            <div class="fin-val green" id="card-ganhos-${i}">$${ganhos.toFixed(2)}</div>
             <div class="fin-lbl">GANHOS TOTAL</div>
           </div>
           <div class="fin-box">
-            <div class="fin-val red">$${perdas.toFixed(2)}</div>
+            <div class="fin-val red" id="card-perdas-${i}">$${perdas.toFixed(2)}</div>
             <div class="fin-lbl">PERDAS TOTAL</div>
           </div>
           <div class="fin-box">
@@ -578,7 +592,7 @@ function renderBots(){
         </div>
         <div class="bot-cobranca">
           <span class="cobranca-label">⚡ SUA COMISSÃO (20% do RS)</span>
-          <span class="cobranca-valor">$${minhaComissao.toFixed(2)}</span>
+          <span class="cobranca-valor" id="card-comissao-${i}">$${minhaComissao.toFixed(2)}</span>
         </div>
         <div class="bot-actions" onclick="event.stopPropagation()">
           <button class="btn-ver" onclick="verDetalhe(${i})">Ver detalhes</button>
@@ -1136,11 +1150,14 @@ async function carregarFinanceiroReal() {
     if (el('kpi-cobrar')) el('kpi-cobrar').textContent = '$' + totalComissao.toFixed(2);
 
     // Markup real Deriv
-    if (el('kpi-markup')) el('kpi-markup').textContent = '$' + parseFloat(d.markup_deriv_usd || 0).toFixed(2);
-    if (el('kpi-markup-trades')) el('kpi-markup-trades').textContent = (d.markup_trades || 0) + ' trades';
+    const totalMarkupKpi = d.bots.reduce((s,b) => s + (b.markup_estimado || 0), 0);
+    if (el('kpi-markup')) el('kpi-markup').textContent = '$' + totalMarkupKpi.toFixed(2);
+    if (el('kpi-markup-trades')) el('kpi-markup-trades').textContent = d.bots.reduce((s,b) => s + (b.total_stakes ? 1 : 0), 0) + ' bots';
 
     // Atualiza dados de afiliados em cada bot
+    window._dadosFinanceiros = {};
     d.bots.forEach(bot => {
+      window._dadosFinanceiros[bot.nome] = bot;
       const botEl = document.getElementById('bot-rs-' + bot.nome.replace(/\s+/g,'_'));
       if (botEl) {
         botEl.innerHTML = `
@@ -1151,6 +1168,16 @@ async function carregarFinanceiroReal() {
         `;
       }
     });
+  // Atualiza só os valores financeiros nos cards sem re-renderizar
+  bots.forEach((bot,i) => {
+    const fd = (window._dadosFinanceiros || {})[bot.nome] || {};
+    const g = document.getElementById('card-ganhos-'+i);
+    const p = document.getElementById('card-perdas-'+i);
+    const c = document.getElementById('card-comissao-'+i);
+    if (g) g.textContent = '$'+(fd.ganhos_total||0).toFixed(2);
+    if (p) p.textContent = '$'+(fd.perdas_total||0).toFixed(2);
+    if (c) c.textContent = '$'+((fd.revenue_share_30||0)*0.20).toFixed(2);
+  });
   } catch(e) { console.warn('Financeiro admin erro:', e); }
 }
 </script>
