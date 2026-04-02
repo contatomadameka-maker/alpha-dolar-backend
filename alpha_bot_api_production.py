@@ -1929,8 +1929,17 @@ def get_admin_status():
     except:
         mem_mb = -1
     try:
-        bots_rodando = sum(1 for k,v in USER_STATES.items() if isinstance(v, dict) and v.get('running'))
-        users = len(USER_STATES)
+        import redis as _redis
+        _r = _redis.from_url(os.environ.get('REDIS_URL',''), decode_responses=True, socket_timeout=2)
+        _keys = _r.keys('bot_state:*')
+        bots_rodando = 0
+        for _k in _keys:
+            try:
+                import json as _json
+                _state = _json.loads(_r.get(_k) or '{}')
+                if _state.get('running'): bots_rodando += 1
+            except: pass
+        users = len(_keys)
     except:
         bots_rodando = -1
         users = -1
