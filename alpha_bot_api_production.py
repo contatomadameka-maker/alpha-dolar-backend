@@ -1819,12 +1819,38 @@ def get_financeiro_bot(bot_nome):
             c.get('bot_afiliado','').lower() == bot_nome.lower())
     }
 
-    # Operacoes do bot
+    # Clientes do bot
+    cli_bot_r = req.get(
+        f"{SUPA_URL}/rest/v1/clientes?bot_name=eq.{bot_nome}&select=deriv_id",
+        headers=headers
+    )
+    ids_cli_bot = {c['deriv_id'] for c in (cli_bot_r.json() if cli_bot_r.status_code == 200 else [])}
+
+    # Operacoes pelo bot_name
     ops_r = req.get(
         f"{SUPA_URL}/rest/v1/operacoes?bot_name=eq.{bot_nome}&select=cliente_id,resultado,lucro,stake&criado_em=gte.{date_from}&limit=2000",
         headers=headers
     )
-    operacoes = ops_r.json() if ops_r.status_code == 200 else []
+    ops_by_name = ops_r.json() if ops_r.status_code == 200 else []
+
+    # Operacoes pelos cliente_ids do bot (captura ops salvas com bot_name errado)
+    ops_by_cli = []
+    if ids_cli_bot:
+        ids_str = ','.join(f'"{i}"' for i in ids_cli_bot)
+        ops_cli_r = req.get(
+            f"{SUPA_URL}/rest/v1/operacoes?cliente_id=in.({ids_str})&select=cliente_id,resultado,lucro,stake&criado_em=gte.{date_from}&limit=2000",
+            headers=headers
+        )
+        ops_by_cli = ops_cli_r.json() if ops_cli_r.status_code == 200 else []
+
+    # Merge sem duplicatas
+    seen = set()
+    operacoes = []
+    for op in ops_by_name + ops_by_cli:
+        key = (op.get('cliente_id'), op.get('criado_em',''), op.get('lucro'))
+        if key not in seen:
+            seen.add(key)
+            operacoes.append(op)
 
     # Total geral
     ganhos_total = sum(abs(o['lucro']) for o in operacoes if o.get('resultado') == 'win')
