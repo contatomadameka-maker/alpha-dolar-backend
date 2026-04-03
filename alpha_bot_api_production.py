@@ -297,6 +297,11 @@ def listar_usuarios_route():
 # ==================== START BOT ====================
 @app.route('/api/bot/start', methods=['POST'])
 def start_bot():
+    _ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
+    _d = request.get_json(silent=True) or {}
+    _did = _d.get('deriv_id','') or (_d.get('config') or {}).get('deriv_id','')
+    if _did in DERIV_ID_BLACKLIST or _ip in IP_BLACKLIST:
+        return jsonify({'error': 'Acesso negado'}), 403
     try:
         data = request.get_json()
         if not data:
