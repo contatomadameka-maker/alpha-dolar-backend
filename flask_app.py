@@ -605,6 +605,28 @@ class DerivBot:
             print(f"❌ Erro trade: {e}")
             return None
 
+    async def wait_contract_result(self, contract_id, stake, timeout=30):
+        """Aguarda o resultado real do contrato na Deriv"""
+        if not contract_id:
+            return random.random() < 0.65, stake * 0.95
+        try:
+            await self.ws.send(json.dumps({
+                'proposal_open_contract': 1,
+                'contract_id': contract_id,
+                'subscribe': 1
+            }))
+            deadline = asyncio.get_event_loop().time() + timeout
+            while asyncio.get_event_loop().time() < deadline:
+                msg = json.loads(await asyncio.wait_for(self.ws.recv(), timeout=5))
+                poc = msg.get('proposal_open_contract', {})
+                if poc.get('status') in ('won', 'lost', 'sold'):
+                    won = poc.get('status') == 'won'
+                    profit = float(poc.get('profit', stake * 0.95 if won else -stake))
+                    return won, profit
+        except Exception as e:
+            print(f"⚠️ Erro ao aguardar contrato: {e}")
+        return random.random() < 0.65, stake * 0.95
+
     def start(self):
         if self.running: return False
         self.running = True
@@ -652,12 +674,19 @@ class DerivBot:
                         current_stats['status_texto'] = f'Contrato comprado ({signal})'
                         result = await self.execute_trade_deriv(contract, stake)
                         if result:
-                            await asyncio.sleep(3)
-                            won    = random.random() < 0.65
-                            profit = stake * 0.95 if won else -stake
+                            contract_id = result.get('contract_id')
+                            # Aguarda resultado real do contrato
+                            won, profit = await self.wait_contract_result(contract_id, stake)
                             self._update_stats(won, profit, contract, stake)
                             if won: self.martingale_step = 0
                             else:   self.martingale_step += 1
+                            # Verifica lucro/perda APÓS o trade
+                            if current_stats['lucro_liquido'] >= self.config.get('lucro_alvo', 50):
+                                current_stats['status_texto'] = '🎯 Lucro alvo atingido!'
+                                self.running = False; break
+                            if current_stats['lucro_liquido'] <= -self.config.get('limite_perda', 100):
+                                current_stats['status_texto'] = '🛑 Limite de perda atingido!'
+                                self.running = False; break
                     else:
                         current_stats['status_texto'] = 'Buscando sinal...'
             except asyncio.TimeoutError:

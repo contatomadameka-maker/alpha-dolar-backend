@@ -787,6 +787,43 @@
 .pro-mult-btn.active{background:rgba(168,85,247,0.2);border-color:#a855f7;color:#d4a8ff;}
 </style>
 <style>
+/* Botões timeframe do gráfico */
+.tf-btn {
+  background: rgba(30,41,59,0.8);
+  border: 1px solid #1e293b;
+  color: #64748b;
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tf-btn:hover { background: #1e293b; color: #e2e8f0; }
+.tf-btn.tf-active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.chart-tool-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(30,41,59,0.8);
+  border-radius: 7px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chart-tool-btn:hover { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.chart-tool-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; box-shadow: 0 0 8px rgba(59,130,246,0.4); }
+.chart-tool-separator { width: 36px; height: 1px; background: #1e293b; margin: 2px 0; }
+.chart-tool-btn { background:rgba(15,23,42,0.9); border:1px solid rgba(30,41,59,0.8); color:#64748b; width:32px; height:32px; border-radius:6px; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; transition:all 0.15s; backdrop-filter:blur(4px); }
+.chart-tool-btn:hover { background:#1e293b; color:#e2e8f0; }
+.ind-group-title { font-size:10px; color:#475569; text-transform:uppercase; letter-spacing:1px; padding:8px 8px 4px; font-weight:700; }
+.ind-item { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:6px; cursor:pointer; color:#cbd5e1; font-size:12px; }
+.ind-item:hover { background:#1e293b; }
+.ind-check { font-size:14px; color:#3b82f6; }
+.chart-tool-btn.active { background:#3b82f6; border-color:#3b82f6; color:#fff; }
 /* Esconder scrollbar horizontal do TradingView */
 .tradingview-widget-container, .tradingview-widget-container iframe {
   overflow: hidden !important;
@@ -871,7 +908,7 @@ body { overflow-x: hidden !important; }
             <!-- SINO DE NOTIFICAÇÕES -->
             <div class="topbar-dd-wrap" id="notifWrap">
                 <button class="btn-icon" id="notifBtn" onclick="toggleDD('notifMenu','notifBtn')">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
                     <span class="notif-badge" id="notifBadge" style="display:none">0</span>
                 </button>
                 <div class="topbar-dd" id="notifMenu">
@@ -1458,7 +1495,7 @@ body { overflow-x: hidden !important; }
                 </div>
 
                 <button class="start-button" id="startButton">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
                     <span>Iniciar Robô</span>
                 </button>
                 <button id="alphaIaProBtn" onclick="abrirAlphaIaPro()" style="width:100%;margin-top:10px;padding:14px;background:linear-gradient(135deg,#1a0a2e,#2d1060);border:1px solid rgba(168,85,247,0.5);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;color:#d4a8ff;letter-spacing:0.5px;box-shadow:0 0 20px rgba(168,85,247,0.15);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 0 30px rgba(168,85,247,0.4)'" onmouseout="this.style.boxShadow='0 0 20px rgba(168,85,247,0.15)'">
@@ -1501,7 +1538,94 @@ body { overflow-x: hidden !important; }
                       <div id="sinalSugestao" style="margin-left:auto;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">Aguardando...</div>
                       <div style="font-size:10px;color:#475569;" id="sinalHora">—</div>
                     </div>
-                    <div class="chart-container"><div id="tradingview_chart"></div></div>
+                    <div class="chart-container" style="position:relative;width:100%;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+  <div id="chart-toolbar-left" style="position:absolute;left:6px;top:50px;z-index:10;display:flex;flex-direction:column;gap:4px;padding:4px;background:rgba(13,17,23,0.85);border:1px solid #1e293b;border-radius:8px;">
+    <button class="chart-tool-btn active" title="Cursor" onclick="chartSetTool('cursor')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Linha de tendência" onclick="chartSetTool('line')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Linha horizontal" onclick="chartSetTool('hline')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="7" y2="6"/><line x1="3" y1="18" x2="7" y2="18"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Canal" onclick="chartSetTool('channel')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Texto" onclick="chartSetTool('text')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+    </button>
+    <div style="border-top:1px solid #1e293b;margin:2px 0;"></div>
+    <button class="chart-tool-btn" title="Régua" onclick="chartSetTool('ruler')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="7" y1="10" x2="7" y2="14"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="17" y1="10" x2="17" y2="14"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Zoom" onclick="chartSetTool('zoom')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <div style="border-top:1px solid #1e293b;margin:2px 0;"></div>
+    <button class="chart-tool-btn" title="Apagar tudo" onclick="chartClearDrawings()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>
+  </div>
+  <div id="chart-topbar" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#0d1117;border-bottom:1px solid #1e293b;font-size:11px;color:#94a3b8;">
+    <span><span id="chart-symbol-label" style="font-weight:700;color:#e2e8f0;">--</span><span style="color:#94a3b8;font-size:13px;margin-left:6px;font-weight:600;">· Deriv</span></span>
+    <span id="chart-price-label" style="color:#22c55e;font-weight:700;">--</span>
+    <span id="chart-change-label" style="color:#94a3b8;">--</span>
+    <span id="chart-ohlc" style="font-size:10px;color:#94a3b8;display:flex;gap:8px;margin-left:4px;">
+      <span>Abr <span id="ohlc-o" style="color:#e2e8f0;">--</span></span>
+      <span>Máx <span id="ohlc-h" style="color:#22c55e;">--</span></span>
+      <span>Mín <span id="ohlc-l" style="color:#ef4444;">--</span></span>
+      <span>Fch <span id="ohlc-c" style="color:#e2e8f0;">--</span></span>
+    </span>
+    <span id="chart-countdown" style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;font-family:monospace;display:none;">00:00</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:4px;">
+      <button onclick="chartSetTF(0)" id="tf-0" class="tf-btn">1T</button>
+      <button onclick="chartSetTF(1)" id="tf-1" class="tf-btn tf-active">1m</button>
+      <button onclick="chartSetTF(5)" id="tf-5" class="tf-btn">5m</button>
+      <button onclick="chartSetTF(15)" id="tf-15" class="tf-btn">15m</button>
+      <button onclick="chartSetTF(60)" id="tf-60" class="tf-btn">1h</button>
+      <div style="width:1px;height:14px;background:#1e293b;margin:0 2px;"></div>
+      <button class="tf-btn" id="chart-type-btn" onclick="chartToggleType()" title="Tipo de gráfico">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="4" height="14"/><rect x="10" y="4" width="4" height="18"/><rect x="18" y="10" width="4" height="12"/></svg>
+      </button>
+      <button class="tf-btn" onclick="chartCycleType()" id="chart-type-btn" title="Tipo de gráfico">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>
+      </button>
+      <button class="tf-btn" onclick="chartShowIndicators()" title="Indicadores">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span style="font-size:9px;margin-left:2px;">Indicadores</span>
+      </button>
+      <button class="tf-btn" onclick="chartToggleFullscreen()" title="Tela cheia" id="chart-fs-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Modal Indicadores -->
+<div id="chart-indicators-modal" style="display:none;position:absolute;top:40px;left:50%;transform:translateX(-50%);z-index:100;background:#0f172a;border:1px solid #1e293b;border-radius:10px;width:420px;max-height:500px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+  <div style="padding:16px 20px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-weight:700;color:#e2e8f0;font-size:14px;">Indicadores</span>
+    <button onclick="document.getElementById('chart-indicators-modal').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px;">✕</button>
+  </div>
+  <div style="padding:10px 16px;">
+    <input type="text" placeholder="Pesquisar..." style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px 12px;color:#e2e8f0;font-size:12px;outline:none;box-sizing:border-box;" oninput="chartFilterIndicators(this.value)">
+  </div>
+  <div id="chart-indicators-list" style="overflow-y:auto;max-height:360px;padding:0 8px 12px;">
+    <div class="ind-group-title">Médias Móveis</div>
+    <div class="ind-item" onclick="chartToggleIndicator('sma20')"><span>Média Móvel Simples (SMA 20)</span><span class="ind-check" id="ind-sma20">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('sma50')"><span>Média Móvel Simples (SMA 50)</span><span class="ind-check" id="ind-sma50">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('ema9')"><span>Média Móvel Exponencial (EMA 9)</span><span class="ind-check" id="ind-ema9">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('ema21')"><span>Média Móvel Exponencial (EMA 21)</span><span class="ind-check" id="ind-ema21">○</span></div>
+    <div class="ind-group-title">Bandas</div>
+    <div class="ind-item" onclick="chartToggleIndicator('bb')"><span>Bandas de Bollinger</span><span class="ind-check" id="ind-bb">○</span></div>
+    <div class="ind-group-title">Osciladores</div>
+    <div class="ind-item" onclick="chartToggleIndicator('rsi')"><span>RSI (14)</span><span class="ind-check" id="ind-rsi">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('macd')"><span>MACD</span><span class="ind-check" id="ind-macd">○</span></div>
+    <div class="ind-group-title">Volume</div>
+    <div class="ind-item" onclick="chartToggleIndicator('vol')"><span>Volume</span><span class="ind-check" id="ind-vol">○</span></div>
+  </div>
+</div>
+<canvas id="deriv-chart" style="width:100%;flex:1;min-height:0;display:block;background:#0d1117;"></canvas>
+</div>
                 </div>
                 <div class="tab-pane" id="tab-digitos">
                     <div class="dig-sub-tabs">
@@ -1789,7 +1913,7 @@ body { overflow-x: hidden !important; }
             </div>
             <div class="manual-buttons">
                 <button class="manual-btn rise-btn" id="riseBtn">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14l5-5 5 5z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14l5-5 5 5z"/></svg>
                     <div class="btn-content">
                         <span>Rise Equal</span>
                         <strong id="risePayout">85.00%</strong>
@@ -1797,7 +1921,7 @@ body { overflow-x: hidden !important; }
                     </div>
                 </button>
                 <button class="manual-btn fall-btn" id="fallBtn">
-                    <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
                     <div class="btn-content">
                         <span>Fall Equal</span>
                         <strong id="fallPayout">84.00%</strong>
@@ -2085,31 +2209,31 @@ body { overflow-x: hidden !important; }
             <button class="btn-modo-ia">✨ MODO IA</button>
             <div class="bot-config-display">
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/><rect x="9" y="11" width="14" height="10" rx="2" stroke="#42A5F5" stroke-width="2"/><path d="M13 16h4" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/><rect x="9" y="11" width="14" height="10" rx="2" stroke="#42A5F5" stroke-width="2"/><path d="M13 16h4" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/></svg></div>
                     <div class="config-label">Quantia inicial</div><div class="config-value" id="botDisplayStake">$0.35</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#42A5F5" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke="#42A5F5" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#42A5F5"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#42A5F5" stroke-width="2"/><circle cx="12" cy="12" r="6" stroke="#42A5F5" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#42A5F5"/></svg></div>
                     <div class="config-label">Lucro alvo</div><div class="config-value" id="botDisplayTarget">$2</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#42A5F5" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="9" x2="15" y2="15" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#42A5F5" stroke-width="2"/><line x1="15" y1="9" x2="9" y2="15" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="9" x2="15" y2="15" stroke="#42A5F5" stroke-width="2" stroke-linecap="round"/></svg></div>
                     <div class="config-label">Limite de perda</div><div class="config-value" id="botDisplayStop">$5</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="#42A5F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="#42A5F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
                     <div class="config-label">Mercado</div><div class="config-value" id="botDisplayMarket">Volatility 100 Index</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke="#42A5F5" stroke-width="2"/></svg></div>
                     <div class="config-label">Estratégia</div><div class="config-value" id="botDisplayStrategy">Alpha Bot Balanced</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="9" height="18" rx="2" stroke="#42A5F5" stroke-width="2"/><rect x="13" y="3" width="9" height="11" rx="2" stroke="#42A5F5" stroke-width="2"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="3" width="9" height="18" rx="2" stroke="#42A5F5" stroke-width="2"/><rect x="13" y="3" width="9" height="11" rx="2" stroke="#42A5F5" stroke-width="2"/></svg></div>
                     <div class="config-label">Modo</div><div class="config-value" id="botDisplayMode">Veloz</div>
                 </div>
                 <div class="config-row">
-                    <div class="config-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="#42A5F5" stroke-width="2" stroke-linejoin="round"/></svg></div>
+                    <div class="config-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z" stroke="#42A5F5" stroke-width="2" stroke-linejoin="round"/></svg></div>
                     <div class="config-label">Gerenciamento de risco</div><div class="config-value" id="botDisplayRisk">Conservador</div>
                 </div>
             </div>
@@ -2175,6 +2299,10 @@ body { overflow-x: hidden !important; }
         if (advHint)   advHint.innerText   = market.description || '';
         if (typeof window.digTrocarMercado === 'function') {
             window.digTrocarMercado(market.symbol || market.id || 'R_100');
+        }
+        // Sincroniza gráfico Canvas
+        if (typeof chartConnect === 'function') {
+            chartConnect(market.symbol || market.id || 'R_100');
         }
     };
 
@@ -2651,7 +2779,7 @@ body { overflow-x: hidden !important; }
                 if (botRunning) statusInterval = setInterval(atualizarStatusBot, 2000);
             }, 4000);
             modal.classList.add('active');
-            startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
+            startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
         };
 
         window.fecharModalParado = function() {
@@ -2905,7 +3033,7 @@ body { overflow-x: hidden !important; }
             _transicaoEmAndamento = false;
 
             modal.classList.remove('active');
-            startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
+            startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
 
             // ✅ Mostra modal com dados FINAIS corretos
             if (stopReason !== _ultimoStopReason || stopReason) {
@@ -3148,7 +3276,7 @@ body { overflow-x: hidden !important; }
                     botRunning = true;
                     _botRodandoAnterior = true;
                     _ultimoTradeTimestamp = Date.now();
-                    startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
+                    startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
                     window.registrarEvento('Começando a análise', 'analysis');
                     if (window.iniciarCronometro) window.iniciarCronometro();
                     setTimeout(() => { atualizarMensagem('conectado'); window.registrarEvento('Analisando Mercado..', 'analysis'); }, 2000);
@@ -3164,12 +3292,12 @@ body { overflow-x: hidden !important; }
                     if (err.message?.includes('já está rodando')) {
                         botRunning = true;
                         _botRodandoAnterior = true;
-                        startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
+                        startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M6 6h12v12H6z"/></svg><span>Parar Robô</span>';
                         if (!statusInterval) statusInterval = setInterval(atualizarStatusBot, 3000);
                     } else {
                         if (statusInterval) { clearInterval(statusInterval); statusInterval = null; }
                         modal.classList.remove('active');
-                        startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
+                        startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
                         resetarEstado();
                     }
                 }
@@ -3179,7 +3307,7 @@ body { overflow-x: hidden !important; }
                 await stopBot();
                 window.registrarEvento(`Negociação finalizada — Lucro total: $${lucroAcumulado.toFixed(2)}`, 'init');
                 modal.classList.remove('active');
-                startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
+                startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
                 mostrarModalBotParado('manual', null, { total_trades: totalTrades, win_rate: 0, lucro_liquido: lucroAcumulado });
                 resetarEstado();
                 await buscarSaldo();
@@ -3210,7 +3338,7 @@ body { overflow-x: hidden !important; }
             await stopBot();
             window.registrarEvento(`Negociação finalizada — Lucro total: $${lucroAcumulado.toFixed(2)}`, 'init');
             modal.classList.remove('active');
-            startButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
+            startButton.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg><span>Iniciar Robô</span>';
             mostrarModalBotParado('manual', null, { total_trades: totalTrades, win_rate: 0, lucro_liquido: lucroAcumulado });
             resetarEstado();
             await buscarSaldo();
@@ -3369,7 +3497,7 @@ body { overflow-x: hidden !important; }
                 `<span style="${BADGE_STYLES_NEW[b] || BADGE_STYLES_NEW['FREE']}">${b}</span>`
             ).join(' ');
             const lock = strategy.locked
-                ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="#555"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>`
+                ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="#555"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>`
                 : '';
             const icon = strategy.icon && strategy.icon.startsWith('<svg') ? strategy.icon
                 : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="7" y="10" width="10" height="8" rx="2" fill="#42A5F5"/><circle cx="10" cy="13" r="1" fill="white"/><circle cx="14" cy="13" r="1" fill="white"/><rect x="9" y="15" width="6" height="1" rx="0.5" fill="white"/><rect x="11" y="6" width="2" height="4" fill="#42A5F5"/><circle cx="12" cy="5" r="1.5" fill="#42A5F5"/></svg>`;
@@ -7679,30 +7807,597 @@ function atualizarSinaisGrafico() {
 setInterval(atualizarSinaisGrafico, 3000);
 
 
-// ── GRÁFICO TRADINGVIEW ──
-function initTradingViewChart(symbol) {
-  const container = document.getElementById('tradingview_chart');
-  if(!container) return;
-  container.innerHTML = '';
-  new TradingView.widget({
-    container_id: 'tradingview_chart',
-    symbol: 'BINANCE:BTCUSDT',
-    interval: '1',
-    timezone: 'America/Sao_Paulo',
-    theme: 'dark',
-    style: '1',
-    locale: 'br',
-    toolbar_bg: '#0d1117',
-    enable_publishing: false,
-    hide_top_toolbar: false,
-    save_image: false,
-    width: '100%',
-    height: '100%',
-    overrides: {
-      'paneProperties.background': '#0d1117',
-      'paneProperties.backgroundType': 'solid',
+// ── GRÁFICO DERIV CANVAS ──
+const _chart = {
+  canvas: null, ctx: null, symbol: 'R_100',
+  candles: [], ticks: [], tf: 1, tool: 'cursor',
+  ws: null, wsActive: false,
+  colors: {
+    bg: '#0d1117', grid: '#1e293b',
+    up: '#22c55e', down: '#ef4444',
+    wick: '#64748b', text: '#94a3b8',
+    crosshair: '#475569'
+  }
+};
+
+function chartSetTF(m) {
+  _chart.tf = m;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('tf-active'));
+  const el = document.getElementById('tf-' + m);
+  if (el) el.classList.add('tf-active');
+  _chart.candles = [];
+  _chart.ticks = [];
+  chartBuildCandles();
+  chartDraw();
+}
+
+function chartBuildCandles() {
+  // TF=0 significa tick a tick — cada tick é uma "vela"
+  if (_chart.tf === 0) {
+    _chart.candles = _chart.ticks.slice(-500).map(t => ({
+      ts: t.t, o: t.p, h: t.p, l: t.p, c: t.p
+    }));
+    return;
+  }
+  const tf = _chart.tf * 60 * 1000;
+  const candles = [];
+  for (const tick of _chart.ticks) {
+    const ts = Math.floor(tick.t / tf) * tf;
+    let c = candles.find(x => x.ts === ts);
+    if (!c) { c = { ts, o: tick.p, h: tick.p, l: tick.p, c: tick.p }; candles.push(c); }
+    else { c.h = Math.max(c.h, tick.p); c.l = Math.min(c.l, tick.p); c.c = tick.p; }
+  }
+  _chart.candles = candles;
+}
+
+function chartDraw() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const ctx = _chart.ctx;
+  const W = canvas.width, H = canvas.height;
+  const C = _chart.colors;
+
+  // Limpa
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const candles = _chart.candles;
+  if (candles.length < 2) {
+    ctx.fillStyle = C.text;
+    ctx.font = '13px Inter,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aguardando dados...', W/2, H/2);
+    return;
+  }
+
+  // Layout
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Velas visíveis
+  const maxCandles = _chart._visibleCandles || 60;
+  const visCandles = candles.slice(-maxCandles);
+  const slotW = chartW / maxCandles;
+  const cW = Math.max(2, Math.floor(slotW * 0.6));
+
+  // Range de preços
+  const prices = visCandles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  // Grid horizontal
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 6; i++) {
+    const y = padT + (chartH / 6) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    const price = maxP - ((maxP - minP) / 6) * i;
+    ctx.fillStyle = C.text;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(price.toFixed(4), W - padR + 4, y + 3);
+  }
+
+  // Grid vertical + eixo X
+  const stepX = Math.ceil(maxCandles / 6);
+  visCandles.forEach((c, i) => {
+    if (i % stepX === 0 && i > 0) {
+      const x = padL + i * slotW + slotW / 2;
+      ctx.strokeStyle = C.grid;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
+      const d = new Date(c.ts);
+      const label = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+      ctx.fillStyle = C.text;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, H - 5);
     }
   });
+
+  // Indicadores — SMA/EMA
+  const drawMA = (period, color, type='sma') => {
+    const closes = visCandles.map(c => c.c);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let started = false;
+    for (let i = period - 1; i < closes.length; i++) {
+      let val;
+      if (type === 'sma') {
+        val = closes.slice(i - period + 1, i + 1).reduce((a,b)=>a+b,0) / period;
+      } else {
+        const k = 2/(period+1);
+        val = closes.slice(0, i+1).reduce((ema,p,j) => j===0 ? p : p*k + ema*(1-k), closes[0]);
+      }
+      const x = padL + i * slotW + slotW/2;
+      const y = toY(val);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+
+  if (_chart.indicators && _chart.indicators['sma20']) drawMA(20, '#f59e0b');
+  if (_chart.indicators && _chart.indicators['sma50']) drawMA(50, '#8b5cf6');
+  if (_chart.indicators && _chart.indicators['ema9'])  drawMA(9,  '#06b6d4', 'ema');
+  if (_chart.indicators && _chart.indicators['ema21']) drawMA(21, '#ec4899', 'ema');
+
+  // Bollinger Bands
+  if (_chart.indicators && _chart.indicators['bb']) {
+    const period = 20;
+    ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+    ctx.lineWidth = 1;
+    for (let band of ['upper','mid','lower']) {
+      ctx.beginPath(); let started = false;
+      for (let i = period-1; i < visCandles.length; i++) {
+        const sl = visCandles.slice(i-period+1,i+1).map(c=>c.c);
+        const mean = sl.reduce((a,b)=>a+b,0)/period;
+        const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+        const val = band==='upper'?mean+2*std:band==='lower'?mean-2*std:mean;
+        const x = padL + i*slotW + slotW/2;
+        const y = toY(val);
+        if (!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Tipo de gráfico
+  const chartType = _chart.chartType || 'candle';
+
+  if (chartType === 'line' || chartType === 'area') {
+    // Linha de fechamento
+    ctx.beginPath();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    visCandles.forEach((c, i) => {
+      const x = padL + i * slotW + slotW / 2;
+      const y = toY(c.c);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    if (chartType === 'area') {
+      // Área preenchida
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      grad.addColorStop(0, 'rgba(59,130,246,0.3)');
+      grad.addColorStop(1, 'rgba(59,130,246,0.0)');
+      ctx.beginPath();
+      ctx.fillStyle = grad;
+      visCandles.forEach((c, i) => {
+        const x = padL + i * slotW + slotW / 2;
+        const y = toY(c.c);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      const lastX = padL + (visCandles.length - 1) * slotW + slotW / 2;
+      ctx.lineTo(lastX, padT + chartH);
+      ctx.lineTo(padL + slotW / 2, padT + chartH);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+  // Velas
+  visCandles.forEach((c, i) => {
+    const x = padL + i * slotW + slotW / 2;
+    const isUp = c.c >= c.o;
+    const color = isUp ? C.up : C.down;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, toY(c.h));
+    ctx.lineTo(x, toY(c.l));
+    ctx.stroke();
+    const bodyTop = toY(Math.max(c.o, c.c));
+    const bodyBot = toY(Math.min(c.o, c.c));
+    const bodyH = Math.max(1, bodyBot - bodyTop);
+    ctx.fillStyle = color;
+    ctx.fillRect(x - cW/2, bodyTop, cW, bodyH);
+  });
+  } // fim else candle
+
+  // Linhas do usuário
+  if (typeof chartDrawUserLines === 'function') chartDrawUserLines();
+
+  // Preço atual com box
+  if (visCandles.length > 0) {
+    const last = visCandles[visCandles.length - 1];
+    const y = toY(last.c);
+    const isUp = last.c >= last.o;
+    const priceColor = isUp ? C.up : C.down;
+    ctx.strokeStyle = priceColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    const priceStr = last.c.toFixed(4);
+    const cdEl = document.getElementById('chart-countdown');
+    const cdStr = cdEl ? cdEl.textContent : '';
+    ctx.font = 'bold 10px monospace';
+    const tw = Math.max(ctx.measureText(priceStr).width, ctx.measureText(cdStr).width);
+    const bw = tw + 12, bh = cdStr ? 28 : 16;
+    const bx = W - padR + 2, by = y - bh/2;
+    ctx.fillStyle = priceColor;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 3);
+    else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(priceStr, bx + 5, by + 12);
+    if (cdStr) { ctx.font = '9px monospace'; ctx.fillText(cdStr, bx + 5, by + 24); }
+  }
+}
+
+
+function chartResize() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const container = canvas.closest('.chart-container');
+  if (!container) return;
+  const topbar = document.getElementById('chart-topbar');
+  const topH = topbar ? topbar.offsetHeight : 30;
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight - topH;
+  chartDraw();
+}
+
+function chartConnect(symbol) {
+  if (_chart.ws) { try { _chart.ws.close(); } catch(e){} }
+  _chart.symbol = symbol;
+  _chart.ticks = [];
+  _chart.candles = [];
+
+  const label = document.getElementById('chart-symbol-label');
+  if (label) label.textContent = symbol;
+
+  _chart.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+  _chart.ws.onopen = () => {
+    _chart.ws.send(JSON.stringify({ ticks_history: symbol, adjust_start_time: 1, count: 5000, end: 'latest', start: 1, style: 'ticks' }));
+    _chart.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+  };
+  _chart.ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.history) {
+      const prices = d.history.prices, times = d.history.times;
+      for (let i = 0; i < prices.length; i++) {
+        _chart.ticks.push({ t: times[i] * 1000, p: parseFloat(prices[i]) });
+      }
+      chartBuildCandles();
+      chartDraw();
+    }
+    if (d.tick) {
+      const p = parseFloat(d.tick.quote);
+      const t = d.tick.epoch * 1000;
+      _chart.ticks.push({ t, p });
+      if (_chart.ticks.length > 5000) _chart.ticks.shift();
+      _chart.lastTickTime = Date.now();
+      chartBuildCandles();
+      chartDraw();
+      // Atualiza topbar
+      const pl = document.getElementById('chart-price-label');
+      if (pl) { pl.textContent = p.toFixed(4); pl.style.color = p >= (_chart.lastP||p) ? '#22c55e' : '#ef4444'; }
+      _chart.lastP = p;
+      // Countdown do tick
+      const cdEl = document.getElementById('chart-countdown');
+      if (cdEl) {
+        cdEl.style.display = 'inline-block';
+        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
+        clearInterval(_chart._cdTimer);
+        cdEl.textContent = '00:0' + secs;
+        _chart._cdTimer = setInterval(() => {
+          secs--;
+          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
+          else cdEl.textContent = '00:0' + secs;
+        }, 1000);
+      }
+      // Atualiza OHLC
+      chartUpdateOHLC(_chart.candles);
+    }
+  };
+}
+
+
+// ── TOOL SELECTOR ──
+
+function chartShowIndicators() {
+  const modal = document.getElementById('chart-indicators-modal');
+  if (!modal) return;
+  modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+}
+
+function chartToggleFullscreen() {
+  const el = document.querySelector('.chart-container');
+  if (!el) return;
+  if (!document.fullscreenElement) {
+    el.requestFullscreen && el.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+}
+
+function chartSetTool(tool) {
+  _chart.tool = tool;
+  document.querySelectorAll('.chart-tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.chart-tool-btn[onclick*="' + tool + '"]');
+  if (btn) btn.classList.add('active');
+
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  if (tool === 'cursor') canvas.style.cursor = 'default';
+  else if (tool === 'text') canvas.style.cursor = 'text';
+  else canvas.style.cursor = 'crosshair';
+}
+
+// ── OHLC UPDATER ──
+function chartUpdateOHLC(candles) {
+  if (!candles || candles.length === 0) return;
+  const visible = candles.slice(-80);
+  const first = visible[0];
+  const last = visible[visible.length - 1];
+  const hi = Math.max(...visible.map(c => c.h));
+  const lo = Math.min(...visible.map(c => c.l));
+  const change = last.c - first.o;
+  const changePct = ((change / first.o) * 100).toFixed(2);
+  const changeStr = (change >= 0 ? '+' : '') + change.toFixed(4) + ' (' + changePct + '%)';
+
+  const oEl = document.getElementById('ohlc-o');
+  const hEl = document.getElementById('ohlc-h');
+  const lEl = document.getElementById('ohlc-l');
+  const cEl = document.getElementById('ohlc-c');
+  const chEl = document.getElementById('chart-change-label');
+
+  if (oEl) oEl.textContent = first.o.toFixed(4);
+  if (hEl) hEl.textContent = hi.toFixed(4);
+  if (lEl) lEl.textContent = lo.toFixed(4);
+  if (cEl) cEl.textContent = last.c.toFixed(4);
+  if (chEl) {
+    chEl.textContent = changeStr;
+    chEl.style.color = change >= 0 ? '#22c55e' : '#ef4444';
+  }
+}
+
+
+// ── SISTEMA DE DESENHO ──
+_chart.drawings = [];
+_chart.drawing = null;
+_chart.zoom = { offset: 0, scale: 1 };
+_chart.chartType = 'candle'; // candle | line
+
+function chartSetType(type) {
+  _chart.chartType = type;
+  const btn = document.getElementById('chart-type-btn');
+  if (btn) {
+    const icons = {
+      candle: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>',
+      line:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      area:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 L6 10 L10 14 L14 6 L18 10 L22 4 L22 20 Z"/></svg>'
+    };
+    btn.innerHTML = icons[type] || icons.candle;
+  }
+  chartDraw();
+}
+
+function chartCycleType() {
+  const types = ['candle', 'line', 'area'];
+  const cur = _chart.chartType || 'candle';
+  const next = types[(types.indexOf(cur) + 1) % types.length];
+  chartSetType(next);
+}
+
+function chartClearDrawings() {
+  _chart.drawings = [];
+  chartDraw();
+}
+
+function chartAddText(x, y, text) {
+  _chart.drawings.push({ type: 'text', x1: x, y1: y, text: text });
+  chartDraw();
+}
+
+function chartInitEvents() {
+  const canvas = _chart.canvas;
+  if (!canvas || canvas._eventsReady) return;
+  canvas._eventsReady = true;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const posToPrice = (pos) => {
+    const padL = 30, padR = 70, padT = 10, padB = 22;
+    const chartH = canvas.height - padT - padB;
+    const candles = _chart.candles.slice(-60);
+    const prices = candles.flatMap(c => [c.h, c.l]);
+    let minP = Math.min(...prices), maxP = Math.max(...prices);
+    const pad = (maxP - minP) * 0.08 || 0.001;
+    minP -= pad; maxP += pad;
+    return maxP - ((pos.y - padT) / chartH) * (maxP - minP);
+  };
+
+  canvas.addEventListener('mousedown', (e) => {
+    const tool = _chart.tool || 'cursor';
+    if (tool === 'cursor') return;
+    const pos = getPos(e);
+    _chart.drawing = { type: tool, x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, p1: posToPrice(pos), p2: posToPrice(pos) };
+    if (tool === 'ruler') _chart.drawing.measuring = true;
+    if (tool === 'text') {
+      // Abre input flutuante
+      _chart.drawing = null;
+      const input = document.createElement('input');
+      input.style.cssText = 'position:fixed;left:' + (e.clientX) + 'px;top:' + (e.clientY) + 'px;z-index:999;background:#1e293b;color:#e2e8f0;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;font-size:12px;outline:none;min-width:120px;';
+      input.placeholder = 'Digite e pressione Enter';
+      document.body.appendChild(input);
+      input.focus();
+      const cx = e.clientX, cy = e.clientY;
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && input.value.trim()) {
+          const r = canvas.getBoundingClientRect();
+          chartAddText(cx - r.left, cy - r.top, input.value.trim());
+          document.body.removeChild(input);
+        }
+        if (ev.key === 'Escape') document.body.removeChild(input);
+      });
+      input.addEventListener('blur', () => { if (document.body.contains(input)) document.body.removeChild(input); });
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getPos(e);
+    // Crosshair sempre
+    if (!_chart.drawing) {
+      chartDraw();
+      const ctx = _chart.ctx;
+      ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, pos.y); ctx.lineTo(canvas.width, pos.y); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    _chart.drawing.x2 = pos.x;
+    _chart.drawing.y2 = _chart.drawing.type === 'hline' ? _chart.drawing.y1 : pos.y;
+    _chart.drawing.p2 = posToPrice(pos);
+    chartDraw();
+    const ctx = _chart.ctx;
+    const d = _chart.drawing;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      ctx.moveTo(30, d.y1); ctx.lineTo(canvas.width - 70, d.y1);
+    } else if (d.type === 'channel') {
+      // Linha principal
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Linha paralela deslocada 30px
+      ctx.beginPath();
+      ctx.moveTo(d.x1, d.y1 + 40); ctx.lineTo(d.x2, d.y2 + 40);
+    } else if (d.type === 'ruler') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(d.x2, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Label distância
+      const pDiff = Math.abs(d.p1 - posToPrice(pos));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('Δ ' + pDiff.toFixed(4), d.x2 + 4, (d.y1 + d.y2) / 2);
+      ctx.beginPath();
+    } else {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!_chart.drawing) return;
+    _chart.drawings.push({ ..._chart.drawing });
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  // Zoom com scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 2 : -2;
+    // Aumenta/diminui candles visíveis
+    _chart._visibleCandles = Math.max(20, Math.min(200, (_chart._visibleCandles || 60) - delta));
+    chartDraw();
+  }, { passive: false });
+}
+
+function chartDrawUserLines() {
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length === 0) return;
+
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartH = canvas.height - padT - padB;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  _chart.drawings.forEach(d => {
+    if (d.type === 'text') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(d.text, d.x1, d.y1);
+      return;
+    }
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      const y = toY(d.p1);
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+    } else if (d.type === 'channel') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+      ctx.beginPath();
+      const dy = d.y2 - d.y1;
+      const dx = d.x2 - d.x1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy/len * 40, ny = dx/len * 40;
+      ctx.moveTo(d.x1 + nx, d.y1 + ny);
+      ctx.lineTo(d.x2 + nx, d.y2 + ny);
+    } else {
+      ctx.moveTo(d.x1, d.y1);
+      ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+  });
+}
+
+function initTradingViewChart(symbol) {
+  _chart.canvas = document.getElementById('deriv-chart');
+  if (!_chart.canvas) return;
+  _chart.ctx = _chart.canvas.getContext('2d');
+  chartResize();
+  window.removeEventListener('resize', chartResize);
+  window.addEventListener('resize', chartResize);
+  chartConnect(symbol || 'R_100');
+  setTimeout(chartInitEvents, 500);
 }
 
 // Mapa mercado → símbolo TradingView
@@ -8530,7 +9225,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="adv-label">Tipo de negociação</span>
           <div class="adv-select-wrap">
             <span class="adv-select-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <rect x="3" y="3" width="4" height="4" rx="1" fill="#42A5F5"/>
                 <rect x="10" y="3" width="4" height="4" rx="1" fill="#42A5F5"/>
                 <rect x="3" y="10" width="4" height="4" rx="1" fill="#42A5F5"/>
@@ -8663,7 +9358,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         <!-- Botão iniciar -->
         <button class="adv-start-btn" id="advStartBtn" onclick="iaAdvIniciar()">
-          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
           <span id="advStartText">Iniciar Robô IA</span>
         </button>
 
