@@ -8,3 +8,4 @@ websocket-client==1.6.4
 pytz
 redis
 psutil
+supabase

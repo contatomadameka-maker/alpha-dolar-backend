@@ -4,6 +4,18 @@ import threading
 import time
 import traceback as _tb
 from webhook_cakto import register_cakto_webhook
+try:
+    from supabase import create_client
+    SUPABASE_URL = 'https://thgicnomfbyklesou.supabase.co'
+    SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
+    if supabase_client:
+        print("✅ Supabase conectado!")
+    else:
+        print("⚠️ SUPABASE_KEY não definida — liberação de produtos desativada")
+except Exception as e:
+    print(f"⚠️ Supabase não disponível: {e}")
+    supabase_client = None
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, redirect
 try:
@@ -23,7 +35,7 @@ app = Flask(__name__, static_folder='web', static_url_path='')
 DERIV_ID_BLACKLIST = {"VRTC10166481"}
 IP_BLACKLIST = {"187.20.29.230"}
 CORS(app)
-register_cakto_webhook(app)
+register_cakto_webhook(app, supabase_client)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
