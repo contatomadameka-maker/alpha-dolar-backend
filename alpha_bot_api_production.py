@@ -6,7 +6,7 @@ import traceback as _tb
 from webhook_cakto import register_cakto_webhook
 try:
     from supabase import create_client
-    SUPABASE_URL = 'https://thgicnomfbyklesou.supabase.co'
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://thgicnomfbyklesou.supabase.co')
     SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
     supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
     if supabase_client:
