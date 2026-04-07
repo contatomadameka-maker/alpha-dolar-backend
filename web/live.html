@@ -2032,6 +2032,42 @@ body { overflow-x: hidden !important; }
                     <span class="stat-label">Win Rate:</span>
                     <span class="stat-value" id="winRate">0%</span>
                 </div>
+            <div style="margin-top:8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:8px;">
+              <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600;">AUTO GRÁFICO</div>
+              <div style="display:flex;gap:6px;margin-bottom:6px;">
+                <div style="flex:1;">
+                  <div style="font-size:9px;color:#64748b;margin-bottom:3px;">Duração/trade</div>
+                  <select id="autoChartDuration" style="width:100%;padding:5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#e2e8f0;font-size:11px;">
+                    <option value="1t">1 Tique</option>
+                    <option value="5t">5 Tiques</option>
+                    <option value="1m" selected>1 Min</option>
+                    <option value="5m">5 Min</option>
+                    <option value="15m">15 Min</option>
+                  </select>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:9px;color:#64748b;margin-bottom:3px;">Sessão total</div>
+                  <select id="autoChartSession" style="width:100%;padding:5px;background:#1e293b;border:1px solid #334155;border-radius:5px;color:#e2e8f0;font-size:11px;">
+                    <option value="10">10 Min</option>
+                    <option value="30" selected>30 Min</option>
+                    <option value="60">1 Hora</option>
+                    <option value="120">2 Horas</option>
+                  </select>
+                </div>
+              </div>
+              <div id="autoChartTimerBar" style="display:none;margin-bottom:6px;">
+                <div style="display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-bottom:3px;">
+                  <span>Sessão</span><span id="autoChartTimerLabel">--:--</span>
+                </div>
+                <div style="background:#1e293b;border-radius:3px;height:4px;">
+                  <div id="autoChartTimerFill" style="background:#6366f1;height:4px;border-radius:3px;width:100%;transition:width 1s;"></div>
+                </div>
+              </div>
+              <button id="autoChartBtn" onclick="chartAutoToggle()" style="width:100%;padding:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:6px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span id="autoChartLabel">▶ Auto Gráfico</span>
+              </button>
+            </div>
                 <div class="stat-row">
                     <span class="stat-label">Total Trades:</span>
                     <span class="stat-value" id="totalTrades">0</span>
