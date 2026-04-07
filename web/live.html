@@ -1421,17 +1421,19 @@ body { overflow-x: hidden !important; }
         document.querySelector(`[data-lang="${saved}"]`)?.classList.add('sel');
     });
 
-    // Hook notificação em cada trade registrado
+    // Hook notificação em cada trade registrado — aguarda registrarTrade estar definido
     window.addEventListener('load', () => {
-        const _origReg = window.registrarTrade;
-        if (_origReg) {
-            window.registrarTrade = function(p) {
-                _origReg(p);
-                const win = (p.resultado === 'WIN' || parseFloat(p.lucro||0) > 0);
-                const l = Math.abs(parseFloat(p.lucro||0));
-                window.adicionarNotif(`${win?'✅':'❌'} ${p.tipo||'Trade'} ${win?'+':'−'}$${l.toFixed(2)} | ${p.mercado||''}`, win?'win':'loss');
-            };
-        }
+        setTimeout(() => {
+            const _origReg = window.registrarTrade;
+            if (_origReg) {
+                window.registrarTrade = function(p) {
+                    _origReg(p);
+                    const win = (p.resultado === 'WIN' || parseFloat(p.lucro||0) > 0);
+                    const l = Math.abs(parseFloat(p.lucro||0));
+                    window.adicionarNotif(`${win?'✅':'❌'} ${p.tipo||'Trade'} ${win?'+':'−'}$${l.toFixed(2)} | ${p.mercado||''}`, win?'win':'loss');
+                };
+            }
+        }, 2000);
     });
     </script>
 
@@ -2026,16 +2028,6 @@ body { overflow-x: hidden !important; }
                         <small id="fallReturn">1.84 USD</small>
                     </div>
                 </button>
-            </div>
-            <div class="manual-stats">
-                <div class="stat-row">
-                    <span class="stat-label">Win Rate:</span>
-                    <span class="stat-value" id="winRate">0%</span>
-                </div>
-                <div class="stat-row">
-                    <span class="stat-label">Total Trades:</span>
-                    <span class="stat-value" id="totalTrades">0</span>
-                </div>
             </div>
             <div style="margin-top:8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:8px;">
               <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600;">AUTO GRÁFICO</div>
@@ -4097,26 +4089,22 @@ body { overflow-x: hidden !important; }
                         showResult(isWin, lucro);
                         // Multiplicador manual
                         if(window._manualMult && window._manualMult.ativo) {
-                          const stakeInput = document.getElementById('manualStake');
+                          const stakeEl = document.getElementById('manualStake');
                           const elNext = document.getElementById('manualNextStake');
-                          const currentStake = parseFloat(stakeInput?.value || 1);
+                          const currentStake = parseFloat(stakeEl?.value || 1);
                           if (!window._manualMult.baseOriginal) window._manualMult.baseOriginal = currentStake;
-                          const base = window._manualMult.baseOriginal;
+                          const baseMult = window._manualMult.baseOriginal;
                           const mult = window._manualMult.valor || 2.0;
                           if(isWin) {
-                            window._manualMult.currentStake = base;
-                            if(stakeInput) stakeInput.value = base.toFixed(2);
-                            if(elNext) elNext.textContent = '$' + base.toFixed(2);
+                            window._manualMult.currentStake = baseMult;
+                            if(stakeEl) stakeEl.value = baseMult.toFixed(2);
+                            if(elNext) elNext.textContent = '$' + baseMult.toFixed(2);
                           } else {
                             const next = Math.round(currentStake * mult * 100) / 100;
                             window._manualMult.currentStake = next;
-                            if(stakeInput) stakeInput.value = next.toFixed(2);
+                            if(stakeEl) stakeEl.value = next.toFixed(2);
                             if(elNext) elNext.textContent = '$' + next.toFixed(2);
                           }
-                          // Atualizar stake automaticamente
-                          const stakeInput = document.getElementById('manualStake');
-                          if(stakeInput && !isWin) stakeInput.value = next.toFixed(2);
-                          if(stakeInput && isWin) stakeInput.value = base.toFixed(2);
                         }
 
                         if (window.registrarTrade) {
@@ -4207,42 +4195,46 @@ body { overflow-x: hidden !important; }
             }));
         }
 
-        // ── Event listeners ──
-        riseBtn?.addEventListener('click', () => executarTrade('rise'));
-        fallBtn?.addEventListener('click', () => executarTrade('fall'));
-
-        // Stake +/-
-        stakeMinus?.addEventListener('click', () => {
-            const v = Math.max(0.35, parseFloat(stakeInput.value) - (parseFloat(stakeInput.value) >= 1 ? 1 : 0.05));
-            stakeInput.value = parseFloat(v.toFixed(2));
-            atualizarPrecos();
-        });
-        stakePlus?.addEventListener('click', () => {
-            stakeInput.value = parseFloat((parseFloat(stakeInput.value) + (parseFloat(stakeInput.value) >= 1 ? 1 : 0.05)).toFixed(2));
-            atualizarPrecos();
-        });
-
-        // Duração +/-
-        durationMinus?.addEventListener('click', () => {
-            durationInput.value = Math.max(1, parseInt(durationInput.value) - 1);
-            atualizarPrecos();
-        });
-        durationPlus?.addEventListener('click', () => {
-            durationInput.value = parseInt(durationInput.value) + 1;
-            atualizarPrecos();
-        });
-
-        // Mudança de mercado → atualizar preços
-        marketSel?.addEventListener('change', () => atualizarPrecos());
-        stakeInput?.addEventListener('change', () => atualizarPrecos());
-        durationInput?.addEventListener('change', () => atualizarPrecos());
-
         // Atualizar preços a cada 10s automaticamente
         setInterval(() => { if (isConnected) atualizarPrecos(); }, 10000);
 
-        // Iniciar conexão quando página carrega
+        // Iniciar conexão quando página carrega + listeners dentro do load
         window.addEventListener('load', () => {
-            setTimeout(conectar, 1500); // Aguarda o WS de saldo conectar primeiro
+            setTimeout(conectar, 1500);
+
+            const riseBtn2       = document.getElementById('riseBtn');
+            const fallBtn2       = document.getElementById('fallBtn');
+            const stakeMinus2    = document.getElementById('stakeMinus');
+            const stakePlus2     = document.getElementById('stakePlus');
+            const durationMinus2 = document.getElementById('durationMinus');
+            const durationPlus2  = document.getElementById('durationPlus');
+            const stakeInput2    = document.getElementById('manualStake');
+            const durationInput2 = document.getElementById('manualDuration');
+            const marketSel2     = document.getElementById('manualMarket');
+
+            riseBtn2?.addEventListener('click', () => executarTrade('rise'));
+            fallBtn2?.addEventListener('click', () => executarTrade('fall'));
+
+            stakeMinus2?.addEventListener('click', () => {
+                const v = Math.max(0.35, parseFloat(stakeInput2.value) - (parseFloat(stakeInput2.value) >= 1 ? 1 : 0.05));
+                stakeInput2.value = parseFloat(v.toFixed(2));
+                atualizarPrecos();
+            });
+            stakePlus2?.addEventListener('click', () => {
+                stakeInput2.value = parseFloat((parseFloat(stakeInput2.value) + (parseFloat(stakeInput2.value) >= 1 ? 1 : 0.05)).toFixed(2));
+                atualizarPrecos();
+            });
+            durationMinus2?.addEventListener('click', () => {
+                durationInput2.value = Math.max(1, parseInt(durationInput2.value) - 1);
+                atualizarPrecos();
+            });
+            durationPlus2?.addEventListener('click', () => {
+                durationInput2.value = parseInt(durationInput2.value) + 1;
+                atualizarPrecos();
+            });
+            marketSel2?.addEventListener('change', () => atualizarPrecos());
+            stakeInput2?.addEventListener('change', () => atualizarPrecos());
+            durationInput2?.addEventListener('change', () => atualizarPrecos());
         });
 
         // Reconectar se trocar de conta
