@@ -2634,6 +2634,19 @@ body { overflow-x: hidden !important; }
         }
 
         window.registrarTrade = function({ tipo, mercado, valor, duracao, resultado, lucro, proximoStake, step, maxStep, winRate, totalTrades, exitTick, longcode }) {
+            // Escrita direta no feed sem depender de addLogLine
+            try {
+                const _f = document.getElementById('registros-feed');
+                if (_f) {
+                    const _e = document.createElement('div');
+                    _e.className = 'log-line';
+                    const _h = new Date().toTimeString().slice(0,8);
+                    const _w = resultado === 'WIN' || parseFloat(lucro||0) > 0;
+                    _e.innerHTML = `<span class="log-time">${_h}</span><span class="log-sep">|</span><span class="${_w?'log-win':'log-loss'}">${_w?'▲ Ganho':'▼ Perda'} $${Math.abs(parseFloat(lucro||0)).toFixed(2)} | ${tipo||''} | ${mercado||''}</span>`;
+                    _f.appendChild(_e);
+                    _f.scrollTop = _f.scrollHeight;
+                }
+            } catch(_err) {}
             const isWin    = resultado === 'WIN' || lucro > 0;
             const lucroNum = parseFloat(lucro) || 0;
             const stakeNum = parseFloat(valor) || 0;
