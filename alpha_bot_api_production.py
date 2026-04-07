@@ -6,7 +6,7 @@ import traceback as _tb
 from webhook_cakto import register_cakto_webhook
 try:
     from supabase import create_client
-    SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://thgicnomfbyklesou.supabase.co')
+    SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://urlthgicnomfbyklesou.supabase.co')
     SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
     supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_KEY else None
     if supabase_client:
@@ -1631,7 +1631,7 @@ def ativar_trial():
         return jsonify({'erro': 'Trial ja utilizado para este produto'}), 403
 
     # Ativa trial 24h
-    expiracao = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    expiracao = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
     insert = req.post(
         f"{SUPABASE_URL}/rest/v1/produtos_liberados",
         headers=HEADERS,
