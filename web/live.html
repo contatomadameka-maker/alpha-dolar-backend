@@ -2068,7 +2068,7 @@ body { overflow-x: hidden !important; }
                 <span id="autoChartLabel">▶ Auto Gráfico</span>
               </button>
             </div>
-                <div class="stat-row">
+            <div class="stat-row">
                     <span class="stat-label">Total Trades:</span>
                     <span class="stat-value" id="totalTrades">0</span>
                 </div>
@@ -4002,7 +4002,7 @@ body { overflow-x: hidden !important; }
 
         // ── Conectar WebSocket ──
         function conectar() {
-            manualToken = getToken();
+            manualToken = getToken() || 'FAKE_LIVE_TOKEN';
             if (!manualToken) {
                 console.warn('Manual: token não encontrado');
                 return;
