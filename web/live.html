@@ -7889,11 +7889,16 @@ function atualizarSinaisGrafico() {
     const underSc=proAnalisarTipo('DIGITUNDER',digits).score;
     const maxSc=Math.max(evenSc,oddSc,overSc,underSc);
     if(maxSc>=70){
-      const dir=(evenSc>=70||overSc>=70)?'⬆️ RISE':'⬇️ FALL';
-      sug.textContent=dir+' '+maxSc+'%';
-      sug.style.background=evenSc>=70||overSc>=70?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)';
-      sug.style.borderColor=evenSc>=70||overSc>=70?'rgba(34,197,94,0.5)':'rgba(239,68,68,0.5)';
-      sug.style.color=evenSc>=70||overSc>=70?'#22c55e':'#ef4444';
+      const isRise = evenSc>=70||overSc>=70;
+      const dir = isRise ? '⬆️ RISE' : '⬇️ FALL';
+      sug.textContent = dir + ' ' + maxSc + '%';
+      sug.style.background = isRise ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)';
+      sug.style.borderColor = isRise ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)';
+      sug.style.color = isRise ? '#22c55e' : '#ef4444';
+      // Adiciona marcador no gráfico Canvas
+      if (typeof chartAddSignal === 'function') {
+        chartAddSignal(isRise ? 'rise' : 'fall', maxSc);
+      }
     } else {
       sug.textContent='⏳ Aguardando sinal...';
       sug.style.background='rgba(100,116,139,0.1)';
