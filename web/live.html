@@ -4077,6 +4077,12 @@ body { overflow-x: hidden !important; }
 
                 // Resultado do contrato
                 if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
+                    // DEBUG VISUAL
+                    const _d = document.createElement('div');
+                    const c2 = msg.proposal_open_contract;
+                    _d.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#ff0;color:#000;padding:10px 20px;z-index:99999;border-radius:8px;font-weight:bold;font-size:13px;max-width:80%;text-align:center;';
+                    _d.textContent = 'POC recebido! status:' + c2?.status + ' is_sold:' + c2?.is_sold;
+                    document.body.appendChild(_d); setTimeout(()=>_d.remove(),6000);
                     const c = msg.proposal_open_contract;
                     if (c.status === 'won' || c.status === 'lost') {
                         const isWin = c.status === 'won';
