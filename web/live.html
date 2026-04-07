@@ -439,9 +439,18 @@ window.addEventListener('load', function() {
         .toast.perda  { border-left: 4px solid var(--brand-color-danger); }
         .toast.info   { border-left: 4px solid var(--brand-color-primary); }
 
+        #tab-registros {
+            display: none;
+            height: calc(100vh - 200px);
+            overflow: hidden;
+        }
+        #tab-registros.active {
+            display: flex;
+            flex-direction: column;
+        }
         #registros-feed {
             padding: 8px 12px;
-            height: 100%;
+            flex: 1;
             overflow-y: auto;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             font-size: 14px;
