@@ -2633,8 +2633,13 @@ body { overflow-x: hidden !important; }
         }
 
         window.registrarTrade = function({ tipo, mercado, valor, duracao, resultado, lucro, proximoStake, step, maxStep, winRate, totalTrades, exitTick, longcode }) {
-            console.log('📝 registrarTrade chamado:', resultado, lucro, tipo);
-            const feedNow = document.getElementById('registros-feed'); console.log('feed:', feedNow);
+            // DEBUG VISUAL
+            const _dbgFeed = document.getElementById('registros-feed');
+            const _dbgDiv = document.createElement('div');
+            _dbgDiv.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#ff0;color:#000;padding:10px 20px;z-index:99999;border-radius:8px;font-weight:bold;font-size:14px;';
+            _dbgDiv.textContent = 'registrarTrade: ' + resultado + ' | feed: ' + (_dbgFeed ? 'OK' : 'NULL');
+            document.body.appendChild(_dbgDiv);
+            setTimeout(() => _dbgDiv.remove(), 5000);
             const isWin    = resultado === 'WIN' || lucro > 0;
             const lucroNum = parseFloat(lucro) || 0;
             const stakeNum = parseFloat(valor) || 0;
