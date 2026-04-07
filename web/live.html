@@ -439,18 +439,9 @@ window.addEventListener('load', function() {
         .toast.perda  { border-left: 4px solid var(--brand-color-danger); }
         .toast.info   { border-left: 4px solid var(--brand-color-primary); }
 
-        #tab-registros {
-            display: none;
-            height: calc(100vh - 200px);
-            overflow: hidden;
-        }
-        #tab-registros.active {
-            display: flex;
-            flex-direction: column;
-        }
         #registros-feed {
             padding: 8px 12px;
-            flex: 1;
+            height: 100%;
             overflow-y: auto;
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             font-size: 14px;
@@ -1723,6 +1714,7 @@ body { overflow-x: hidden !important; }
 <canvas id="deriv-chart" style="width:100%;flex:1;min-height:0;display:block;background:#0d1117;"></canvas>
 
                 </div>
+                </div>
                 <div class="tab-pane" id="tab-digitos">
                     <div class="dig-sub-tabs">
                         <div class="dig-sub-tab active" onclick="digSwitchTab('mercado-unico',this)">Mercado Único</div>
@@ -2492,15 +2484,7 @@ body { overflow-x: hidden !important; }
         const feed = document.getElementById('registros-feed');
         const tradesHistoricoBody = document.getElementById('tradesHistoricoBody');
         let registros = [];
-        // Teste: adiciona linha inicial no feed
-        setTimeout(() => {
-            if (feed) {
-                const t = document.createElement('div');
-                t.className = 'log-line';
-                t.innerHTML = '<span class="log-time">--:--:--</span><span class="log-sep">|</span><span class="log-analysis">⏳ Aguardando operações...</span>';
-                feed.appendChild(t);
-            }
-        }, 2000);
+
 
         function mostrarToast(mensagem, tipo = 'info') {
             const toast = document.createElement('div');
