@@ -2524,18 +2524,7 @@ body { overflow-x: hidden !important; }
         }
         window._addLogLine = addLogLine;
 
-        // Hook notificação — instalado APÓS registrarTrade estar definido
-        setTimeout(() => {
-            const _origReg = window.registrarTrade;
-            if (_origReg) {
-                window.registrarTrade = function(p) {
-                    _origReg(p);
-                    const win = (p.resultado === 'WIN' || parseFloat(p.lucro||0) > 0);
-                    const l = Math.abs(parseFloat(p.lucro||0));
-                    if (window.adicionarNotif) window.adicionarNotif(`${win?'✅':'❌'} ${p.tipo||'Trade'} ${win?'+':'−'}$${l.toFixed(2)} | ${p.mercado||''}`, win?'win':'loss');
-                };
-            }
-        }, 3000);
+
 
         const msgMap = {
             'Iniciando uma nova sessão':        { txt: 'Iniciando uma nova sessão', cls: 'log-analysis' },
@@ -2634,32 +2623,7 @@ body { overflow-x: hidden !important; }
         }
 
         window.registrarTrade = function({ tipo, mercado, valor, duracao, resultado, lucro, proximoStake, step, maxStep, winRate, totalTrades, exitTick, longcode }) {
-            // Escrita direta no feed
-            try {
-                const _f = document.getElementById('registros-feed');
-                const _w2 = resultado === 'WIN' || parseFloat(lucro||0) > 0;
-                const _h2 = new Date().toTimeString().slice(0,8);
-                // Tenta feed
-                if (_f) {
-                    const _e = document.createElement('div');
-                    _e.className = 'log-line';
-                    _e.innerHTML = `<span class="log-time">${_h2}</span><span class="log-sep">|</span><span class="${_w2?'log-win':'log-loss'}">${_w2?'▲ Ganho':'▼ Perda'} $${Math.abs(parseFloat(lucro||0)).toFixed(2)} | ${tipo||''}</span>`;
-                    _f.appendChild(_e);
-                    _f.scrollTop = _f.scrollHeight;
-                }
-                // Também escreve num container fixo visível sempre
-                let _dbgBox = document.getElementById('_regDbgBox');
-                if (!_dbgBox) {
-                    _dbgBox = document.createElement('div');
-                    _dbgBox.id = '_regDbgBox';
-                    _dbgBox.style.cssText = 'position:fixed;bottom:10px;right:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px;z-index:99999;max-height:150px;overflow:auto;min-width:200px;font-size:11px;';
-                    document.body.appendChild(_dbgBox);
-                }
-                const _de = document.createElement('div');
-                _de.style.color = _w2 ? '#22c55e' : '#ef4444';
-                _de.textContent = _h2 + ' ' + (_w2?'WIN':'LOSS') + ' $' + Math.abs(parseFloat(lucro||0)).toFixed(2) + ' feed:' + (_f?'OK':'NULL');
-                _dbgBox.appendChild(_de);
-            } catch(_err) {}
+
             const isWin    = resultado === 'WIN' || lucro > 0;
             const lucroNum = parseFloat(lucro) || 0;
             const stakeNum = parseFloat(valor) || 0;
