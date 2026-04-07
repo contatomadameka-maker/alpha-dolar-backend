@@ -2483,6 +2483,15 @@ body { overflow-x: hidden !important; }
         const feed = document.getElementById('registros-feed');
         const tradesHistoricoBody = document.getElementById('tradesHistoricoBody');
         let registros = [];
+        // Teste: adiciona linha inicial no feed
+        setTimeout(() => {
+            if (feed) {
+                const t = document.createElement('div');
+                t.className = 'log-line';
+                t.innerHTML = '<span class="log-time">--:--:--</span><span class="log-sep">|</span><span class="log-analysis">⏳ Aguardando operações...</span>';
+                feed.appendChild(t);
+            }
+        }, 2000);
 
         function mostrarToast(mensagem, tipo = 'info') {
             const toast = document.createElement('div');
