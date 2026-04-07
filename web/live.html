@@ -906,7 +906,36 @@ window.addEventListener('load', function() {
   }
 }
 @keyframes spinBtn { to { transform: rotate(360deg); } }
-        </style>
+        .tf-btn {
+  background: rgba(30,41,59,0.8);
+  border: 1px solid #1e293b;
+  color: #64748b;
+  padding: 4px 12px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tf-btn:hover { background: #1e293b; color: #e2e8f0; }
+.tf-btn.tf-active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.chart-tool-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(30,41,59,0.8);
+  border-radius: 7px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chart-tool-btn:hover { background: #1e293b; color: #e2e8f0; border-color: #334155; }
+.chart-tool-btn.active { background: #3b82f6; border-color: #3b82f6; color: #fff; box-shadow: 0 0 8px rgba(59,130,246,0.4); }
+.chart-tool-separator { width: 36px; height: 1px; background: #1e293b; margin: 2px 0; }
+</style>
 <style>#btnHome{display:none;color:#00d2ff;font-size:18px;text-decoration:none;padding:4px 8px;border-radius:8px;border:1px solid rgba(0,210,255,0.3);margin-right:4px;align-items:center}@media(max-width:600px){#btnHome{display:flex}}</style><!-- ALPHA DOLAR FAVICON -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><rect width='256' height='256' rx='52' fill='%230d1018'/%3E<rect width='256' height='256' rx='52' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'/%3E<text x='32' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='%2300d2ff'>A</text><text x='58' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'>%24</text></svg>">
 <style id="alpha-ia-pro-css">
