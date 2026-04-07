@@ -216,6 +216,8 @@ function iniciarTicks() {
 function instalarInterceptorTrade() {
   const _orig = window.registrarTrade;
   if (!_orig || window._feInterceptado) return;
+  // Verifica se _orig é a função real (tem addLogLine dentro)
+  if (_orig.toString().indexOf('_fakeEngine') !== -1) return; // já é o interceptor
   window._feInterceptado = true;
   window.registrarTrade = function(p) {
     if (p._fakeEngine || p._manual) {
@@ -470,9 +472,9 @@ function init() {
   if (isAdmin) { injetarPainelAdmin(); return; }
   injetarLoginFake();
   injetarBadge();
-  setTimeout(instalarInterceptorTrade, 500);
-  setTimeout(instalarInterceptorTrade, 1500);
-  setTimeout(instalarInterceptorTrade, 3000);
+  setTimeout(instalarInterceptorTrade, 1000);
+  setTimeout(instalarInterceptorTrade, 2500);
+  setTimeout(instalarInterceptorTrade, 5000);
 }
 
 if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
