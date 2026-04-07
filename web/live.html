@@ -3953,6 +3953,8 @@ body { overflow-x: hidden !important; }
         let manualPnl   = 0;
         let isConnected = false;
         let reconnectTimer = null;
+        window._manualIsConnected = () => isConnected;
+        window._manualWs = () => manualWs;
 
         // ── Badge de resultado ──
         let resultBadge = document.createElement('div');
@@ -4085,13 +4087,22 @@ body { overflow-x: hidden !important; }
                         showResult(isWin, lucro);
                         // Multiplicador manual
                         if(window._manualMult && window._manualMult.ativo) {
-                          if(isWin) { window._manualMult.perdaAcum = 0; }
-                          else { window._manualMult.perdaAcum += Math.abs(lucro); }
-                          const base = parseFloat(document.getElementById('manualStake')?.value || 1);
-                          const steps = window._manualMult.perdaAcum > 0 ? Math.ceil(window._manualMult.perdaAcum / base) : 0;
-                          const next = steps > 0 ? Math.round(base * Math.pow(window._manualMult.valor, steps) * 100) / 100 : base;
-                          const el = document.getElementById('manualNextStake');
-                          if(el) el.textContent = '$' + next.toFixed(2);
+                          const stakeInput = document.getElementById('manualStake');
+                          const elNext = document.getElementById('manualNextStake');
+                          const currentStake = parseFloat(stakeInput?.value || 1);
+                          if (!window._manualMult.baseOriginal) window._manualMult.baseOriginal = currentStake;
+                          const base = window._manualMult.baseOriginal;
+                          const mult = window._manualMult.valor || 2.0;
+                          if(isWin) {
+                            window._manualMult.currentStake = base;
+                            if(stakeInput) stakeInput.value = base.toFixed(2);
+                            if(elNext) elNext.textContent = '$' + base.toFixed(2);
+                          } else {
+                            const next = Math.round(currentStake * mult * 100) / 100;
+                            window._manualMult.currentStake = next;
+                            if(stakeInput) stakeInput.value = next.toFixed(2);
+                            if(elNext) elNext.textContent = '$' + next.toFixed(2);
+                          }
                           // Atualizar stake automaticamente
                           const stakeInput = document.getElementById('manualStake');
                           if(stakeInput && !isWin) stakeInput.value = next.toFixed(2);
@@ -8465,7 +8476,8 @@ function chartAutoAnalyze() {
 
   // Clica no botão
   const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
-  if (typeof isConnected !== 'undefined' && !isConnected) {
+  const _conn = typeof window._manualIsConnected === 'function' ? window._manualIsConnected() : true;
+  if (!_conn) {
     if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (btn) btn.click(); }, 2000); }
   } else {
     if (btn) btn.click();
@@ -11026,7 +11038,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Decide se entra real — threshold mínimo de score 35%
     const SCORE_MIN = 35;
     if (signal === 'enter' && score >= SCORE_MIN && !st.tradeEmAndamento && st.historico.length >= 20) {
-      iaAdvEntrarReal(d, score, desc);
+      const freqOk = typeof advVerificarFreqDigitos === 'function' ? advVerificarFreqDigitos(st.historico) : true;
+      if (!freqOk) {
+        if (window._addLogLine) window._addLogLine('📊 Frequência de dígitos: condição não atingida — aguardando...', 'log-warn');
+      } else {
+        iaAdvEntrarReal(d, score, desc);
+      }
     } else if (signal === 'enter' && score < SCORE_MIN) {
       // Score fraco: loga apenas a cada 10 ticks para não poluir
       if (st.historico.length % 15 === 0 && window._addLogLine) {
