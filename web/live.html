@@ -2531,7 +2531,8 @@ body { overflow-x: hidden !important; }
             } else {
                 entry.innerHTML = `<span class="log-time">${hora}</span><span class="log-sep">|</span><span class="${cssClass}">${texto}</span>`;
             }
-            const f = getFeed(); if(f){ f.appendChild(entry); f.scrollTop = f.scrollHeight; }
+            const f = document.getElementById('registros-feed');
+            if(f){ f.appendChild(entry); f.scrollTop = f.scrollHeight; }
             registros.push({ hora, texto, cssClass });
         }
         window._addLogLine = addLogLine;
