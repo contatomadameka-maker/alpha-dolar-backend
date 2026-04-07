@@ -2032,6 +2032,11 @@ body { overflow-x: hidden !important; }
                     <span class="stat-label">Win Rate:</span>
                     <span class="stat-value" id="winRate">0%</span>
                 </div>
+                <div class="stat-row">
+                    <span class="stat-label">Total Trades:</span>
+                    <span class="stat-value" id="totalTrades">0</span>
+                </div>
+            </div>
             <div style="margin-top:8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:8px;">
               <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600;">AUTO GRÁFICO</div>
               <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -2068,7 +2073,12 @@ body { overflow-x: hidden !important; }
                 <span id="autoChartLabel">▶ Auto Gráfico</span>
               </button>
             </div>
-            <div class="stat-row">
+            <div class="manual-stats">
+                <div class="stat-row">
+                    <span class="stat-label">Win Rate:</span>
+                    <span class="stat-value" id="winRate">0%</span>
+                </div>
+                <div class="stat-row">
                     <span class="stat-label">Total Trades:</span>
                     <span class="stat-value" id="totalTrades">0</span>
                 </div>
@@ -4241,6 +4251,10 @@ body { overflow-x: hidden !important; }
             if (_origSwitch) _origSwitch(type);
             setTimeout(conectar, 2000);
         };
+
+        // Expõe funções globalmente para Auto Gráfico
+        window.conectar = conectar;
+        window.executarTrade = executarTrade;
 
     })();
     </script>
