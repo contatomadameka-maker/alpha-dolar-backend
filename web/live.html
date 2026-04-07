@@ -1603,7 +1603,98 @@ body { overflow-x: hidden !important; }
                       <div id="sinalSugestao" style="margin-left:auto;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(100,116,139,0.1);border:1px solid rgba(100,116,139,0.2);color:#64748b;">Aguardando...</div>
                       <div style="font-size:10px;color:#475569;" id="sinalHora">—</div>
                     </div>
-                    <div class="chart-container"><div id="tradingview_chart"></div></div>
+                    class="chart-container" style="position:relative;width:100%;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;">
+  <div id="chart-toolbar-left" style="position:absolute;left:6px;top:50px;z-index:10;display:flex;flex-direction:column;gap:4px;padding:4px;background:rgba(13,17,23,0.85);border:1px solid #1e293b;border-radius:8px;">
+    <button class="chart-tool-btn active" title="Cursor" onclick="chartSetTool('cursor')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Linha de tendência" onclick="chartSetTool('line')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Linha horizontal" onclick="chartSetTool('hline')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="7" y2="6"/><line x1="3" y1="18" x2="7" y2="18"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Canal" onclick="chartSetTool('channel')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Texto" onclick="chartSetTool('text')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+    </button>
+    <div style="border-top:1px solid #1e293b;margin:2px 0;"></div>
+    <button class="chart-tool-btn" title="Régua" onclick="chartSetTool('ruler')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="7" y1="10" x2="7" y2="14"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="17" y1="10" x2="17" y2="14"/></svg>
+    </button>
+    <button class="chart-tool-btn" title="Zoom" onclick="chartSetTool('zoom')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <div style="border-top:1px solid #1e293b;margin:2px 0;"></div>
+    <button class="chart-tool-btn" title="Apagar tudo" onclick="chartClearDrawings()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>
+  </div>
+  <div id="chart-topbar" style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:#0d1117;border-bottom:1px solid #1e293b;font-size:11px;color:#94a3b8;">
+    <span><span id="chart-symbol-label" style="font-weight:700;color:#e2e8f0;">--</span><span style="color:#94a3b8;font-size:13px;margin-left:6px;font-weight:600;">· Deriv</span></span>
+    <span id="chart-price-label" style="color:#22c55e;font-weight:700;">--</span>
+    <span id="chart-change-label" style="color:#94a3b8;">--</span>
+    <span id="chart-ohlc" style="font-size:10px;color:#94a3b8;display:flex;gap:8px;margin-left:4px;">
+      <span>Abr <span id="ohlc-o" style="color:#e2e8f0;">--</span></span>
+      <span>Máx <span id="ohlc-h" style="color:#22c55e;">--</span></span>
+      <span>Mín <span id="ohlc-l" style="color:#ef4444;">--</span></span>
+      <span>Fch <span id="ohlc-c" style="color:#e2e8f0;">--</span></span>
+    </span>
+    <span id="chart-countdown" style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;font-family:monospace;display:none;">00:00</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:4px;">
+      <button onclick="chartSetTF(0)" id="tf-0" class="tf-btn">1T</button>
+      <button onclick="chartSetTF(1)" id="tf-1" class="tf-btn tf-active">1m</button>
+      <button onclick="chartSetTF(5)" id="tf-5" class="tf-btn">5m</button>
+      <button onclick="chartSetTF(15)" id="tf-15" class="tf-btn">15m</button>
+      <button onclick="chartSetTF(60)" id="tf-60" class="tf-btn">1h</button>
+      <div style="width:1px;height:14px;background:#1e293b;margin:0 2px;"></div>
+      <button class="tf-btn" id="chart-type-btn" onclick="chartToggleType()" title="Tipo de gráfico">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="4" height="14"/><rect x="10" y="4" width="4" height="18"/><rect x="18" y="10" width="4" height="12"/></svg>
+      </button>
+      <button class="tf-btn" onclick="chartCycleType()" id="chart-type-btn" title="Tipo de gráfico">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>
+      </button>
+      <button class="tf-btn" onclick="chartShowIndicators()" title="Indicadores">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span style="font-size:9px;margin-left:2px;">Indicadores</span>
+      </button>
+      <button class="tf-btn" onclick="chartToggleVipSignals()" id="chart-vip-btn" title="Sinais VIP" style="display:flex;align-items:center;gap:4px;color:#a855f7;border-color:rgba(168,85,247,0.5);background:rgba(168,85,247,0.15);font-weight:700;padding:4px 10px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span style="font-size:9px;font-weight:700;">Sinais VIP</span>
+      </button>
+      <button class="tf-btn" onclick="chartToggleFullscreen()" title="Tela cheia" id="chart-fs-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- Modal Indicadores -->
+<div id="chart-indicators-modal" style="display:none;position:absolute;top:40px;left:50%;transform:translateX(-50%);z-index:100;background:#0f172a;border:1px solid #1e293b;border-radius:10px;width:420px;max-height:500px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+  <div style="padding:16px 20px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">
+    <span style="font-weight:700;color:#e2e8f0;font-size:14px;">Indicadores</span>
+    <button onclick="document.getElementById('chart-indicators-modal').style.display='none'" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:18px;">✕</button>
+  </div>
+  <div style="padding:10px 16px;">
+    <input type="text" placeholder="Pesquisar..." style="width:100%;background:#1e293b;border:1px solid #334155;border-radius:6px;padding:8px 12px;color:#e2e8f0;font-size:12px;outline:none;box-sizing:border-box;" oninput="chartFilterIndicators(this.value)">
+  </div>
+  <div id="chart-indicators-list" style="overflow-y:auto;max-height:360px;padding:0 8px 12px;">
+    <div class="ind-group-title">Médias Móveis</div>
+    <div class="ind-item" onclick="chartToggleIndicator('sma20')"><span>Média Móvel Simples (SMA 20)</span><span class="ind-check" id="ind-sma20">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('sma50')"><span>Média Móvel Simples (SMA 50)</span><span class="ind-check" id="ind-sma50">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('ema9')"><span>Média Móvel Exponencial (EMA 9)</span><span class="ind-check" id="ind-ema9">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('ema21')"><span>Média Móvel Exponencial (EMA 21)</span><span class="ind-check" id="ind-ema21">○</span></div>
+    <div class="ind-group-title">Bandas</div>
+    <div class="ind-item" onclick="chartToggleIndicator('bb')"><span>Bandas de Bollinger</span><span class="ind-check" id="ind-bb">○</span></div>
+    <div class="ind-group-title">Osciladores</div>
+    <div class="ind-item" onclick="chartToggleIndicator('rsi')"><span>RSI (14)</span><span class="ind-check" id="ind-rsi">○</span></div>
+    <div class="ind-item" onclick="chartToggleIndicator('macd')"><span>MACD</span><span class="ind-check" id="ind-macd">○</span></div>
+    <div class="ind-group-title">Volume</div>
+    <div class="ind-item" onclick="chartToggleIndicator('vol')"><span>Volume</span><span class="ind-check" id="ind-vol">○</span></div>
+  </div>
+</div>
+<canvas id="deriv-chart" style="width:100%;flex:1;min-height:0;display:block;background:#0d1117;"></canvas>
+
                 </div>
                 <div class="tab-pane" id="tab-digitos">
                     <div class="dig-sub-tabs">
@@ -7711,6 +7802,1768 @@ function initTradingViewChart(symbol) {
     }
   });
 }
+
+// ── GRÁFICO DERIV CANVAS ──
+const _chart = {
+  canvas: null, ctx: null, symbol: 'R_100',
+  candles: [], ticks: [], tf: 1, tool: 'cursor',
+  ws: null, wsActive: false,
+  colors: {
+    bg: '#0d1117', grid: '#1e293b',
+    up: '#22c55e', down: '#ef4444',
+    wick: '#64748b', text: '#94a3b8',
+    crosshair: '#475569'
+  }
+};
+
+function chartSetTF(m) {
+  _chart.tf = m;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('tf-active'));
+  const el = document.getElementById('tf-' + m);
+  if (el) el.classList.add('tf-active');
+  _chart.candles = [];
+  _chart.ticks = [];
+  chartBuildCandles();
+  chartDraw();
+}
+
+function chartBuildCandles() {
+  // TF=0 significa tick a tick — cada tick é uma "vela"
+  if (_chart.tf === 0) {
+    _chart.candles = _chart.ticks.slice(-500).map(t => ({
+      ts: t.t, o: t.p, h: t.p, l: t.p, c: t.p
+    }));
+    return;
+  }
+  const tf = _chart.tf * 60 * 1000;
+  const candles = [];
+  for (const tick of _chart.ticks) {
+    const ts = Math.floor(tick.t / tf) * tf;
+    let c = candles.find(x => x.ts === ts);
+    if (!c) { c = { ts, o: tick.p, h: tick.p, l: tick.p, c: tick.p }; candles.push(c); }
+    else { c.h = Math.max(c.h, tick.p); c.l = Math.min(c.l, tick.p); c.c = tick.p; }
+  }
+  _chart.candles = candles;
+}
+
+function chartDraw() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const ctx = _chart.ctx;
+  const W = canvas.width, H = canvas.height;
+  const C = _chart.colors;
+
+  // Limpa
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const candles = _chart.candles;
+  if (candles.length < 2) {
+    ctx.fillStyle = C.text;
+    ctx.font = '13px Inter,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aguardando dados...', W/2, H/2);
+    return;
+  }
+
+  // Layout
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Velas visíveis
+  const maxCandles = _chart._visibleCandles || 60;
+  const visCandles = candles.slice(-maxCandles);
+  const slotW = chartW / maxCandles;
+  const cW = Math.max(2, Math.floor(slotW * 0.6));
+
+  // Range de preços
+  const prices = visCandles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  // Grid horizontal
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 6; i++) {
+    const y = padT + (chartH / 6) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    const price = maxP - ((maxP - minP) / 6) * i;
+    ctx.fillStyle = C.text;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(price.toFixed(4), W - padR + 4, y + 3);
+  }
+
+  // Grid vertical + eixo X
+  const stepX = Math.ceil(maxCandles / 6);
+  visCandles.forEach((c, i) => {
+    if (i % stepX === 0 && i > 0) {
+      const x = padL + i * slotW + slotW / 2;
+      ctx.strokeStyle = C.grid;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
+      const d = new Date(c.ts);
+      const label = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+      ctx.fillStyle = C.text;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, H - 5);
+    }
+  });
+
+  // Indicadores — SMA/EMA
+  const drawMA = (period, color, type='sma') => {
+    const closes = visCandles.map(c => c.c);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let started = false;
+    for (let i = period - 1; i < closes.length; i++) {
+      let val;
+      if (type === 'sma') {
+        val = closes.slice(i - period + 1, i + 1).reduce((a,b)=>a+b,0) / period;
+      } else {
+        const k = 2/(period+1);
+        val = closes.slice(0, i+1).reduce((ema,p,j) => j===0 ? p : p*k + ema*(1-k), closes[0]);
+      }
+      const x = padL + i * slotW + slotW/2;
+      const y = toY(val);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+
+  if (_chart.indicators && _chart.indicators['sma20']) drawMA(20, '#f59e0b');
+  if (_chart.indicators && _chart.indicators['sma50']) drawMA(50, '#8b5cf6');
+  if (_chart.indicators && _chart.indicators['ema9'])  drawMA(9,  '#06b6d4', 'ema');
+  if (_chart.indicators && _chart.indicators['ema21']) drawMA(21, '#ec4899', 'ema');
+
+  // Bollinger Bands
+  if (_chart.indicators && _chart.indicators['bb']) {
+    const period = 20;
+    ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+    ctx.lineWidth = 1;
+    for (let band of ['upper','mid','lower']) {
+      ctx.beginPath(); let started = false;
+      for (let i = period-1; i < visCandles.length; i++) {
+        const sl = visCandles.slice(i-period+1,i+1).map(c=>c.c);
+        const mean = sl.reduce((a,b)=>a+b,0)/period;
+        const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+        const val = band==='upper'?mean+2*std:band==='lower'?mean-2*std:mean;
+        const x = padL + i*slotW + slotW/2;
+        const y = toY(val);
+        if (!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Tipo de gráfico
+  const chartType = _chart.chartType || 'candle';
+
+  if (chartType === 'line' || chartType === 'area') {
+    // Linha de fechamento
+    ctx.beginPath();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    visCandles.forEach((c, i) => {
+      const x = padL + i * slotW + slotW / 2;
+      const y = toY(c.c);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    if (chartType === 'area') {
+      // Área preenchida
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      grad.addColorStop(0, 'rgba(59,130,246,0.3)');
+      grad.addColorStop(1, 'rgba(59,130,246,0.0)');
+      ctx.beginPath();
+      ctx.fillStyle = grad;
+      visCandles.forEach((c, i) => {
+        const x = padL + i * slotW + slotW / 2;
+        const y = toY(c.c);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      const lastX = padL + (visCandles.length - 1) * slotW + slotW / 2;
+      ctx.lineTo(lastX, padT + chartH);
+      ctx.lineTo(padL + slotW / 2, padT + chartH);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+  // Velas
+  visCandles.forEach((c, i) => {
+    const x = padL + i * slotW + slotW / 2;
+    const isUp = c.c >= c.o;
+    const color = isUp ? C.up : C.down;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, toY(c.h));
+    ctx.lineTo(x, toY(c.l));
+    ctx.stroke();
+    const bodyTop = toY(Math.max(c.o, c.c));
+    const bodyBot = toY(Math.min(c.o, c.c));
+    const bodyH = Math.max(1, bodyBot - bodyTop);
+    ctx.fillStyle = color;
+    ctx.fillRect(x - cW/2, bodyTop, cW, bodyH);
+  });
+  } // fim else candle
+
+  // Contratos abertos no eixo Y
+  if (typeof chartDrawContracts === 'function') {
+    chartDrawContracts(toY, padR, canvas);
+  }
+
+  // Sinais VIP no gráfico
+  if (typeof chartDrawSignals === 'function' && _chart.showSignals !== false) {
+    chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, toY);
+  }
+
+  // Linhas do usuário
+  if (typeof chartDrawUserLines === 'function') chartDrawUserLines();
+
+  // Preço atual com box
+  if (visCandles.length > 0) {
+    const last = visCandles[visCandles.length - 1];
+    const y = toY(last.c);
+    const isUp = last.c >= last.o;
+    const priceColor = isUp ? C.up : C.down;
+    ctx.strokeStyle = priceColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    const priceStr = last.c.toFixed(4);
+    const cdEl = document.getElementById('chart-countdown');
+    const cdStr = cdEl ? cdEl.textContent : '';
+    ctx.font = 'bold 10px monospace';
+    const tw = Math.max(ctx.measureText(priceStr).width, ctx.measureText(cdStr).width);
+    const bw = tw + 12, bh = cdStr ? 28 : 16;
+    const bx = W - padR + 2, by = y - bh/2;
+    ctx.fillStyle = priceColor;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 3);
+    else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(priceStr, bx + 5, by + 12);
+    if (cdStr) { ctx.font = '9px monospace'; ctx.fillText(cdStr, bx + 5, by + 24); }
+  }
+}
+
+
+function chartResize() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const container = canvas.closest('.chart-container');
+  if (!container) return;
+  const topbar = document.getElementById('chart-topbar');
+  const topH = topbar ? topbar.offsetHeight : 30;
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight - topH;
+  chartDraw();
+}
+
+function chartConnect(symbol) {
+  if (_chart.ws) { try { _chart.ws.close(); } catch(e){} }
+  _chart.symbol = symbol;
+  _chart.ticks = [];
+  _chart.candles = [];
+
+  const label = document.getElementById('chart-symbol-label');
+  if (label) label.textContent = symbol;
+
+  _chart.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+  _chart.ws.onopen = () => {
+    _chart.ws.send(JSON.stringify({ ticks_history: symbol, adjust_start_time: 1, count: 5000, end: 'latest', start: 1, style: 'ticks' }));
+    _chart.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+  };
+  _chart.ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.history) {
+      const prices = d.history.prices, times = d.history.times;
+      for (let i = 0; i < prices.length; i++) {
+        _chart.ticks.push({ t: times[i] * 1000, p: parseFloat(prices[i]) });
+      }
+      chartBuildCandles();
+      chartDraw();
+    }
+    if (d.tick) {
+      const p = parseFloat(d.tick.quote);
+      const t = d.tick.epoch * 1000;
+      _chart.ticks.push({ t, p });
+      if (_chart.ticks.length > 5000) _chart.ticks.shift();
+      _chart.lastTickTime = Date.now();
+      chartBuildCandles();
+      chartDraw();
+      // Atualiza topbar
+      const pl = document.getElementById('chart-price-label');
+      if (pl) { pl.textContent = p.toFixed(4); pl.style.color = p >= (_chart.lastP||p) ? '#22c55e' : '#ef4444'; }
+      _chart.lastP = p;
+      // Countdown do tick
+      const cdEl = document.getElementById('chart-countdown');
+      if (cdEl) {
+        cdEl.style.display = 'inline-block';
+        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
+        clearInterval(_chart._cdTimer);
+        cdEl.textContent = '00:0' + secs;
+        _chart._cdTimer = setInterval(() => {
+          secs--;
+          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
+          else cdEl.textContent = '00:0' + secs;
+        }, 1000);
+      }
+      // Atualiza OHLC
+      chartUpdateOHLC(_chart.candles);
+    }
+  };
+}
+
+
+// ── TOOL SELECTOR ──
+
+
+// ── INDICADORES ──
+_chart.indicators = { bb: false, ema9: false, ema21: false, sma20: false, sma50: false };
+
+function chartToggleIndicator(key) {
+  _chart.indicators[key] = !_chart.indicators[key];
+  const el = document.getElementById('ind-' + key);
+  if (el) el.textContent = _chart.indicators[key] ? '●' : '○';
+  if (el) el.style.color = _chart.indicators[key] ? '#3b82f6' : '#64748b';
+  chartDraw();
+}
+
+function chartFilterIndicators(q) {
+  const items = document.querySelectorAll('.ind-item');
+  items.forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function chartInitIndicatorUI() {
+  // Atualiza UI dos indicadores ativos por padrão
+  Object.keys(_chart.indicators).forEach(key => {
+    if (_chart.indicators[key]) {
+      const el = document.getElementById('ind-' + key);
+      if (el) { el.textContent = '●'; el.style.color = '#3b82f6'; }
+    }
+  });
+}
+
+function chartShowIndicators() {
+  const modal = document.getElementById('chart-indicators-modal');
+  if (!modal) return;
+  modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+}
+
+
+
+// ── BOTÃO VENDER TODAS AS OPERAÇÕES ──
+function chartUpdateSellAll() {
+  const contracts = Object.values(_chart.openContracts || {});
+  let el = document.getElementById('chart-sell-all-btn');
+
+  if (contracts.length === 0) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'chart-sell-all-btn';
+    el.style.cssText = 'position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:50;cursor:pointer;border-radius:6px;padding:4px 14px;font-size:11px;font-weight:700;border:none;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.4);white-space:nowrap;';
+    el.onclick = chartSellAll;
+    const container = document.querySelector('.chart-container');
+    if (container) container.appendChild(el);
+  }
+
+  // Calcula lucro total estimado
+  const totalStake = contracts.reduce((s, c) => s + (c.stake || 0), 0);
+  el.style.display = 'flex';
+  el.style.background = '#22c55e';
+  el.style.color = '#fff';
+  el.innerHTML = `<span>Vender todas as operações</span><span style="background:rgba(0,0,0,0.2);padding:2px 8px;border-radius:4px;">$${totalStake.toFixed(2)}</span>`;
+}
+
+function chartSellAll() {
+  const contracts = Object.values(_chart.openContracts || {});
+  if (!contracts.length) return;
+  if (!manualWs || manualWs.readyState !== 1) return;
+  contracts.forEach(c => {
+    manualWs.send(JSON.stringify({ sell: c.id, price: 0 }));
+  });
+}
+
+
+// ── AUTO GRÁFICO ──
+_chart.autoMode = false;
+_chart.autoInterval = null;
+_chart.autoLosses = 0;
+
+function chartAutoToggle() {
+  _chart.autoMode = !_chart.autoMode;
+  const btn = document.getElementById('autoChartBtn');
+  const lbl = document.getElementById('autoChartLabel');
+  const timerBar = document.getElementById('autoChartTimerBar');
+
+  if (_chart.autoMode) {
+    // Pega duração da sessão
+    const sessionMins = parseInt(document.getElementById('autoChartSession')?.value || '30');
+    const sessionMs = sessionMins * 60 * 1000;
+    _chart.autoSessionEnd = Date.now() + sessionMs;
+    _chart.autoSessionTotal = sessionMs;
+
+    btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+    if (lbl) lbl.textContent = '⏹ Parar Auto';
+    if (timerBar) timerBar.style.display = 'block';
+
+    _chart.autoInterval = setInterval(chartAutoAnalyze, 3000);
+
+    // Timer de sessão
+    _chart.autoSessionTimer = setInterval(() => {
+      const remaining = _chart.autoSessionEnd - Date.now();
+      if (remaining <= 0) {
+        chartAutoToggle(); // Para automaticamente
+        return;
+      }
+      const mm = String(Math.floor(remaining/60000)).padStart(2,'0');
+      const ss = String(Math.floor((remaining%60000)/1000)).padStart(2,'0');
+      const lbl2 = document.getElementById('autoChartTimerLabel');
+      const fill = document.getElementById('autoChartTimerFill');
+      if (lbl2) lbl2.textContent = `${mm}:${ss}`;
+      if (fill) fill.style.width = (remaining/_chart.autoSessionTotal*100) + '%';
+    }, 1000);
+
+    if (window._addLogLine) window._addLogLine(`🤖 Auto Gráfico iniciado — Sessão: ${sessionMins} min`, 'log-action');
+  } else {
+    btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+    if (lbl) lbl.textContent = '▶ Auto Gráfico';
+    if (timerBar) timerBar.style.display = 'none';
+    clearInterval(_chart.autoInterval);
+    clearInterval(_chart.autoSessionTimer);
+    if (window._addLogLine) window._addLogLine('⏹ Auto Gráfico parado.', 'log-warn');
+  }
+}
+
+function chartAutoAnalyze() {
+  if (!_chart.autoMode) return;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length < 21) return;
+
+  const closes = candles.map(c => c.c);
+  const last = candles[candles.length - 1];
+
+  // Bollinger Bands
+  const period = 20;
+  const sl = closes.slice(-period);
+  const mean = sl.reduce((a,b)=>a+b,0) / period;
+  const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+  const pct = (last.c - (mean - 2*std)) / (4*std || 0.001);
+  const bbSignal = pct <= 0.3 ? 'rise' : pct >= 0.7 ? 'fall' : null;
+
+  // RSI
+  let rsi = 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - 14; i < closes.length; i++) {
+    const diff = closes[i] - closes[i-1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  rsi = 100 - (100 / (1 + gains/(losses||0.001)));
+  const rsiSignal = rsi < 45 ? 'rise' : rsi > 55 ? 'fall' : null;
+
+  // Dígitos
+  let digitSignal = null;
+  const sug = document.getElementById('sinalSugestao');
+  if (sug) {
+    const txt = sug.textContent || '';
+    if (txt.includes('RISE') || txt.includes('OVER') || txt.includes('EVEN')) digitSignal = 'rise';
+    else if (txt.includes('FALL') || txt.includes('UNDER') || txt.includes('ODD')) digitSignal = 'fall';
+  }
+
+  // Decisão
+  let direction = null;
+  if (bbSignal && rsiSignal && bbSignal === rsiSignal) direction = bbSignal;
+  else if (bbSignal && digitSignal && bbSignal === digitSignal) direction = bbSignal;
+  else if (rsiSignal && digitSignal && rsiSignal === digitSignal) direction = rsiSignal;
+  else if (rsiSignal) direction = rsiSignal; // RSI sozinho é suficiente
+
+  // Alternância forçada após 2 perdas na mesma direção
+  if (_chart._lastAutoDir === direction && (_chart._autoConsecLosses || 0) >= 2) {
+    direction = direction === 'rise' ? 'fall' : 'rise';
+    _chart._autoConsecLosses = 0;
+  }
+  _chart._lastAutoDir = direction;
+
+  if (window._addLogLine) window._addLogLine(
+    `🤖 Auto: ${direction||'—'} | BB:${bbSignal||'—'} RSI:${rsiSignal||'—'}(${rsi.toFixed(0)}) DIG:${digitSignal||'—'}`, 'log-action'
+  );
+
+  if (!direction) return;
+
+  // Evita entradas se já tem contrato aberto
+  const openCount = Object.keys(_chart.openContracts || {}).length;
+  if (openCount > 0) return;
+  const now = Date.now();
+  if (_chart._lastAutoTrade && now - _chart._lastAutoTrade < 2000) return;
+  _chart._lastAutoTrade = now;
+
+  // Aplica duração
+  const autoDur = document.getElementById('autoChartDuration')?.value || '1t';
+  const durMap = {'1t':[1,'ticks'],'5t':[5,'ticks'],'1m':[1,'minutes'],'5m':[5,'minutes'],'15m':[15,'minutes']};
+  const [durVal, durUnit2] = durMap[autoDur] || [1,'ticks'];
+  const durationInput = document.getElementById('manualDuration');
+  const durationUnitEl = document.getElementById('durationUnit');
+  if (durationInput) durationInput.value = durVal;
+  if (durationUnitEl) durationUnitEl.value = durUnit2;
+
+  // Marca no gráfico
+  if (_chart.lastP) {
+    _chart.signals = _chart.signals || [];
+    _chart.signals.push({ type: direction, score: 'AUTO', t: Date.now(), price: _chart.lastP, isAuto: true });
+    if (_chart.signals.length > 50) _chart.signals.shift();
+  }
+
+  // Clica no botão
+  const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
+  if (typeof isConnected !== 'undefined' && !isConnected) {
+    if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (btn) btn.click(); }, 2000); }
+  } else {
+    if (btn) btn.click();
+  }
+
+  // Timer segurança
+  const durMap2 = {'1t':7,'5t':15,'1m':65,'5m':305,'15m':905};
+  const safeDur = (durMap2[autoDur] || 15) * 1000;
+  setTimeout(() => {
+    if (Object.keys(_chart.openContracts||{}).length > 0) {
+      _chart.openContracts = {};
+      chartDraw();
+      chartUpdateSellAll();
+    }
+  }, safeDur);
+}
+
+function chartToggleVipSignals() {
+  _chart.showSignals = !(_chart.showSignals !== false);
+  const btn = document.getElementById('chart-vip-btn');
+  if (btn) {
+    if (_chart.showSignals) {
+      btn.style.color = '#a855f7';
+      btn.style.background = 'rgba(168,85,247,0.2)';
+      btn.style.borderColor = 'rgba(168,85,247,0.5)';
+    } else {
+      btn.style.color = '#64748b';
+      btn.style.background = 'rgba(30,41,59,0.8)';
+      btn.style.borderColor = '#1e293b';
+    }
+  }
+  chartDraw();
+}
+
+function chartToggleFullscreen() {
+  const el = document.querySelector('.chart-container');
+  if (!el) return;
+  if (!document.fullscreenElement) {
+    el.requestFullscreen && el.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+}
+
+
+// ── SINAIS VIP NO GRÁFICO ──
+_chart.signals = [];
+
+function chartAddSignal(type, score) {
+  // Guarda o sinal com o timestamp atual
+  const now = Date.now();
+  // Evita duplicatas em menos de 5s
+  const last = _chart.signals[_chart.signals.length - 1];
+  if (last && now - last.t < 5000) return;
+  _chart.signals.push({ type, score, t: now, price: _chart.lastP || 0 });
+  // Mantém só os últimos 50 sinais
+  if (_chart.signals.length > 50) _chart.signals.shift();
+  chartDraw();
+}
+
+function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, toY) {
+  if (!_chart.signals || _chart.signals.length === 0) return;
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const now = Date.now();
+
+  _chart.signals.forEach(sig => {
+    // Acha a vela mais próxima do sinal
+    const idx = visCandles.findIndex(c => Math.abs(c.ts - sig.t) < (_chart.tf || 1) * 60 * 1000 * 2);
+    if (idx === -1) return;
+
+    const x = padL + idx * slotW + slotW / 2;
+    const isRise = sig.type === 'rise';
+    const color = isRise ? '#22c55e' : '#ef4444';
+    const y = isRise ? toY(visCandles[idx].l) + 18 : toY(visCandles[idx].h) - 18;
+    const arrow = isRise ? '▲' : '▼';
+
+    if (sig.isAuto) {
+      // Alfinete circular para entradas AUTO
+      ctx.beginPath();
+      ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, x, y + 3);
+      ctx.font = 'bold 7px monospace';
+      ctx.fillStyle = color;
+      ctx.fillText('AUTO', x, isRise ? y + 20 : y - 12);
+    } else {
+      // Seta simples para sinais VIP
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, x, y);
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = color;
+      ctx.fillText(sig.score + '%', x, isRise ? y + 12 : y - 4);
+    }
+
+    // Linha vertical pontilhada na vela
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+}
+
+
+// ── CONTRATOS ABERTOS NO GRÁFICO ──
+_chart.openContracts = {};
+
+function chartAddContract(id, direction, entryPrice, stake, duration, durUnit) {
+
+  _chart.openContracts[id] = {
+    id, direction, entryPrice: parseFloat(entryPrice),
+    stake: parseFloat(stake), duration, durUnit,
+    openTime: Date.now(), countdown: duration
+  };
+  chartDraw();
+  chartUpdateSellAll();
+}
+
+function chartCloseContract(id, result) {
+  if (_chart.openContracts[id]) {
+    delete _chart.openContracts[id];
+    chartDraw();
+    chartUpdateSellAll();
+  } else {
+    // Limpa todos se não achar pelo id
+    _chart.openContracts = {};
+    chartDraw();
+    chartUpdateSellAll();
+  }
+}
+
+function chartDrawContracts(toY, padR, canvas) {
+  const ctx = _chart.ctx;
+  const contracts = Object.values(_chart.openContracts);
+  if (!contracts.length) return;
+
+  contracts.forEach((c, i) => {
+    const y = toY(c.entryPrice);
+    const isRise = c.direction === 'rise';
+    const color = isRise ? '#22c55e' : '#ef4444';
+    const colorBg = isRise ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+    const W = canvas.width;
+
+    // Linha horizontal no preço de entrada
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Box no eixo Y
+    const elapsed = Math.floor((Date.now() - c.openTime) / 1000);
+    const remaining = Math.max(0, c.duration - elapsed);
+    const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    const countStr = `${mm}:${ss}`;
+    const priceStr = c.entryPrice.toFixed(4);
+
+    ctx.font = 'bold 9px monospace';
+    const pw = ctx.measureText(priceStr).width;
+    const bw = Math.max(pw + 12, 70);
+    const bh = 28;
+    const bx = W - padR + 2;
+    const by = y - bh / 2 - i * 32;
+
+    // Fundo do box
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 3);
+    else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+
+    // Texto preço
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText(priceStr, bx + 5, by + 11);
+
+    // Countdown
+    ctx.font = '8px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(countStr, bx + 5, by + 22);
+
+    // Seta direção
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(isRise ? '▲' : '▼', bx + bw - 4, by + 16);
+  });
+}
+
+// Timer para atualizar countdown e limpar contratos travados
+setInterval(() => {
+  if (Object.keys(_chart.openContracts).length > 0) {
+    chartDraw();
+    // Verifica se contrato está travado há mais de 15s
+    const now = Date.now();
+    Object.entries(_chart.openContracts).forEach(([id, c]) => {
+      if (now - c.openTime > 15000) {
+        delete _chart.openContracts[id];
+        chartDraw();
+        chartUpdateSellAll();
+      }
+    });
+  }
+}, 1000);
+
+function chartSetTool(tool) {
+  _chart.tool = tool;
+  document.querySelectorAll('.chart-tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.chart-tool-btn[onclick*="' + tool + '"]');
+  if (btn) btn.classList.add('active');
+
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  if (tool === 'cursor') canvas.style.cursor = 'default';
+  else if (tool === 'text') canvas.style.cursor = 'text';
+  else canvas.style.cursor = 'crosshair';
+}
+
+// ── OHLC UPDATER ──
+function chartUpdateOHLC(candles) {
+  if (!candles || candles.length === 0) return;
+  const visible = candles.slice(-80);
+  const first = visible[0];
+  const last = visible[visible.length - 1];
+  const hi = Math.max(...visible.map(c => c.h));
+  const lo = Math.min(...visible.map(c => c.l));
+  const change = last.c - first.o;
+  const changePct = ((change / first.o) * 100).toFixed(2);
+  const changeStr = (change >= 0 ? '+' : '') + change.toFixed(4) + ' (' + changePct + '%)';
+
+  const oEl = document.getElementById('ohlc-o');
+  const hEl = document.getElementById('ohlc-h');
+  const lEl = document.getElementById('ohlc-l');
+  const cEl = document.getElementById('ohlc-c');
+  const chEl = document.getElementById('chart-change-label');
+
+  if (oEl) oEl.textContent = first.o.toFixed(4);
+  if (hEl) hEl.textContent = hi.toFixed(4);
+  if (lEl) lEl.textContent = lo.toFixed(4);
+  if (cEl) cEl.textContent = last.c.toFixed(4);
+  if (chEl) {
+    chEl.textContent = changeStr;
+    chEl.style.color = change >= 0 ? '#22c55e' : '#ef4444';
+  }
+}
+
+
+// ── SISTEMA DE DESENHO ──
+_chart.drawings = [];
+_chart.drawing = null;
+_chart.zoom = { offset: 0, scale: 1 };
+_chart.chartType = 'candle'; // candle | line
+
+function chartSetType(type) {
+  _chart.chartType = type;
+  const btn = document.getElementById('chart-type-btn');
+  if (btn) {
+    const icons = {
+      candle: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>',
+      line:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      area:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 L6 10 L10 14 L14 6 L18 10 L22 4 L22 20 Z"/></svg>'
+    };
+    btn.innerHTML = icons[type] || icons.candle;
+  }
+  chartDraw();
+}
+
+function chartCycleType() {
+  const types = ['candle', 'line', 'area'];
+  const cur = _chart.chartType || 'candle';
+  const next = types[(types.indexOf(cur) + 1) % types.length];
+  chartSetType(next);
+}
+
+function chartClearDrawings() {
+  _chart.drawings = [];
+  chartDraw();
+}
+
+function chartAddText(x, y, text) {
+  _chart.drawings.push({ type: 'text', x1: x, y1: y, text: text });
+  chartDraw();
+}
+
+function chartInitEvents() {
+  const canvas = _chart.canvas;
+  if (!canvas || canvas._eventsReady) return;
+  canvas._eventsReady = true;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const posToPrice = (pos) => {
+    const padL = 30, padR = 70, padT = 10, padB = 22;
+    const chartH = canvas.height - padT - padB;
+    const candles = _chart.candles.slice(-60);
+    const prices = candles.flatMap(c => [c.h, c.l]);
+    let minP = Math.min(...prices), maxP = Math.max(...prices);
+    const pad = (maxP - minP) * 0.08 || 0.001;
+    minP -= pad; maxP += pad;
+    return maxP - ((pos.y - padT) / chartH) * (maxP - minP);
+  };
+
+  canvas.addEventListener('mousedown', (e) => {
+    const tool = _chart.tool || 'cursor';
+    if (tool === 'cursor') return;
+    const pos = getPos(e);
+    _chart.drawing = { type: tool, x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, p1: posToPrice(pos), p2: posToPrice(pos) };
+    if (tool === 'ruler') _chart.drawing.measuring = true;
+    if (tool === 'text') {
+      // Abre input flutuante
+      _chart.drawing = null;
+      const input = document.createElement('input');
+      input.style.cssText = 'position:fixed;left:' + (e.clientX) + 'px;top:' + (e.clientY) + 'px;z-index:999;background:#1e293b;color:#e2e8f0;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;font-size:12px;outline:none;min-width:120px;';
+      input.placeholder = 'Digite e pressione Enter';
+      document.body.appendChild(input);
+      input.focus();
+      const cx = e.clientX, cy = e.clientY;
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && input.value.trim()) {
+          const r = canvas.getBoundingClientRect();
+          chartAddText(cx - r.left, cy - r.top, input.value.trim());
+          document.body.removeChild(input);
+        }
+        if (ev.key === 'Escape') document.body.removeChild(input);
+      });
+      input.addEventListener('blur', () => { if (document.body.contains(input)) document.body.removeChild(input); });
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getPos(e);
+    // Crosshair sempre
+    if (!_chart.drawing) {
+      chartDraw();
+      const ctx = _chart.ctx;
+      ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, pos.y); ctx.lineTo(canvas.width, pos.y); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    _chart.drawing.x2 = pos.x;
+    _chart.drawing.y2 = _chart.drawing.type === 'hline' ? _chart.drawing.y1 : pos.y;
+    _chart.drawing.p2 = posToPrice(pos);
+    chartDraw();
+    const ctx = _chart.ctx;
+    const d = _chart.drawing;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      ctx.moveTo(30, d.y1); ctx.lineTo(canvas.width - 70, d.y1);
+    } else if (d.type === 'channel') {
+      // Linha principal
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Linha paralela deslocada 30px
+      ctx.beginPath();
+      ctx.moveTo(d.x1, d.y1 + 40); ctx.lineTo(d.x2, d.y2 + 40);
+    } else if (d.type === 'ruler') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(d.x2, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Label distância
+      const pDiff = Math.abs(d.p1 - posToPrice(pos));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('Δ ' + pDiff.toFixed(4), d.x2 + 4, (d.y1 + d.y2) / 2);
+      ctx.beginPath();
+    } else {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!_chart.drawing) return;
+    _chart.drawings.push({ ..._chart.drawing });
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  // Zoom com scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 2 : -2;
+    // Aumenta/diminui candles visíveis
+    _chart._visibleCandles = Math.max(20, Math.min(200, (_chart._visibleCandles || 60) - delta));
+    chartDraw();
+  }, { passive: false });
+}
+
+function chartDrawUserLines() {
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length === 0) return;
+
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartH = canvas.height - padT - padB;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  _chart.drawings.forEach(d => {
+    if (d.type === 'text') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(d.text, d.x1, d.y1);
+      return;
+    }
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      const y = toY(d.p1);
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+    } else if (d.type === 'channel') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+      ctx.beginPath();
+      const dy = d.y2 - d.y1;
+      const dx = d.x2 - d.x1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy/len * 40, ny = dx/len * 40;
+      ctx.moveTo(d.x1 + nx, d.y1 + ny);
+      ctx.lineTo(d.x2 + nx, d.y2 + ny);
+    } else {
+      ctx.moveTo(d.x1, d.y1);
+      ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+  });
+}
+
+function initTradingViewChart(symbol) {
+  _chart.canvas = document.getElementById('deriv-chart');
+  if (!_chart.canvas) return;
+  _chart.ctx = _chart.canvas.getContext('2d');
+  chartResize();
+  window.removeEventListener('resize', chartResize);
+  window.addEventListener('resize', chartResize);
+  chartConnect(symbol || 'R_100');
+  setTimeout(chartInitEvents, 500);
+  setTimeout(chartInitIndicatorUI, 600);
+}
+
+
+
+// ── SISTEMA DE DESENHO ──
+_chart.drawings = [];
+_chart.drawing = null;
+_chart.zoom = { offset: 0, scale: 1 };
+_chart.chartType = 'candle'; // candle | line
+
+function chartSetType(type) {
+  _chart.chartType = type;
+  const btn = document.getElementById('chart-type-btn');
+  if (btn) {
+    const icons = {
+      candle: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>',
+      line:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      area:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 L6 10 L10 14 L14 6 L18 10 L22 4 L22 20 Z"/></svg>'
+    };
+    btn.innerHTML = icons[type] || icons.candle;
+  }
+  chartDraw();
+}
+
+function chartCycleType() {
+  const types = ['candle', 'line', 'area'];
+  const cur = _chart.chartType || 'candle';
+  const next = types[(types.indexOf(cur) + 1) % types.length];
+  chartSetType(next);
+}
+
+function chartClearDrawings() {
+  _chart.drawings = [];
+  chartDraw();
+}
+
+function chartAddText(x, y, text) {
+  _chart.drawings.push({ type: 'text', x1: x, y1: y, text: text });
+  chartDraw();
+}
+
+function chartInitEvents() {
+  const canvas = _chart.canvas;
+  if (!canvas || canvas._eventsReady) return;
+  canvas._eventsReady = true;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const posToPrice = (pos) => {
+    const padL = 30, padR = 70, padT = 10, padB = 22;
+    const chartH = canvas.height - padT - padB;
+    const candles = _chart.candles.slice(-60);
+    const prices = candles.flatMap(c => [c.h, c.l]);
+    let minP = Math.min(...prices), maxP = Math.max(...prices);
+    const pad = (maxP - minP) * 0.08 || 0.001;
+    minP -= pad; maxP += pad;
+    return maxP - ((pos.y - padT) / chartH) * (maxP - minP);
+  };
+
+  canvas.addEventListener('mousedown', (e) => {
+    const tool = _chart.tool || 'cursor';
+    if (tool === 'cursor') return;
+    const pos = getPos(e);
+    _chart.drawing = { type: tool, x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, p1: posToPrice(pos), p2: posToPrice(pos) };
+    if (tool === 'ruler') _chart.drawing.measuring = true;
+    if (tool === 'text') {
+      // Abre input flutuante
+      _chart.drawing = null;
+      const input = document.createElement('input');
+      input.style.cssText = 'position:fixed;left:' + (e.clientX) + 'px;top:' + (e.clientY) + 'px;z-index:999;background:#1e293b;color:#e2e8f0;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;font-size:12px;outline:none;min-width:120px;';
+      input.placeholder = 'Digite e pressione Enter';
+      document.body.appendChild(input);
+      input.focus();
+      const cx = e.clientX, cy = e.clientY;
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && input.value.trim()) {
+          const r = canvas.getBoundingClientRect();
+          chartAddText(cx - r.left, cy - r.top, input.value.trim());
+          document.body.removeChild(input);
+        }
+        if (ev.key === 'Escape') document.body.removeChild(input);
+      });
+      input.addEventListener('blur', () => { if (document.body.contains(input)) document.body.removeChild(input); });
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getPos(e);
+    // Crosshair sempre
+    if (!_chart.drawing) {
+      chartDraw();
+      const ctx = _chart.ctx;
+      ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, pos.y); ctx.lineTo(canvas.width, pos.y); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    _chart.drawing.x2 = pos.x;
+    _chart.drawing.y2 = _chart.drawing.type === 'hline' ? _chart.drawing.y1 : pos.y;
+    _chart.drawing.p2 = posToPrice(pos);
+    chartDraw();
+    const ctx = _chart.ctx;
+    const d = _chart.drawing;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      ctx.moveTo(30, d.y1); ctx.lineTo(canvas.width - 70, d.y1);
+    } else if (d.type === 'channel') {
+      // Linha principal
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Linha paralela deslocada 30px
+      ctx.beginPath();
+      ctx.moveTo(d.x1, d.y1 + 40); ctx.lineTo(d.x2, d.y2 + 40);
+    } else if (d.type === 'ruler') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(d.x2, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Label distância
+      const pDiff = Math.abs(d.p1 - posToPrice(pos));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('Δ ' + pDiff.toFixed(4), d.x2 + 4, (d.y1 + d.y2) / 2);
+      ctx.beginPath();
+    } else {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!_chart.drawing) return;
+    _chart.drawings.push({ ..._chart.drawing });
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  // Zoom com scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 2 : -2;
+    // Aumenta/diminui candles visíveis
+    _chart._visibleCandles = Math.max(20, Math.min(200, (_chart._visibleCandles || 60) - delta));
+    chartDraw();
+  }, { passive: false });
+}
+
+function chartDrawUserLines() {
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length === 0) return;
+
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartH = canvas.height - padT - padB;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  _chart.drawings.forEach(d => {
+    if (d.type === 'text') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(d.text, d.x1, d.y1);
+      return;
+    }
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      const y = toY(d.p1);
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+    } else if (d.type === 'channel') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+      ctx.beginPath();
+      const dy = d.y2 - d.y1;
+      const dx = d.x2 - d.x1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy/len * 40, ny = dx/len * 40;
+      ctx.moveTo(d.x1 + nx, d.y1 + ny);
+      ctx.lineTo(d.x2 + nx, d.y2 + ny);
+    } else {
+      ctx.moveTo(d.x1, d.y1);
+      ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+  });
+}
+
+function initTradingViewChart(symbol) {
+  _chart.canvas = document.getElementById('deriv-chart');
+  if (!_chart.canvas) return;
+  _chart.ctx = _chart.canvas.getContext('2d');
+  chartResize();
+  window.removeEventListener('resize', chartResize);
+  window.addEventListener('resize', chartResize);
+  chartConnect(symbol || 'R_100');
+  setTimeout(chartInitEvents, 500);
+  setTimeout(chartInitIndicatorUI, 600);
+}
+
+// Mapa mercado → símbolo TradingView
+const _marketToTV = {
+  'R_100': 'R_100',
+  'R_75':  'R_75',
+  'R_50':  'R_50',
+  'R_25':  'R_25',
+  'R_10':  'R_10',
+  '1HZ100V': '1HZ100V',
+  '1HZ75V':  '1HZ75V',
+  '1HZ50V':  '1HZ50V',
+  '1HZ25V':  '1HZ25V',
+  '1HZ10V':  '1HZ10V',
+  'JD100': 'JD100',
+  'JD75':  'JD75',
+  'JD50':  'JD50',
+  'JD25':  'JD25',
+  'JD10':  'JD10',
+};
+
+// Inicializa ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(()=>initTradingViewChart('R_100'), 500);
+  // Iniciar digWs automaticamente para sinais
+  setTimeout(()=>{ if(window.digInit) window.digInit(); }, 1000);
+});
+
+// Atualiza gráfico quando mercado muda no dropdown principal
+document.addEventListener('DOMContentLoaded', function() {
+  const sel = document.getElementById('symbolSelect');
+  if(sel) {
+    sel.addEventListener('change', function() {
+      const tv = _marketToTV[this.value] || 'DERIV:100V';
+      initTradingViewChart(tv);
+    });
+  }
+});
+
+
+// ── MODO DE NEGOCIAÇÃO ──
+window._proModoNeg = window._proModoNeg || 'balanceado';
+const _proModoNegConfig = {
+  baixo_risco: {scoreMin:70, cooldown:30000, mult:1.5, label:'🛡 Baixo Risco'},
+  preciso:     {scoreMin:60, cooldown:20000, mult:1.5, label:'🎯 Preciso'},
+  balanceado:  {scoreMin:52, cooldown:10000, mult:2.2, label:'⚖ Balanceado'},
+  veloz:       {scoreMin:45, cooldown:5000,  mult:2.5, label:'⚡ Veloz'},
+};
+window.proSetModoNeg=function(modo, el){
+  window._proModoNeg=modo;
+  document.querySelectorAll('.pro-modoneg-btn').forEach(b=>{
+    b.style.background='transparent';
+    b.style.color='#64748b';
+    b.classList.remove('active-modoneg');
+  });
+  if(el){
+    const cores={baixo_risco:'rgba(34,197,94,0.15)',preciso:'rgba(59,130,246,0.15)',balanceado:'rgba(168,85,247,0.15)',veloz:'rgba(245,158,11,0.15)'};
+    const textCores={baixo_risco:'#22c55e',preciso:'#3b82f6',balanceado:'#a855f7',veloz:'#f59e0b'};
+    el.style.background=cores[modo]||'rgba(168,85,247,0.15)';
+    el.style.color=textCores[modo]||'#a855f7';
+  }
+  // Atualiza mult no state se bot não estiver rodando
+  if(!window._proState.running){
+    const cfg=_proModoNegConfig[modo];
+    if(cfg) window._proState.mult=cfg.mult;
+  }
+  proAddFeed('⚡ Modo: '+(_proModoNegConfig[modo]?.label||modo),'#a855f7');
+};
+// Função para obter config do modo atual
+function proGetModoConfig(){
+  const modoAuto = window._proModo==='auto';
+  if(modoAuto){
+    const digits=window._proState.digits;
+    if(digits.length>=20){
+      const tipos=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+      const scores=tipos.map(t=>proAnalisarTipo(t,digits).score);
+      const melhorScore=Math.max(...scores);
+      let cfg, label;
+      if(melhorScore>=72){cfg=_proModoNegConfig.baixo_risco;label='🛡 Baixo Risco (score alto)';}
+      else if(melhorScore>=60){cfg=_proModoNegConfig.preciso;label='🎯 Preciso';}
+      else if(melhorScore>=50){cfg=_proModoNegConfig.balanceado;label='⚖ Balanceado';}
+      else{cfg=_proModoNegConfig.veloz;label='⚡ Veloz (score baixo)';}
+      const el=document.getElementById('proModoNegAtual');
+      if(el)el.textContent=label;
+      return cfg;
+    }
+  }
+  return _proModoNegConfig[window._proModoNeg]||_proModoNegConfig.balanceado;
+}
+
+
+async function carregarAnalytics() {
+  const el = document.getElementById("analytics-content");
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:#fbbf24;">⏳ Carregando analytics...</div>';
+  try {
+    const res = await fetch("https://alpha-dolar-backend.onrender.com/api/ia/analytics");
+    const data = await res.json();
+    if (!data || !data.por_tipo) throw new Error("sem dados");
+    const tipos = data.por_tipo.map(t => [t.tipo, t]).sort((a,b) => b[1].win_rate - a[1].win_rate);
+    const melhor = tipos[0];
+    let html = '<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:12px;margin-bottom:8px;text-align:center;">';
+    html += '<div style="color:#fbbf24;font-size:13px;margin-bottom:4px;">🏆 Melhor tipo agora</div>';
+    html += '<div style="color:#fff;font-size:22px;font-weight:700;">' + melhor[0] + '</div>';
+    html += '<div style="color:#22c55e;font-size:14px;">Win Rate: ' + melhor[1].win_rate.toFixed(1) + '%</div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    tipos.forEach(([tipo, info]) => {
+      const cor = info.win_rate >= 60 ? "#22c55e" : info.win_rate >= 50 ? "#fbbf24" : "#ef4444";
+      html += '<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:6px;text-align:center;">';
+      html += '<div style="color:#e2e8f0;font-weight:700;">' + tipo + '</div>';
+      html += '<div style="color:' + cor + ';font-size:13px;">Win Rate: ' + info.win_rate.toFixed(1) + '%</div>';
+      html += '<div style="color:#94a3b8;font-size:11px;">' + info.total + ' operações</div></div>';
+    });
+    html += '</div>';
+    if (data.melhor_hora) {
+      html += '<div style="margin-top:12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:6px;text-align:center;">';
+      html += '<div style="color:#818cf8;font-size:12px;">⏰ Melhor horário</div>';
+      html += '<div style="color:#fff;font-weight:700;">' + data.melhor_hora + 'h</div></div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">❌ Erro ao carregar analytics.<br><small>Verifique se o backend está online.</small></div>';
+  }
+}
+</script>
+
+
+<!-- MODAL ANALYTICS -->
+<div id="modal-analytics" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#0f172a;border:1px solid rgba(251,191,36,0.3);border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="color:#fbbf24;font-size:18px;font-weight:700;">📊 Analytics — Win Rate por Tipo</div>
+      <button onclick="document.getElementById('modal-analytics').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="analytics-content"></div>
+  </div>
+</div>
+
+<script>
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    if (!window.proAtualizarStatusVirtual) return;
+    window.proAtualizarStatusVirtual();
+};
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) { statusEl.textContent = 'Aguardando'; statusEl.style.color = '#eab308'; }
+    else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
+    else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
+};
+</script>
+<script src="js/i18n.js"></script>
+
+
+
+<!-- Alpha Dolar Language Selector -->
+<div id="alpha-lang-widget" style="position:fixed;bottom:16px;right:16px;z-index:2147483647;">
+  <button onclick="var m=document.getElementById('alpha-lang-menu');m.style.display=m.style.display==='none'?'block':'none'" style="background:#13151a;border:1px solid #007bff;color:#fff;border-radius:24px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,123,255,0.3);">
+    <span id="alw-flag">🌐</span>
+    <span id="alw-code" style="letter-spacing:1px;"></span>
+    <span style="color:#007bff;font-size:9px;">▲</span>
+  </button>
+  <div id="alpha-lang-menu" style="display:none;position:absolute;bottom:46px;right:0;background:#13151a;border:1px solid #1e2128;border-radius:14px;padding:6px;min-width:155px;box-shadow:0 8px 40px rgba(0,0,0,0.7);">
+    <div onclick="alwSet('pt','🇧🇷','PT')" class="alw-opt">🇧🇷 Português</div>
+    <div onclick="alwSet('en','🇺🇸','EN')" class="alw-opt">🇺🇸 English</div>
+    <div onclick="alwSet('es','🇪🇸','ES')" class="alw-opt">🇪🇸 Español</div>
+    <div onclick="alwSet('hi','🇮🇳','HI')" class="alw-opt">🇮🇳 हिन्दी</div>
+    <div onclick="alwSet('id','🇮🇩','ID')" class="alw-opt">🇮🇩 Indonesia</div>
+    <div onclick="alwSet('th','🇹🇭','TH')" class="alw-opt">🇹🇭 ภาษาไทย</div>
+    <div onclick="alwSet('vi','🇻🇳','VI')" class="alw-opt">🇻🇳 Tiếng Việt</div>
+    <div onclick="alwSet('ar','🇸🇦','AR')" class="alw-opt">🇸🇦 العربية</div>
+    <div onclick="alwSet('it','🇮🇹','IT')" class="alw-opt">🇮🇹 Italiano</div>
+    <div onclick="alwSet('fr','🇫🇷','FR')" class="alw-opt">🇫🇷 Français</div>
+    <div onclick="alwSet('de','🇩🇪','DE')" class="alw-opt">🇩🇪 Deutsch</div>
+  </div>
+</div>
+<style>
+.alw-opt{padding:7px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:#aaa;transition:all .15s;}
+.alw-opt:hover{background:#1e2128;color:#fff;}
+</style>
+<script>
+(function(){
+  var FLAGS={pt:'🇧🇷',en:'🇺🇸',es:'🇪🇸',hi:'🇮🇳',id:'🇮🇩',th:'🇹🇭',vi:'🇻🇳',ar:'🇸🇦',it:'🇮🇹',fr:'🇫🇷',de:'🇩🇪'};
+  var CODES={pt:'PT',en:'EN',es:'ES',hi:'HI',id:'ID',th:'TH',vi:'VI',ar:'AR',it:'IT',fr:'FR',de:'DE'};
+
+  function updateBtn(lang){
+    var f=document.getElementById('alw-flag');
+    var c=document.getElementById('alw-code');
+    if(f)f.textContent=FLAGS[lang]||'🌐';
+    if(c)c.textContent=CODES[lang]||lang.toUpperCase();
+  }
+
+  window.alwSet=function(lang,flag,code){
+    document.getElementById('alpha-lang-menu').style.display='none';
+    localStorage.setItem('alpha_lang',lang);
+    updateBtn(lang);
+    // Aplica traducao
+    if(window.i18n && typeof window.i18n.apply==='function'){
+      window.i18n.apply(lang);
+    } else {
+      setTimeout(function(){location.reload();},300);
+    }
+    // Atualiza o trocarIdioma do dashboard se existir
+    if(typeof window.trocarIdioma==='function'){
+      var el=document.querySelector('[data-lang="'+lang+'"]');
+      window.trocarIdioma(lang,el||null);
+    }
+  };
+
+  // Fecha ao clicar fora
+  document.addEventListener('click',function(e){
+    var w=document.getElementById('alpha-lang-widget');
+    var m=document.getElementById('alpha-lang-menu');
+    if(w&&m&&!w.contains(e.target))m.style.display='none';
+  });
+
+  // Inicializa botao e aplica idioma salvo
+  function init(){
+    var saved=localStorage.getItem('alpha_lang')||'pt';
+    // Auto-detecta na primeira visita
+    if(!localStorage.getItem('alpha_lang')){
+      var bl=(navigator.language||'pt').split('-')[0].toLowerCase();
+      var sup=['pt','en','es','hi','id','th','vi','ar','it','fr','de'];
+      saved=sup.includes(bl)?bl:'pt';
+      if(saved!=='pt')localStorage.setItem('alpha_lang',saved);
+    }
+    updateBtn(saved);
+    // Aplica idioma com delay para dar tempo do i18n carregar
+    if(saved!=='pt'){
+      var tries=0;
+      var iv=setInterval(function(){
+        tries++;
+        if(window.i18n&&typeof window.i18n.apply==='function'){
+          clearInterval(iv);
+          window.i18n.apply(saved);
+        }
+        if(tries>20)clearInterval(iv);
+      },200);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init);
+  } else {
+    setTimeout(init,300);
+  }
+})();
+</script>
+
+
+
+<script>
+// ========== TRIAL 24H DEMO ==========
+
+// ========== BLOQUEIO CONTA REAL NO TRIAL ==========
+window.verificarTrialDemo = async function(produto) {
+    const email = localStorage.getItem('alpha_email') || '';
+    if (!email) return;
+
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    try {
+        const r = await fetch(
+            SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) +
+            '&produto=eq.' + produto + '&tipo=eq.trial&ativo=eq.true&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
+        );
+        const d = await r.json();
+        if (d && d.length > 0) {
+            // É trial — permite demo e real
+            console.log('Trial ativo para:', produto);
+        }
+    } catch(e) {}
+};
+
+
+// ========== MULTI-ESTRATÉGIA ==========
+
+// ========== CRONÔMETRO AGUARDANDO SINAL ==========
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
+    }, 1000);
+};
+
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+
+window._multiStrategyAtivo = false;
+
+window.toggleMultiStrategy = function() {
+    window._multiStrategyAtivo = !window._multiStrategyAtivo;
+    const toggle = document.getElementById('multiStrategyToggle');
+    const dot    = document.getElementById('multiStrategyDot');
+    const desc   = document.getElementById('multiStrategyDesc');
+    const select = document.getElementById('strategySelect');
+
+    if (window._multiStrategyAtivo) {
+        toggle.style.background = 'rgba(0,210,255,0.3)';
+        toggle.style.borderColor = 'rgba(0,210,255,0.5)';
+        dot.style.background = '#00d2ff';
+        dot.style.left = '22px';
+        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
+        desc.style.color = '#00d2ff';
+        if (select) select.style.opacity = '0.3';
+    } else {
+        toggle.style.background = '#1e2230';
+        toggle.style.borderColor = 'rgba(100,116,139,0.3)';
+        dot.style.background = '#64748b';
+        dot.style.left = '2px';
+        desc.textContent = 'Troca automaticamente após cada perda';
+        desc.style.color = '#64748b';
+        if (select) select.style.opacity = '1';
+    }
+};
+
+window.getEstrategiasDisponiveis = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    // Estratégias free — sempre disponíveis
+    const free = ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'];
+
+    // Verifica VIP
+    let temVip = false;
+    let temPremium = false;
+    try {
+        const rv = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.estrategias-vip&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dv = await rv.json();
+        temVip = dv && dv.length > 0;
+    } catch(e) {}
+
+    // Verifica Premium
+    try {
+        const rp = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dp = await rp.json();
+        temPremium = dp && dp.length > 0;
+    } catch(e) {}
+
+    const vip     = ['alpha_mind','quantum_trader','titan_core','alpha_pulse','alpha_smart','alpha_analytics','alpha_sniper'];
+    const premium = ['mega_alpha_1','mega_alpha_2','mega_alpha_3','alpha_elite','alpha_nexus'];
+
+    let lista = [...free];
+    if (temVip)     lista = [...lista, ...vip];
+    if (temPremium) lista = [...lista, ...premium];
+
+    // Embaralha aleatoriamente
+    return lista.sort(() => Math.random() - 0.5);
+};
+
+
+// ── FREQUÊNCIA DE DÍGITOS ──
+window._proRegras = [];
+window._proFreqAtivo = false;
+
+window.proToggleFreqDigitos = function() {
+  window._proFreqAtivo = !window._proFreqAtivo;
+  const config = document.getElementById('proFreqConfig');
+  const btn = document.getElementById('proFreqBtn');
+  if (window._proFreqAtivo) {
+    config.style.display = 'block';
+    btn.textContent = '− Desativar';
+    btn.style.background = 'rgba(239,68,68,0.1)';
+    btn.style.borderColor = 'rgba(239,68,68,0.3)';
+    btn.style.color = '#ef4444';
+  } else {
+    config.style.display = 'none';
+    btn.textContent = '+ Ativar';
+    btn.style.background = 'rgba(34,197,94,0.1)';
+    btn.style.borderColor = 'rgba(34,197,94,0.3)';
+    btn.style.color = '#22c55e';
+  }
+};
+
+window.proAddRegraDigito = function() {
+  document.getElementById('proRegraModal').style.display = 'block';
+};
+
+window.proConfirmarRegra = function() {
+  const digito = document.getElementById('proRegraDigito').value;
+  const pct = document.getElementById('proRegraPct').value;
+  const regra = { digito: parseInt(digito), pct: parseFloat(pct) };
+  window._proRegras.push(regra);
+  proRenderRegras();
+  document.getElementById('proRegraModal').style.display = 'none';
+};
+
+window.proRemoverRegra = function(idx) {
+  window._proRegras.splice(idx, 1);
+  proRenderRegras();
+};
+
+window.proRenderRegras = function() {
+  const container = document.getElementById('proRegrasDigitos');
+  if (!container) return;
+  if (window._proRegras.length === 0) {
+    container.innerHTML = '<span style="font-size:10px;color:#475569;">Nenhuma regra adicionada</span>';
+    return;
+  }
+  container.innerHTML = window._proRegras.map((r, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:#22c55e;">
+      ${r.digito} &lt; ${r.pct}%
+      <button onclick="proRemoverRegra(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;margin-left:2px;">×</button>
+    </span>`
+  ).join('');
+};
+
+// Verifica regras de frequência antes de entrar
+window.proVerificarFreqDigitos = function(ultimosDigitos) {
+  if (!window._proFreqAtivo || window._proRegras.length === 0) return true;
+  const qtd = parseInt(document.getElementById('proFreqQtd')?.value || 25);
+  const recentes = ultimosDigitos.slice(-qtd);
+  if (recentes.length < qtd) return false; // aguarda ter dados suficientes
+
+  for (const regra of window._proRegras) {
+    const count = recentes.filter(d => d === regra.digito).length;
+    const pct = (count / recentes.length) * 100;
+    if (pct >= regra.pct) return false; // regra violada — não entra
+  }
+  return true; // todas as regras OK
+};
+
+
+// ── FREQUÊNCIA DE DÍGITOS - IA AVANÇADO ──
+window._advRegras = [];
+window._advFreqAtivo = false;
+window._advPordasSemReanalisar = 0;
+
+window.advToggleFreq = function() {
+  window._advFreqAtivo = !window._advFreqAtivo;
+  const config = document.getElementById('advFreqConfig');
+  const btn = document.getElementById('advFreqBtn');
+  if (window._advFreqAtivo) {
+    config.style.display = 'block';
+    btn.textContent = '− Desativar';
+    btn.style.color = '#ef4444';
+    btn.style.borderColor = 'rgba(239,68,68,0.3)';
+  } else {
+    config.style.display = 'none';
+    btn.textContent = '+ Ativar';
+    btn.style.color = '#22c55e';
+    btn.style.borderColor = 'rgba(34,197,94,0.3)';
+  }
+};
+
+window.advAddRegra = function() {
+  document.getElementById('advRegraModal').style.display = 'block';
+};
+
+window.advConfirmarRegra = function() {
+  const digito = parseInt(document.getElementById('advRegraDigito').value);
+  const pct = parseFloat(document.getElementById('advRegraPct').value);
+  window._advRegras.push({ digito, pct });
+  advRenderRegras();
+  document.getElementById('advRegraModal').style.display = 'none';
+};
+
+window.advRemoverRegra = function(i) {
+  window._advRegras.splice(i, 1);
+  advRenderRegras();
+};
+
+window.advRenderRegras = function() {
+  const c = document.getElementById('advRegrasContainer');
+  if (!c) return;
+  if (window._advRegras.length === 0) {
+    c.innerHTML = '<span style="font-size:10px;color:#475569;">Nenhuma regra</span>';
+    return;
+  }
+  c.innerHTML = window._advRegras.map((r, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:#22c55e;">
+      ${r.digito} &lt; ${r.pct}%
+      <button onclick="advRemoverRegra(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0;">×</button>
+    </span>`
+  ).join('');
+};
+
+window.advVerificarFreqDigitos = function(ultimosDigitos) {
+  if (!window._advFreqAtivo || window._advRegras.length === 0) return true;
+  const qtd = parseInt(document.getElementById('advFreqQtd')?.value || 25);
+  const recentes = ultimosDigitos.slice(-qtd);
+  if (recentes.length < qtd) return false;
+  for (const r of window._advRegras) {
+    const count = recentes.filter(d => d === r.digito).length;
+    const pct = (count / recentes.length) * 100;
+    if (pct >= r.pct) return false;
+  }
+  return true;
+};
+
+
 
 // Mapa mercado → símbolo TradingView
 const _marketToTV = {
