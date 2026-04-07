@@ -2480,14 +2480,9 @@ body { overflow-x: hidden !important; }
     <!-- SISTEMA DE REGISTROS -->
     <script>
     (() => {
-        let feed = document.getElementById('registros-feed');
+        const feed = document.getElementById('registros-feed');
         const tradesHistoricoBody = document.getElementById('tradesHistoricoBody');
         let registros = [];
-        // Garante feed mesmo se DOM não estava pronto
-        function getFeed() {
-            if (!feed) feed = document.getElementById('registros-feed');
-            return feed;
-        }
 
         function mostrarToast(mensagem, tipo = 'info') {
             const toast = document.createElement('div');
@@ -2518,8 +2513,8 @@ body { overflow-x: hidden !important; }
             } else {
                 entry.innerHTML = `<span class="log-time">${hora}</span><span class="log-sep">|</span><span class="${cssClass}">${texto}</span>`;
             }
-            const f = document.getElementById('registros-feed');
-            if(f){ f.appendChild(entry); f.scrollTop = f.scrollHeight; }
+            feed.appendChild(entry);
+            feed.scrollTop = feed.scrollHeight;
             registros.push({ hora, texto, cssClass });
         }
         window._addLogLine = addLogLine;
