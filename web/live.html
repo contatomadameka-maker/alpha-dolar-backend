@@ -1421,20 +1421,7 @@ body { overflow-x: hidden !important; }
         document.querySelector(`[data-lang="${saved}"]`)?.classList.add('sel');
     });
 
-    // Hook notificação em cada trade registrado — aguarda registrarTrade estar definido
-    window.addEventListener('load', () => {
-        setTimeout(() => {
-            const _origReg = window.registrarTrade;
-            if (_origReg) {
-                window.registrarTrade = function(p) {
-                    _origReg(p);
-                    const win = (p.resultado === 'WIN' || parseFloat(p.lucro||0) > 0);
-                    const l = Math.abs(parseFloat(p.lucro||0));
-                    window.adicionarNotif(`${win?'✅':'❌'} ${p.tipo||'Trade'} ${win?'+':'−'}$${l.toFixed(2)} | ${p.mercado||''}`, win?'win':'loss');
-                };
-            }
-        }, 2000);
-    });
+
     </script>
 
     <div id="accountSwitchOverlay">
@@ -2536,6 +2523,19 @@ body { overflow-x: hidden !important; }
             registros.push({ hora, texto, cssClass });
         }
         window._addLogLine = addLogLine;
+
+        // Hook notificação — instalado APÓS registrarTrade estar definido
+        setTimeout(() => {
+            const _origReg = window.registrarTrade;
+            if (_origReg) {
+                window.registrarTrade = function(p) {
+                    _origReg(p);
+                    const win = (p.resultado === 'WIN' || parseFloat(p.lucro||0) > 0);
+                    const l = Math.abs(parseFloat(p.lucro||0));
+                    if (window.adicionarNotif) window.adicionarNotif(`${win?'✅':'❌'} ${p.tipo||'Trade'} ${win?'+':'−'}$${l.toFixed(2)} | ${p.mercado||''}`, win?'win':'loss');
+                };
+            }
+        }, 3000);
 
         const msgMap = {
             'Iniciando uma nova sessão':        { txt: 'Iniciando uma nova sessão', cls: 'log-analysis' },
