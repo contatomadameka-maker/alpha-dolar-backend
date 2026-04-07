@@ -2633,17 +2633,6 @@ body { overflow-x: hidden !important; }
         }
 
         window.registrarTrade = function({ tipo, mercado, valor, duracao, resultado, lucro, proximoStake, step, maxStep, winRate, totalTrades, exitTick, longcode }) {
-            // DEBUG VISUAL
-            const _dbgFeed = document.getElementById('registros-feed');
-            const _dbgDiv2 = document.createElement('div');
-            _dbgDiv2.style.cssText = 'position:fixed;top:200px;left:50%;transform:translateX(-50%);background:#f90;color:#000;padding:8px 16px;z-index:99999;border-radius:8px;font-weight:bold;font-size:12px;';
-            _dbgDiv2.textContent = 'registrarTrade interno! feed=' + (_dbgFeed?'OK':'NULL') + ' resultado=' + resultado;
-            document.body.appendChild(_dbgDiv2); setTimeout(()=>_dbgDiv2.remove(),6000);
-            const _dbgDiv = document.createElement('div');
-            _dbgDiv.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#ff0;color:#000;padding:10px 20px;z-index:99999;border-radius:8px;font-weight:bold;font-size:14px;';
-            _dbgDiv.textContent = 'registrarTrade: ' + resultado + ' | feed: ' + (_dbgFeed ? 'OK' : 'NULL');
-            document.body.appendChild(_dbgDiv);
-            setTimeout(() => _dbgDiv.remove(), 5000);
             const isWin    = resultado === 'WIN' || lucro > 0;
             const lucroNum = parseFloat(lucro) || 0;
             const stakeNum = parseFloat(valor) || 0;
@@ -4081,12 +4070,6 @@ body { overflow-x: hidden !important; }
 
                 // Resultado do contrato
                 if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
-                    // DEBUG VISUAL
-                    const _d = document.createElement('div');
-                    const c2 = msg.proposal_open_contract;
-                    _d.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:#ff0;color:#000;padding:10px 20px;z-index:99999;border-radius:8px;font-weight:bold;font-size:13px;max-width:80%;text-align:center;';
-                    _d.textContent = 'POC recebido! status:' + c2?.status + ' is_sold:' + c2?.is_sold;
-                    document.body.appendChild(_d); setTimeout(()=>_d.remove(),6000);
                     const c = msg.proposal_open_contract;
                     if (c.status === 'won' || c.status === 'lost') {
                         const isWin = c.status === 'won';
@@ -4108,11 +4091,6 @@ body { overflow-x: hidden !important; }
                         }
 
                         showResult(isWin, lucro);
-                        // DEBUG showResult passou
-                        const _d2 = document.createElement('div');
-                        _d2.style.cssText = 'position:fixed;top:140px;left:50%;transform:translateX(-50%);background:#0f0;color:#000;padding:8px 16px;z-index:99999;border-radius:8px;font-weight:bold;font-size:12px;';
-                        _d2.textContent = 'showResult OK, registrarTrade existe: ' + !!window.registrarTrade;
-                        document.body.appendChild(_d2); setTimeout(()=>_d2.remove(),6000);
                         // Multiplicador manual
                         if(window._manualMult && window._manualMult.ativo) {
                           const stakeEl = document.getElementById('manualStake');
