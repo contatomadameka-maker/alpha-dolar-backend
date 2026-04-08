@@ -4105,10 +4105,11 @@ body { overflow-x: hidden !important; }
                         if(window._manualMult && window._manualMult.ativo) {
                           const stakeEl = document.getElementById('manualStake');
                           const elNext = document.getElementById('manualNextStake');
-                          const currentStake = parseFloat(stakeEl?.value || 1);
-                          if (!window._manualMult.baseOriginal || window._manualMult.resetBase) {
-                            window._manualMult.baseOriginal = currentStake;
-                            window._manualMult.resetBase = false;
+                          // Usa currentStake do objeto como fonte verdade, não o campo
+                          const currentStake = window._manualMult.currentStake || parseFloat(stakeEl?.value || 1);
+                          if (!window._manualMult.baseOriginal) {
+                            window._manualMult.baseOriginal = parseFloat(stakeEl?.value || 1);
+                            window._manualMult.currentStake = window._manualMult.baseOriginal;
                           }
                           const baseMult = window._manualMult.baseOriginal;
                           const mult = window._manualMult.valor || 2.0;
