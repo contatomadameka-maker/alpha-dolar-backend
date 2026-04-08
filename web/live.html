@@ -8473,11 +8473,12 @@ function chartAutoAnalyze() {
     if (_chart.signals.length > 50) _chart.signals.shift();
   }
 
-  // Clica no botão
+  // Clica no botão (só se autoMode ainda ativo)
+  if (!_chart.autoMode) return;
   const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
   const _conn = typeof window._manualIsConnected === 'function' ? window._manualIsConnected() : true;
   if (!_conn) {
-    if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (btn) btn.click(); }, 2000); }
+    if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (_chart.autoMode && btn) btn.click(); }, 2000); }
   } else {
     if (btn) btn.click();
   }

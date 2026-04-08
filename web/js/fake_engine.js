@@ -328,7 +328,7 @@ function criarFakeWS(url) {
       } else if (msg.ticks) {
         this._startTicks(msg.ticks);
       } else if (msg.buy) {
-        const cid='FAKE-'+Date.now(), stake=parseFloat(msg.price||0.35);
+        const cid=Math.floor(Math.random()*900000000+100000000).toString(), stake=parseFloat(msg.price||0.35);
         this._respond({msg_type:'buy',buy:{contract_id:cid,payout:parseFloat((stake*1.87).toFixed(2)),buy_price:stake,transaction_id:Date.now()}});
         setTimeout(()=>{
           const res=decidirResultado(stake), luc=calcularLucro(res,stake);
