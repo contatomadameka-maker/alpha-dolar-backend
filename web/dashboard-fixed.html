@@ -1498,7 +1498,7 @@ body { overflow-x: hidden !important; }
                     <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>
                     <span>Iniciar Robô</span>
                 </button>
-                <button id="alphaIaProBtn" onclick="abrirAlphaIaPro()" style="width:100%;margin-top:10px;padding:14px;background:linear-gradient(135deg,#1a0a2e,#2d1060);border:1px solid rgba(168,85,247,0.5);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;color:#d4a8ff;letter-spacing:0.5px;box-shadow:0 0 20px rgba(168,85,247,0.15);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 0 30px rgba(168,85,247,0.4)'" onmouseout="this.style.boxShadow='0 0 20px rgba(168,85,247,0.15)'">
+                <button id="alphaIaProBtn" onclick="event.stopPropagation();abrirAlphaIaPro()" style="width:100%;margin-top:10px;padding:14px;background:linear-gradient(135deg,#1a0a2e,#2d1060);border:1px solid rgba(168,85,247,0.5);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;font-weight:800;color:#d4a8ff;letter-spacing:0.5px;box-shadow:0 0 20px rgba(168,85,247,0.15);transition:all 0.2s;" onmouseover="this.style.boxShadow='0 0 30px rgba(168,85,247,0.4)'" onmouseout="this.style.boxShadow='0 0 20px rgba(168,85,247,0.15)'">
                     <span style="font-size:18px;">✨</span>
                     <span>Alpha IA Pro</span>
                     <span style="background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff;font-size:9px;font-weight:900;padding:2px 7px;border-radius:20px;letter-spacing:1px;">PREMIUM</span>
@@ -5223,7 +5223,7 @@ window._MKT_DATA = {
   ╔══════════════════════════════════════════════════════════════════╗
   ║  ALPHA DOLAR 2.0 — PATCH: MODO AVANÇADO IA (DC Bot style)       ║
   ║  Instruções: Cole este bloco ANTES de <!-- ALPHA IA PRO MODAL -->
-<div id="alphaIaProModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100%;z-index:9999;background:rgba(0,0,0,0.85);overflow-y:auto;-webkit-overflow-scrolling:touch;pointer-events:none;" onclick="if(event.target===this)fecharAlphaIaPro()"><div style="position:relative;margin:0 auto;width:min(820px,100vw);min-height:100%;background:linear-gradient(135deg,#0d0614,#130820);border-left:1px solid rgba(168,85,247,0.3);overflow-y:auto;box-shadow:4px 0 40px rgba(168,85,247,0.15);">
+<div id="alphaIaProModal" style="display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);width:min(820px,100vw);height:100vh;z-index:9999;background:linear-gradient(135deg,#0d0614,#130820);border-left:1px solid rgba(168,85,247,0.3);border-right:1px solid rgba(168,85,247,0.3);overflow-y:auto;box-shadow:0 0 60px rgba(168,85,247,0.3);"><div style="position:relative;width:100%;min-height:100%;">
   <div style="padding:12px 16px;max-width:820px;margin:0 auto;">
     <style>
     @media(min-width:600px){
