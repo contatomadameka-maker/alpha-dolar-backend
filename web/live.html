@@ -8491,11 +8491,7 @@ function chartAutoAnalyze() {
   const durationUnitEl = document.getElementById('durationUnit');
   if (durationInput) durationInput.value = durVal;
   if (durationUnitEl) durationUnitEl.value = durUnit2;
-  // Respeita multiplicador se ativo
-  if (window._manualMult && window._manualMult.ativo && window._manualMult.currentStake) {
-    const stakeEl = document.getElementById('manualStake');
-    if (stakeEl) stakeEl.value = window._manualMult.currentStake.toFixed(2);
-  }
+
 
   // Marca no gráfico
   if (_chart.lastP) {
@@ -8506,6 +8502,11 @@ function chartAutoAnalyze() {
 
   // Clica no botão (só se autoMode ainda ativo)
   if (!_chart.autoMode) return;
+  // Garante que stake está correto antes de clicar
+  if (window._manualMult && window._manualMult.ativo && window._manualMult.currentStake) {
+    const stakeEl2 = document.getElementById('manualStake');
+    if (stakeEl2) stakeEl2.value = window._manualMult.currentStake.toFixed(2);
+  }
   const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
   const _conn = typeof window._manualIsConnected === 'function' ? window._manualIsConnected() : true;
   if (!_conn) {
