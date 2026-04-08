@@ -4060,6 +4060,27 @@ body { overflow-x: hidden !important; }
                 // Resultado do contrato
                 if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
                     const c = msg.proposal_open_contract;
+                    // Controla perdas consecutivas no Auto Gráfico
+                    if ((c.status === 'won' || c.status === 'lost') && _chart.autoMode) {
+                        if (c.status === 'won') {
+                            _chart.autoLosses = 0;
+                            _chart._autoConsecLosses = 0;
+                        } else {
+                            _chart._autoConsecLosses = (_chart._autoConsecLosses || 0) + 1;
+                            _chart.autoLosses = (_chart.autoLosses || 0) + 1;
+                            if (_chart.autoLosses >= 3) {
+                                if (window._addLogLine) window._addLogLine('⏸ Auto Gráfico pausado — 3 perdas. Reiniciando em 2 min...', 'log-warn');
+                                clearInterval(_chart.autoInterval);
+                                _chart.autoLosses = 0;
+                                setTimeout(() => {
+                                    if (_chart.autoMode) {
+                                        _chart.autoInterval = setInterval(chartAutoAnalyze, 3000);
+                                        if (window._addLogLine) window._addLogLine('▶ Auto Gráfico retomado!', 'log-action');
+                                    }
+                                }, 120000);
+                            }
+                        }
+                    }
                     if (c.status === 'won' || c.status === 'lost') {
                         const isWin = c.status === 'won';
                         const lucro = parseFloat(c.profit) || 0;
@@ -4085,7 +4106,10 @@ body { overflow-x: hidden !important; }
                           const stakeEl = document.getElementById('manualStake');
                           const elNext = document.getElementById('manualNextStake');
                           const currentStake = parseFloat(stakeEl?.value || 1);
-                          if (!window._manualMult.baseOriginal) window._manualMult.baseOriginal = currentStake;
+                          if (!window._manualMult.baseOriginal || window._manualMult.resetBase) {
+                            window._manualMult.baseOriginal = currentStake;
+                            window._manualMult.resetBase = false;
+                          }
                           const baseMult = window._manualMult.baseOriginal;
                           const mult = window._manualMult.valor || 2.0;
                           if(isWin) {
