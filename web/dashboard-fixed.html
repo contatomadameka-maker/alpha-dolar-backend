@@ -5475,6 +5475,17 @@ window._MKT_DATA = {
 <script>
 window._proState={running:false,ws:null,digits:[],lucro:0,perda:0,wins:0,losses:0,stake:0.35,stakeAtual:0.35,mult:2.2,perdaAcum:0,martStep:0,waiting:false,pendingContracts:{},reqId:1,vozAtiva:true,cooldownAte:0};
 window._proModoNeg='balanceado';
+// Overlay separado para o IA Pro
+window._proOverlay = null;
+function _criarProOverlay() {
+    if (window._proOverlay) return;
+    const o = document.createElement('div');
+    o.id = 'alphaIaProOverlay';
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99998;pointer-events:none;display:none;';
+    document.body.appendChild(o);
+    window._proOverlay = o;
+}
+
 window.abrirAlphaIaPro=async function(){
   const email=localStorage.getItem('alpha_email')||'';
   const SUPA_URL='https://urlthgicnomfbyklesou.supabase.co';
@@ -5485,6 +5496,7 @@ window.abrirAlphaIaPro=async function(){
     const d=await r.json();
     if(!(d&&d.length>0)){await window.ativarTrial('ia-pro','Alpha IA Pro',()=>{const m=document.getElementById('alphaIaProModal');if(m)m.style.display='block';});return;}
   }catch(e){}
+  _criarProOverlay(); if(window._proOverlay) window._proOverlay.style.display='block';
   const m=document.getElementById('alphaIaProModal');
   m.style.display='block';
   m.style.pointerEvents='auto';
@@ -5541,6 +5553,7 @@ window.proSetConta=function(tipo,el){
   } catch(e){}
 };
 window.fecharAlphaIaPro=function(){
+  if(window._proOverlay) window._proOverlay.style.display='none';
   const _m=document.getElementById('alphaIaProModal');
   _m.style.display='none';
   _m.style.pointerEvents='none';
