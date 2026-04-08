@@ -9607,17 +9607,6 @@ window.getEstrategiasDisponiveis = async function() {
 window._proRegras = window._proRegras || [];
 window._proFreqAtivo = false;
 
-// Garantir listeners nos botões de frequência
-window.addEventListener('load', function() {
-    setTimeout(function() {
-        const proBtn = document.getElementById('proFreqBtn');
-        if (proBtn) {
-            proBtn.onclick = function() { window.proToggleFreqDigitos(); };
-            console.log('proFreqBtn listener attached');
-        }
-    }, 2000);
-});
-
 window.proToggleFreqDigitos = function() {
   window._proFreqAtivo = !window._proFreqAtivo;
   const config = document.getElementById('proFreqConfig');
@@ -9738,21 +9727,6 @@ window.advVerificarFreqDigitos = function(ultimosDigitos) {
   return true;
 };
 
-window.ativarTrial('ia-pro','Alpha IA Pro',()=>{const m=document.getElementById('alphaIaProModal');if(m)m.style.display='block';});return;}
-  }catch(e){}
-  const m=document.getElementById('alphaIaProModal');
-  m.style.display='block';
-  const langBtn = document.getElementById('google_translate_element');
-  if(langBtn) langBtn.style.display='none';
-  document.body.classList.add('ia-pro-open');
-  // Carrega contas e saldo
-  try {
-    const contas=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');
-    const tipo=localStorage.getItem('deriv_conta_ativa')||'demo';
-    window._proState.contaTipo=tipo;
-    proSetConta(tipo, document.getElementById(tipo==='demo'?'proBtnDemo':'proBtnReal'));
-  } catch(e){}
-};
 window.proSetConta=function(tipo,el){
   window._proState.contaTipo=tipo;
   localStorage.setItem('deriv_conta_ativa',tipo);
