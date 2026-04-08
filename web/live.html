@@ -9607,6 +9607,17 @@ window.getEstrategiasDisponiveis = async function() {
 window._proRegras = window._proRegras || [];
 window._proFreqAtivo = false;
 
+// Garantir listeners nos botões de frequência
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        const proBtn = document.getElementById('proFreqBtn');
+        if (proBtn) {
+            proBtn.onclick = function() { window.proToggleFreqDigitos(); };
+            console.log('proFreqBtn listener attached');
+        }
+    }, 2000);
+});
+
 window.proToggleFreqDigitos = function() {
   window._proFreqAtivo = !window._proFreqAtivo;
   const config = document.getElementById('proFreqConfig');
