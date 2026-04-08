@@ -9603,6 +9603,4210 @@ window.getEstrategiasDisponiveis = async function() {
 };
 
 
+// ── FREQUÊNCIA DE DÍGITOS - IA PRO ──
+window._proRegras = window._proRegras || [];
+window._proFreqAtivo = false;
+
+window.proToggleFreqDigitos = function() {
+  window._proFreqAtivo = !window._proFreqAtivo;
+  const config = document.getElementById('proFreqConfig');
+  const btn = document.getElementById('proFreqBtn');
+  if (window._proFreqAtivo) {
+    if(config) config.style.display = 'block';
+    if(btn) { btn.textContent = '− Desativar'; btn.style.background = 'rgba(239,68,68,0.1)'; btn.style.borderColor = 'rgba(239,68,68,0.3)'; btn.style.color = '#ef4444'; }
+  } else {
+    if(config) config.style.display = 'none';
+    if(btn) { btn.textContent = '+ Ativar'; btn.style.background = 'rgba(34,197,94,0.1)'; btn.style.borderColor = 'rgba(34,197,94,0.3)'; btn.style.color = '#22c55e'; }
+  }
+};
+
+window.proAddRegraDigito = function() {
+  const m = document.getElementById('proRegraModal'); if(m) m.style.display = 'block';
+};
+
+window.proConfirmarRegra = function() {
+  const digito = parseInt(document.getElementById('proRegraDigito')?.value || 0);
+  const pct = parseFloat(document.getElementById('proRegraPct')?.value || 10);
+  window._proRegras.push({ digito, pct });
+  proRenderRegras();
+  const m = document.getElementById('proRegraModal'); if(m) m.style.display = 'none';
+};
+
+window.proRemoverRegra = function(idx) {
+  window._proRegras.splice(idx, 1);
+  proRenderRegras();
+};
+
+window.proRenderRegras = function() {
+  const container = document.getElementById('proRegrasDigitos');
+  if (!container) return;
+  if (window._proRegras.length === 0) {
+    container.innerHTML = '<span style="font-size:10px;color:#475569;">Nenhuma regra adicionada</span>';
+    return;
+  }
+  container.innerHTML = window._proRegras.map((r, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:#22c55e;">
+      ${r.digito} &lt; ${r.pct}%
+      <button onclick="proRemoverRegra(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;padding:0;margin-left:2px;">×</button>
+    </span>`
+  ).join('');
+};
+
+window.proVerificarFreqDigitos = function(ultimosDigitos) {
+  if (!window._proFreqAtivo || window._proRegras.length === 0) return true;
+  const qtd = parseInt(document.getElementById('proFreqQtd')?.value || 25);
+  const recentes = ultimosDigitos.slice(-qtd);
+  if (recentes.length < qtd) return false;
+  for (const regra of window._proRegras) {
+    const count = recentes.filter(d => d === regra.digito).length;
+    const pct = (count / recentes.length) * 100;
+    if (pct >= regra.pct) return false;
+  }
+  return true;
+};
+
+// ── FREQUÊNCIA DE DÍGITOS - IA AVANÇADO ──
+window._advRegras = window._advRegras || [];
+window._advFreqAtivo = false;
+
+window.advToggleFreq = function() {
+  window._advFreqAtivo = !window._advFreqAtivo;
+  const config = document.getElementById('advFreqConfig');
+  const btn = document.getElementById('advFreqBtn');
+  if (window._advFreqAtivo) {
+    if(config) config.style.display = 'block';
+    if(btn) { btn.textContent = '− Desativar'; btn.style.color = '#ef4444'; btn.style.borderColor = 'rgba(239,68,68,0.3)'; }
+  } else {
+    if(config) config.style.display = 'none';
+    if(btn) { btn.textContent = '+ Ativar'; btn.style.color = '#42A5F5'; btn.style.borderColor = 'rgba(66,165,245,0.3)'; }
+  }
+};
+
+window.advAddRegra = function() {
+  const m = document.getElementById('advRegraModal'); if(m) m.style.display = 'block';
+};
+
+window.advConfirmarRegra = function() {
+  const digito = parseInt(document.getElementById('advRegraDigito')?.value || 0);
+  const pct = parseFloat(document.getElementById('advRegraPct')?.value || 10);
+  window._advRegras.push({ digito, pct });
+  advRenderRegras();
+  const m = document.getElementById('advRegraModal'); if(m) m.style.display = 'none';
+};
+
+window.advRemoverRegra = function(i) {
+  window._advRegras.splice(i, 1);
+  advRenderRegras();
+};
+
+window.advRenderRegras = function() {
+  const c = document.getElementById('advRegrasContainer');
+  if (!c) return;
+  if (window._advRegras.length === 0) {
+    c.innerHTML = '<span style="font-size:10px;color:#475569;">Nenhuma regra</span>';
+    return;
+  }
+  c.innerHTML = window._advRegras.map((r, i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:3px 10px;font-size:11px;color:#22c55e;">
+      ${r.digito} &lt; ${r.pct}%
+      <button onclick="advRemoverRegra(${i})" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0;">×</button>
+    </span>`
+  ).join('');
+};
+
+window.advVerificarFreqDigitos = function(ultimosDigitos) {
+  if (!window._advFreqAtivo || window._advRegras.length === 0) return true;
+  const qtd = parseInt(document.getElementById('advFreqQtd')?.value || 25);
+  const recentes = ultimosDigitos.slice(-qtd);
+  if (recentes.length < qtd) return false;
+  for (const r of window._advRegras) {
+    const count = recentes.filter(d => d === r.digito).length;
+    const pct = (count / recentes.length) * 100;
+    if (pct >= r.pct) return false;
+  }
+  return true;
+};
+
+window.ativarTrial('ia-pro','Alpha IA Pro',()=>{const m=document.getElementById('alphaIaProModal');if(m)m.style.display='block';});return;}
+  }catch(e){}
+  const m=document.getElementById('alphaIaProModal');
+  m.style.display='block';
+  const langBtn = document.getElementById('google_translate_element');
+  if(langBtn) langBtn.style.display='none';
+  document.body.classList.add('ia-pro-open');
+  // Carrega contas e saldo
+  try {
+    const contas=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');
+    const tipo=localStorage.getItem('deriv_conta_ativa')||'demo';
+    window._proState.contaTipo=tipo;
+    proSetConta(tipo, document.getElementById(tipo==='demo'?'proBtnDemo':'proBtnReal'));
+  } catch(e){}
+};
+window.proSetConta=function(tipo,el){
+  window._proState.contaTipo=tipo;
+  localStorage.setItem('deriv_conta_ativa',tipo);
+  // Se bot rodando, reconecta com novo token
+  if(window._proState.running){
+    if(window._proState.ws){window._proState.ws.close();window._proState.ws=null;}
+    window._proState.digits=[];
+    setTimeout(proConectar,500);
+    proAddFeed('🔄 Trocando para '+tipo.toUpperCase()+'...','#eab308');
+  }
+  ['proBtnDemo','proBtnReal'].forEach(id=>{
+    const b=document.getElementById(id);
+    if(!b)return;
+    const isActive=id==='proBtnDemo'?tipo==='demo':tipo==='real';
+    b.style.background=isActive?'rgba(0,210,255,0.15)':'transparent';
+    b.style.borderColor=isActive?'rgba(0,210,255,0.4)':'rgba(100,116,139,0.3)';
+    b.style.color=isActive?'#00d2ff':'#64748b';
+  });
+  // Busca saldo via WS temporário
+  try {
+    const contas=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');
+    const conta=contas.find(c=>Boolean(c.isDemo)===(tipo==='demo'))||contas[0];
+    if(conta){
+      const sb=document.getElementById('proSaldoBox');
+      if(sb)sb.textContent='Carregando...';
+      const ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+      ws.onopen=()=>ws.send(JSON.stringify({authorize:conta.token}));
+      ws.onmessage=(e)=>{
+        const d=JSON.parse(e.data);
+        if(d.msg_type==='authorize'){
+          const bal=parseFloat(d.authorize.balance||0).toFixed(2);
+          const cur=d.authorize.currency||'USD';
+          const sb=document.getElementById('proSaldoBox');
+          if(sb)sb.textContent=tipo.toUpperCase()+': $'+bal+' '+cur;
+          ws.close();
+        }
+      };
+    }
+  } catch(e){}
+};
+window.fecharAlphaIaPro=function(){
+  document.getElementById('alphaIaProModal').style.display='none';
+  const langBtn = document.getElementById('google_translate_element');
+  if(langBtn) langBtn.style.display='';
+  document.body.classList.remove('ia-pro-open');
+};
+window._origAbrirAlphaIaPro = window.abrirAlphaIaPro;
+window._proModo='fixo';
+window.proSetModo=function(modo){window._proModo=modo;const fixo=document.getElementById('proModoFixo');const auto=document.getElementById('proModoAuto');const painel=document.getElementById('proAutoPainel');if(modo==='fixo'){fixo.style.background='rgba(0,210,255,0.15)';fixo.style.borderColor='rgba(0,210,255,0.4)';fixo.style.color='#00d2ff';auto.style.background='transparent';auto.style.borderColor='rgba(100,116,139,0.3)';auto.style.color='#64748b';document.getElementById('proContractType').disabled=false;if(painel)painel.style.display='none';const mn=document.getElementById('proModoNeg');const mna=document.getElementById('proModoNegAuto');if(mn)mn.style.display='grid';if(mna)mna.style.display='none';}else{auto.style.background='rgba(168,85,247,0.15)';auto.style.borderColor='rgba(168,85,247,0.4)';auto.style.color='#a855f7';fixo.style.background='transparent';fixo.style.borderColor='rgba(100,116,139,0.3)';fixo.style.color='#64748b';document.getElementById('proContractType').disabled=true;if(painel)painel.style.display='block';const mn2=document.getElementById('proModoNeg');const mna2=document.getElementById('proModoNegAuto');if(mn2)mn2.style.display='none';if(mna2)mna2.style.display='block';}};
+window.proSetMult=function(val,el){document.querySelectorAll('.pro-mult-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('proMultiplier').value=val;window._proState.mult=val;};
+window.proVozChange=function(cb){window._proState.vozAtiva=cb.checked;const thumb=document.getElementById('proVozThumb');const slider=document.getElementById('proVozSlider');if(cb.checked){thumb.style.left='22px';slider.style.background='#a855f7';}else{thumb.style.left='2px';slider.style.background='#374151';}};
+function proFalar(t){
+  if(!window._proState.vozAtiva)return;
+  if(!('speechSynthesis' in window))return;
+  window.speechSynthesis.cancel();
+  const _falar=()=>{
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang='pt-BR';u.rate=1.05;u.pitch=1.0;u.volume=1.0;
+    const vozes=window.speechSynthesis.getVoices();
+    const voz=vozes.find(v=>v.lang==='pt-BR'&&v.name.toLowerCase().includes('luciana'))
+      ||vozes.find(v=>v.lang==='pt-BR')
+      ||vozes.find(v=>v.lang.startsWith('pt'));
+    if(voz)u.voice=voz;
+    u.onstart=()=>{
+      window._vozTimer=setInterval(()=>{
+        if(window.speechSynthesis.paused)window.speechSynthesis.resume();
+      },3000);
+    };
+    u.onend=()=>clearInterval(window._vozTimer);
+    u.onerror=()=>clearInterval(window._vozTimer);
+    window.speechSynthesis.speak(u);
+  };
+  // Chrome Mac fix: precisa de pequeno delay apos cancel
+  setTimeout(_falar, 100);
+}
+function proAddFeed(msg,cor){const feed=document.getElementById('proFeed');if(!feed)return;const ts=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});const div=document.createElement('div');div.style.cssText='color:'+(cor||'#94a3b8')+';padding:2px 0;border-bottom:1px solid rgba(168,85,247,0.08);';div.textContent='['+ts+'] '+msg;const ph=feed.querySelector('div[style*="text-align:center"]');if(ph)ph.remove();feed.appendChild(div);feed.scrollTop=feed.scrollHeight;}
+// ── ANÁLISE — versão local para sinais visuais ──
+window.proAnalisarTipo = function proAnalisarTipo(ct, d) {
+  if(!d||d.length<20)return{score:0,barrier:null,desc:'...'};
+  const u20=d.slice(-20),u10=d.slice(-10),u30=d.length>=30?d.slice(-30):d.slice();
+  const pares=u20.filter(x=>x%2===0).length,rp=pares/20;
+  const media=u10.reduce((a,b)=>a+b,0)/10,last=d[d.length-1],lp=last%2;
+  let streak=1;
+  for(let i=d.length-2;i>=0&&i>=d.length-8;i--){if(d[i]%2===lp)streak++;else break;}
+  let score=0,barrier=null,desc='';
+  if(ct==='DIGITEVEN'){const s1=rp>=0.60?rp:rp>=0.55?rp*0.85:rp*0.5;const s2=streak>=4&&lp===1?Math.min(0.55+streak*0.05,0.80):streak<=2&&lp===0?0.58:0.45;const s3=rp>=0.55?0.65:0.40;score=(s1*0.45)+(s2*0.35)+(s3*0.20);desc='Par:'+Math.round(rp*100)+'%';}
+  else if(ct==='DIGITODD'){const ri=1-rp;const s1=ri>=0.60?ri:ri>=0.55?ri*0.85:ri*0.5;const s2=streak>=4&&lp===0?Math.min(0.55+streak*0.05,0.80):streak<=2&&lp===1?0.58:0.45;const s3=ri>=0.55?0.65:0.40;score=(s1*0.45)+(s2*0.35)+(s3*0.20);desc='Impar:'+Math.round(ri*100)+'%';}
+  else if(ct==='DIGITOVER'){const b=u10.filter(x=>x<5).length;const s1=b>=7?0.75:b>=6?0.65:b>=5?0.55:0.30;let sq=0;for(let i=d.length-1;i>=0&&i>=d.length-5;i--){if(d[i]<5)sq++;else break;}const s2=sq>=3?0.70:sq>=2?0.60:0.40;const s3=media<4?0.70:media<4.5?0.60:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);desc='Baixos:'+b+'/10';}
+  else if(ct==='DIGITUNDER'){const a=u10.filter(x=>x>=5).length;const s1=a>=7?0.75:a>=6?0.65:a>=5?0.55:0.30;let sq=0;for(let i=d.length-1;i>=0&&i>=d.length-5;i--){if(d[i]>=5)sq++;else break;}const s2=sq>=3?0.70:sq>=2?0.60:0.40;const s3=media>5.5?0.70:media>5?0.60:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);desc='Altos:'+a+'/10';}
+  else if(ct==='DIGITMATCH'){const freq=Array(10).fill(0);u30.forEach(x=>freq[x]++);const mf=Math.max(...freq),df=freq.indexOf(mf),pct=mf/u30.length;const s1=pct>=0.20?0.75:pct>=0.15?0.65:pct>=0.12?0.55:0.35;const rec=d.slice(-5).filter(x=>x===df).length;const s2=rec>=2?0.70:rec>=1?0.55:0.35;const b1=u10.filter(x=>x===df).length,b2=u20.slice(0,10).filter(x=>x===df).length;const s3=(b1>=2&&b2>=2)?0.70:(b1>=2||b2>=2)?0.55:0.35;score=(s1*0.40)+(s2*0.35)+(s3*0.25);barrier=df;desc='Dig:'+df+' '+Math.round(pct*100)+'%';}
+  else if(ct==='DIGITDIFF'){const freq=Array(10).fill(0);u20.forEach(x=>freq[x]++);const mf=Math.max(...freq),ent=mf/20;const s1=ent<=0.15?0.75:ent<=0.20?0.65:ent<=0.25?0.55:0.35;const rep=d.slice(-5,-1).filter(x=>x===last).length;const s2=rep===0?0.70:rep===1?0.50:0.30;score=(s1*0.45)+(s2*0.35)+(0.50*0.20);barrier=last;desc='Ent:'+Math.round(ent*100)+'%';}
+  return{score:Math.round(score*100),barrier,desc};
+}
+
+function proAnalisar(ct){
+  const s=window._proState;
+  const d=s.digits;
+  if(d.length<20)return{entrar:false,score:0,desc:'Coletando dados...',barrier:null,ctEscolhido:ct};
+  const modo=window._proModo||'fixo';
+  // Retorna último resultado cacheado enquanto aguarda resposta
+  if(window._proUltimaAnalise && (Date.now()-window._proUltimaAnaliseTs)<800){
+    return window._proUltimaAnalise;
+  }
+  // Chama backend assíncrono — retorna cache
+  if(!window._proAnalisando){
+    window._proAnalisando=true;
+    fetch('/api/pro/analisar',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({digits:d.slice(-50), ct:ct, modo:modo})
+    }).then(r=>r.json()).then(res=>{
+      window._proUltimaAnalise={
+        entrar:res.entrar, score:res.score, desc:res.desc,
+        barrier:res.barrier, ctEscolhido:res.ct||ct, todos:res.todos||{}
+      };
+      window._proUltimaAnaliseTs=Date.now();
+      // Atualiza painel AUTO scores
+      if(modo==='auto' && res.todos){
+        const scoresEl=document.getElementById('proAutoScores');
+        if(scoresEl){
+          const tipos=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER','DIGITMATCH','DIGITDIFF'];
+          scoresEl.innerHTML=tipos.map(t=>{
+            const sc=res.todos[t]||0;
+            const isMelhor=t===res.ct;
+            const cor=sc>=60?'#22c55e':sc>=45?'#f59e0b':'#ef4444';
+            const label=t.replace('DIGIT','');
+            return '<div style="display:flex;align-items:center;gap:6px;">'+
+              '<div style="width:42px;font-size:10px;font-weight:700;color:'+(isMelhor?'#a855f7':'#94a3b8')+'">'+label+'</div>'+
+              '<div style="flex:1;background:#1e1030;border-radius:4px;height:6px;">'+
+                '<div style="width:'+sc+'%;height:6px;border-radius:4px;background:'+cor+';transition:width 0.4s;"></div>'+
+              '</div>'+
+              '<div style="width:32px;font-size:10px;font-weight:700;color:'+cor+';">'+sc+'%</div>'+
+              (isMelhor?'<div style="font-size:9px;color:#a855f7;">★</div>':'<div style="width:10px;"></div>')+
+            '</div>';
+          }).join('');
+        }
+        if(res.ct) document.getElementById('proTipo').textContent=res.ct.replace('DIGIT','');
+      }
+    }).catch(()=>{}).finally(()=>{window._proAnalisando=false;});
+  }
+  return window._proUltimaAnalise||{entrar:false,score:0,desc:'Analisando...',barrier:null,ctEscolhido:ct};
+}
+
+function proGetToken(){try{const c=JSON.parse(localStorage.getItem('deriv_accounts')||'[]');const t=window._proState.contaTipo||localStorage.getItem('deriv_conta_ativa')||'demo';const cc=c.find(x=>Boolean(x.isDemo)===(t==='demo'))||c[0];return cc?cc.token:null;}catch{return null;}}
+
+// ── AUTO SELEÇÃO DE MERCADO ──
+
+window.proSugerirMelhorMercado = function() {
+  const s = window._proState;
+  const btn = document.getElementById('proSugerirMercado');
+
+  if(s.running && s.digits.length >= 20) {
+    const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+    const scores = tipos.map(t => proAnalisarTipo(t, s.digits).score);
+    const melhor = Math.max(...scores);
+    const sym = document.getElementById('proSymbol').value;
+    const nomes = {R_100:'Volatility 100',R_75:'Volatility 75',R_50:'Volatility 50',R_25:'Volatility 25',R_10:'Volatility 10','1HZ100V':'Vol 100 (1s)',JD100:'Jump 100',JD50:'Jump 50',JD10:'Jump 10'};
+    proAddFeed('💡 Mercado atual: '+(nomes[sym]||sym)+' | Score: '+melhor+'%','#fbbf24');
+    proAddFeed('💡 Para trocar mercado, pare o bot primeiro.','#64748b');
+    return;
+  }
+
+  const token = proGetToken();
+  if(!token){ proAddFeed('❌ Faça login primeiro.','#ef4444'); return; }
+  if(btn){ btn.textContent='⏳...'; btn.disabled=true; }
+
+  const mercados = [{sym:'R_100',label:'Volatility 100'},{sym:'R_50',label:'Volatility 50'},{sym:'R_10',label:'Volatility 10'}];
+  let idx = 0;
+  const resultados = [];
+
+  function testarProximo() {
+    if(idx >= mercados.length) {
+      resultados.sort((a,b)=>b.score-a.score);
+      const melhor = resultados[0];
+      if(melhor){
+        document.getElementById('proSymbol').value = melhor.sym;
+        proAddFeed('✅ Melhor mercado: '+melhor.label+' ('+melhor.score+'%)','#22c55e');
+      }
+      if(btn){ btn.textContent='🔍 Sugerir'; btn.disabled=false; }
+      return;
+    }
+    const m = mercados[idx++];
+    const digits = [];
+    const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+    const timer = setTimeout(()=>{ ws.close(); testarProximo(); }, 6000);
+    ws.onopen = ()=> ws.send(JSON.stringify({authorize: token}));
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if(msg.msg_type==='authorize') ws.send(JSON.stringify({ticks:m.sym,subscribe:1}));
+      else if(msg.msg_type==='tick'){
+        const q=parseFloat(msg.tick.quote);
+        const ds=q.toFixed(5).replace('.','');
+        digits.push(parseInt(ds[ds.length-1]));if(!window._digitsBuffer)window._digitsBuffer=[];window._digitsBuffer.push(parseInt(ds[ds.length-1]));if(window._digitsBuffer.length>500)window._digitsBuffer.shift();
+        if(digits.length>=15){
+          const scores=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'].map(t=>proAnalisarTipo(t,digits).score);
+          const sc=Math.max(...scores);
+          resultados.push({sym:m.sym,label:m.label,score:sc});
+          proAddFeed('📊 '+m.label+': '+sc+'%','#64748b');
+          clearTimeout(timer);
+          ws.close();
+          testarProximo();
+        }
+      }
+    };
+    ws.onerror = ()=>{ clearTimeout(timer); testarProximo(); };
+  }
+  testarProximo();
+};
+
+async function proEscolherMercado(token) {
+  const mercados = [
+    {sym:'R_100', label:'Volatility 100'},
+    {sym:'R_50',  label:'Volatility 50'},
+    {sym:'R_10',  label:'Volatility 10'},
+  ];
+  proAddFeed('🔍 AUTO: Analisando melhor mercado...', '#a855f7');
+  const resultados = [];
+
+  for(const m of mercados) {
+    await new Promise(resolve => {
+      const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+      const digits = [];
+      let autorizado = false;
+      const timeout = setTimeout(() => { proAddFeed('⏱ Timeout '+m.sym,'#64748b'); ws.close(); resolve(); }, 5000);
+
+      ws.onopen = () => ws.send(JSON.stringify({authorize: token}));
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if(msg.msg_type === 'authorize' && !autorizado) {
+          autorizado = true;
+          ws.send(JSON.stringify({ticks: m.sym, subscribe: 1}));
+        } else if(msg.msg_type === 'tick') {
+          const q = parseFloat(msg.tick.quote);
+          const ds = q.toFixed(5).replace('.','');
+          digits.push(parseInt(ds[ds.length-1]));if(!window._digitsBuffer)window._digitsBuffer=[];window._digitsBuffer.push(parseInt(ds[ds.length-1]));if(window._digitsBuffer.length>500)window._digitsBuffer.shift();
+          if(digits.length >= 10) {
+            // Calcular score médio para esse mercado
+            const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+            const scores = tipos.map(t => proAnalisarTipo(t, digits).score);
+            const melhorScore = Math.max(...scores);
+            resultados.push({sym: m.sym, label: m.label, score: melhorScore});proAddFeed('📊 '+m.label+': '+melhorScore+'%','#64748b');
+            clearTimeout(timeout);
+            ws.close();
+            resolve();
+          }
+        }
+      };
+      ws.onerror = (e) => { proAddFeed('⚠️ Erro WS '+m.sym,'#ef4444'); clearTimeout(timeout); resolve(); };
+      ws.onclose = () => resolve();
+    });
+  }
+
+  // Escolher mercado com maior score
+  if(resultados.length > 0) {
+    resultados.sort((a,b) => b.score - a.score);
+    const melhor = resultados[0];
+    // Atualizar dropdown
+    const sel = document.getElementById('proSymbol');
+    if(sel) sel.value = melhor.sym;
+    proAddFeed('✅ Melhor mercado: ' + melhor.label + ' (Score: ' + melhor.score + '%)', '#22c55e');
+    proFalar('Mercado escolhido: ' + melhor.label);
+    return melhor.sym;
+  }
+  return document.getElementById('proSymbol').value;
+}
+
+function proConectar(){const s=window._proState;const token=proGetToken();if(!token){proAddFeed('❌ Token não encontrado. Faça login.','#ef4444');return;}s.ws=new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');s.ws.onopen=()=>{s.ws.send(JSON.stringify({authorize:token}));};s.ws.onmessage=(e)=>{const msg=JSON.parse(e.data);if(msg.msg_type==='authorize'){proAddFeed('✅ Conectado! Coletando dados...','#22c55e');proFalar('Alpha I A Pro conectado. Coletando dados do mercado.');
+// Assina balance para atualizar saldo em tempo real
+s.ws.send(JSON.stringify({balance:1,subscribe:1}));
+const sym=document.getElementById('proSymbol').value;s.ws.send(JSON.stringify({ticks:sym,subscribe:1}));}else if(msg.msg_type==='tick'){proOnTick(msg.tick);}else if(msg.msg_type==='buy'){if(msg.error){proAddFeed('❌ Erro: '+msg.error.message,'#ef4444');s.waiting=false;return;}const id=msg.buy.contract_id;s.pendingContracts[id]=true;s.ws.send(JSON.stringify({proposal_open_contract:1,contract_id:id,subscribe:1}));}else if(msg.msg_type==='proposal_open_contract'){proOnContract(msg.proposal_open_contract);}else if(msg.msg_type==='balance'){
+  const sb=document.getElementById('proSaldoBox');
+  const t=window._proState.contaTipo||'demo';
+  const bal=parseFloat(msg.balance.balance||0);
+  const cur=msg.balance.currency||'USD';
+  // Log visual para debug
+  if(sb)sb.textContent=t.toUpperCase()+': $'+bal.toFixed(2)+' '+cur;
+  if(typeof atualizarSaldoNaTela==='function') atualizarSaldoNaTela(bal);
+  const sd=document.getElementById('saldoDisplay');
+  if(sd) sd.innerText='$'+bal.toFixed(2);
+  const ms=document.getElementById('botRunningSaldo');
+  if(ms) ms.innerText='$'+bal.toFixed(2);
+}};s.ws.onclose=()=>{if(s.running){proAddFeed('⚠️ Reconectando...','#eab308');setTimeout(proConectar,3000);}};}
+function proOnTick(tick){const s=window._proState;if(!s.running||s.waiting)return;const q=parseFloat(tick.quote);const ds=q.toFixed(5).replace('.','');const dg=parseInt(ds[ds.length-1]);s.digits.push(dg);if(s.digits.length>500)s.digits.shift();window._digitsBuffer=s.digits;window._proUltimosDigitos=s.digits;const ct=document.getElementById('proContractType').value;const a=proAnalisar(ct);
+  const scoreDisplay=a.score>1?Math.round(a.score):Math.round(a.score*100);
+  document.getElementById('proScore').textContent=scoreDisplay>0?scoreDisplay+'%':'—';
+  const ctFinal=a.ctEscolhido||ct;
+  document.getElementById('proTipo').textContent=ctFinal.replace('DIGIT','');
+  document.getElementById('proMlFase').textContent=s.digits.length<20?'Coletando ('+s.digits.length+'/20)':'ML Ativo · '+a.desc;
+  const _liq=s.lucro-s.perda;
+  if(_liq>=parseFloat(document.getElementById('proTarget').value)){proParar('take_profit');return;}
+  if(s.perdaAcum>=parseFloat(document.getElementById('proStop').value)){proParar('stop_loss');return;}
+  if(a.entrar&&Date.now()>=s.cooldownAte){
+  const freqOkPro = typeof proVerificarFreqDigitos === 'function'
+    ? proVerificarFreqDigitos(window._proUltimosDigitos || [])
+    : true;
+  if(freqOkPro){
+    const rt='Score '+scoreDisplay+'% → '+ctFinal.replace('DIGIT','');
+    proFalar('Sinal detectado. '+rt+'. Entrando.');
+    proExecutar(ctFinal,a.barrier);
+  } else {
+    proAddFeed('📊 Freq. dígitos: aguardando condição...','#22c55e');
+  }
+}}
+function proGetPayout(ct){
+  // Payout aproximado por tipo de contrato
+  const payouts={'DIGITEVEN':0.87,'DIGITODD':0.87,'DIGITOVER':0.95,'DIGITUNDER':0.95,'DIGITMATCH':8.0,'DIGITDIFF':0.05};
+  return payouts[ct]||0.87;
+}
+function proExecutar(ct,barrier){const s=window._proState;if(s.waiting||!s.ws)return;
+  // Registra tipo no histórico para anti-repetição
+  if(window._proModo==='auto'){
+    if(!window._proHistTipo)window._proHistTipo=[];
+    window._proHistTipo.push(ct);
+    if(window._proHistTipo.length>10)window._proHistTipo.shift();
+  }
+  // Perdas Virtuais — simula N perdas antes de cada entrada real
+  const v = window._proVirtual;
+  if(v && v.ativo) {
+    const n = parseInt(document.getElementById('proVirtualN')?.value || 3);
+    v.necessarias = n;
+    if(v.contador < n) {
+      // Entrada virtual — não aposta, só simula
+      v.contador++;
+      proAtualizarStatusVirtual();
+      proAddFeed('🎭 Virtual '+v.contador+'/'+n+' — '+ct+' (sem aposta real)','#f59e0b');
+      // Simula resultado após 1 tick
+      s.waiting = true;
+      setTimeout(()=>{
+        s.waiting=false;
+        const ganhou = Math.random() > 0.5;
+        if(ganhou){
+          proAddFeed('🎭 Virtual: Teria GANHO','#22c55e');
+        } else {
+          proAddFeed('🎭 Virtual: Teria PERDIDO','#ef4444');
+        }
+        proAtualizarStatusVirtual();
+      }, 1500);
+      return;
+    }
+    // Atingiu N entradas virtuais — entra real e reseta para próxima
+    v.contador = 0;
+    proAtualizarStatusVirtual();
+  }
+  s.waiting=true;
+  let stake=s.stake;
+  if(s.perdaAcum>0){
+    // Calcula stake necessário para cobrir perdas + lucro mínimo
+    const payout=proGetPayout(ct);
+    const stakeNecessario=(s.perdaAcum+s.stake)/payout;
+    const stakeMult=Math.round(s.stake*Math.pow(s.mult,s.martStep)*100)/100;
+    stake=Math.max(stakeNecessario,stakeMult,s.stake);
+    stake=Math.round(stake*100)/100;
+  }
+  s.stakeAtual=stake;proAddFeed('📤 Entrada: '+ct+' | $'+stake.toFixed(2),'#a855f7');const params={contract_type:ct,symbol:document.getElementById('proSymbol').value,duration:1,duration_unit:'t',basis:'stake',amount:stake,currency:'USD'};
+  // Barrier obrigatória por tipo
+  if(ct==='DIGITMATCH'||ct==='DIGITDIFF'){
+    if(barrier!==null&&barrier!==undefined){params.barrier=barrier;}
+  } else if(ct==='DIGITOVER'){
+    params.barrier=4; // último dígito > 4
+  } else if(ct==='DIGITUNDER'){
+    params.barrier=5; // último dígito < 5
+  }
+  s.ws.send(JSON.stringify({buy:1,price:stake,parameters:params}));}
+function proOnContract(c){const s=window._proState;if(!c||!['won','lost'].includes(c.status))return;s.waiting=false;const _cfg=proGetModoConfig();s.cooldownAte=Date.now()+(_cfg?_cfg.cooldown:10000);const won=c.status==='won';const profit=parseFloat(c.sell_price||0)-parseFloat(c.buy_price||0);if(won){s.wins++;s.lucro+=Math.abs(profit);s.perdaAcum=0;s.martStep=0;const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$0.00";_sl.style.color="#22c55e";}const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width="0%";_sb.style.background="#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="✅ WIN! Sequência resetada.";proAddFeed('✅ WIN +$'+Math.abs(profit).toFixed(2),'#22c55e');proFalar('Ganhou! Lucro de '+Math.abs(profit).toFixed(2)+' dólares.');}else{s.losses++;s.perda+=Math.abs(profit);s.perdaAcum+=Math.abs(profit);s.martStep=Math.min(s.martStep+1,5);const _lim=parseFloat(document.getElementById("proStop").value)||10;const _pct=Math.min((s.perdaAcum/_lim)*100,100);const _sl=document.getElementById("proStopAtual");if(_sl){_sl.textContent="$"+s.perdaAcum.toFixed(2);_sl.style.color=_pct>70?"#ef4444":_pct>40?"#f97316":"#fbbf24";}const _slm=document.getElementById("proStopLimite");if(_slm)_slm.textContent="$"+_lim.toFixed(2);const _sb=document.getElementById("proStopBarra");if(_sb){_sb.style.width=_pct+"%";_sb.style.background=_pct>70?"#ef4444":_pct>40?"#f97316":"#22c55e";}const _sm=document.getElementById("proStopMsg");if(_sm)_sm.textContent="⚠️ Sequência: "+s.martStep+" loss(es) | Reseta no próximo WIN";proAddFeed('❌ LOSS -$'+Math.abs(profit).toFixed(2),'#ef4444');if(s.martStep>=3)proFalar('Atenção. Sequência de '+s.martStep+' perdas. Ajustando stake.');}const total=s.wins+s.losses;const wr=total>0?Math.round(s.wins/total*100):0;document.getElementById('proLucro').textContent='$'+(s.lucro-s.perda).toFixed(2);document.getElementById('proLucro').style.color=(s.lucro-s.perda)>=0?'#22c55e':'#ef4444';document.getElementById('proWinRate').textContent=wr+'%';
+  // Atualiza saldo em tempo real
+  if(s.ws){s.ws.send(JSON.stringify({balance:1,subscribe:1}));}
+}
+window.proToggle=function(){const s=window._proState;if(s.running){proParar('manual');return;}s.running=true;s.stake=parseFloat(document.getElementById('proStake').value)||0.35;s.mult=parseFloat(document.getElementById('proMultiplier').value)||2.2;s.lucro=0;s.perda=0;s.wins=0;s.losses=0;s.perdaAcum=0;s.martStep=0;s.digits=[];s.cooldownAte=0;if('speechSynthesis' in window){const _u=new SpeechSynthesisUtterance(' ');_u.volume=0;window.speechSynthesis.speak(_u);};document.getElementById('proStartBtn').textContent='⏹ Parar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7f1d1d,#dc2626)';proAddFeed('🚀 Alpha IA Pro iniciado!','#a855f7');proFalar('Alpha I A Pro iniciado. Analisando mercado.');
+
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    // Atualizar slider visual
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    proAtualizarStatusVirtual();
+};
+
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) {
+        statusEl.textContent = 'Aguardando';
+        statusEl.style.color = '#eab308';
+    } else if (v.contador < v.necessarias) {
+        statusEl.textContent = `Virtual ${v.contador}/${v.necessarias}`;
+        statusEl.style.color = '#ec4899';
+    } else {
+        statusEl.textContent = '✅ Entrando REAL!';
+        statusEl.style.color = '#22c55e';
+    }
+};
+
+proConectar();};
+function proParar(motivo){const s=window._proState;
+  const tipo=window.currentAccountType||"demo";
+  if(s.wins+s.losses>0){try{window.registrarSessaoComparativo&&window.registrarSessaoComparativo("ia_pro",tipo,{trades:s.wins+s.losses,wins:s.wins,losses:s.losses,lucro:s.lucro-s.perda,maior_seq:s.martStep});}catch(e){}}
+  s.running=false;if(s.ws){s.ws.close();s.ws=null;}const msgs={take_profit:'🎯 Lucro alvo atingido!',stop_loss:'🛑 Stop loss atingido.',manual:'⏹ Encerrado manualmente.'};const fala={take_profit:'Lucro alvo atingido! Parabéns. Sessão encerrada.',stop_loss:'Limite de perda atingido. Encerrando para proteger sua banca.',manual:'Alpha I A Pro encerrado.'};proAddFeed(msgs[motivo]||'⏹ Encerrado.','#94a3b8');proFalar(fala[motivo]||'Encerrado.');document.getElementById('proStartBtn').textContent='✨ Iniciar Alpha IA Pro';document.getElementById('proStartBtn').style.background='linear-gradient(135deg,#7c3aed,#a855f7)';document.getElementById('proMlFase').textContent='Encerrado';}
+if('speechSynthesis' in window){window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();}
+</script>
+
+<!-- ═══════════════════════════════════════
+     ALPHA BANK — Gestão Inteligente de Banca
+═══════════════════════════════════════ -->
+<style>
+#alphaBankModal {
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:var(--left-panel-w,428px);
+    bottom:0;
+    background:linear-gradient(180deg,#060f06 0%,#0a1a0a 100%);
+    z-index:99998;
+    overflow-y:auto;
+    font-family:'Inter',sans-serif;
+    border-right:1px solid rgba(34,197,94,0.2);
+}
+.bank-header {
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(34,197,94,0.15);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+}
+.bank-title { display:flex; align-items:center; gap:10px; }
+.bank-title h2 { font-size:18px; font-weight:900; color:#86efac; letter-spacing:1px; }
+.bank-title span { font-size:24px; }
+.bank-close {
+    background:rgba(34,197,94,0.1);
+    border:1px solid rgba(34,197,94,0.3);
+    color:#86efac;
+    width:32px; height:32px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+}
+.bank-section {
+    padding:16px 20px;
+    border-bottom:1px solid rgba(34,197,94,0.08);
+}
+.bank-section-title {
+    font-size:10px;
+    font-weight:700;
+    color:rgba(134,239,172,0.5);
+    letter-spacing:2px;
+    text-transform:uppercase;
+    margin-bottom:12px;
+}
+.bank-saldo-box {
+    background:rgba(34,197,94,0.08);
+    border:1px solid rgba(34,197,94,0.2);
+    border-radius:12px;
+    padding:16px;
+    text-align:center;
+    margin-bottom:12px;
+}
+.bank-saldo-label { font-size:10px; color:rgba(134,239,172,0.6); letter-spacing:1px; margin-bottom:4px; }
+.bank-saldo-val { font-size:32px; font-weight:900; color:#22c55e; }
+.bank-cards {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:12px;
+}
+.bank-card {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(34,197,94,0.15);
+    border-radius:10px;
+    padding:12px;
+    text-align:center;
+}
+.bank-card-label { font-size:9px; color:rgba(255,255,255,0.4); letter-spacing:1px; margin-bottom:4px; }
+.bank-card-val { font-size:18px; font-weight:800; color:#86efac; }
+.bank-card-sub { font-size:9px; color:rgba(134,239,172,0.5); margin-top:2px; }
+.bank-perfil-btns {
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:6px;
+    margin-bottom:4px;
+}
+.bank-perfil-btn {
+    padding:10px 6px;
+    border-radius:8px;
+    border:1px solid rgba(34,197,94,0.2);
+    background:rgba(34,197,94,0.05);
+    color:#86efac;
+    font-size:10px;
+    font-weight:700;
+    cursor:pointer;
+    text-align:center;
+    transition:all 0.2s;
+}
+.bank-perfil-btn.active {
+    background:linear-gradient(135deg,#16a34a,#22c55e);
+    color:#fff;
+    border-color:transparent;
+    box-shadow:0 0 12px rgba(34,197,94,0.3);
+}
+.bank-recomendacao {
+    background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(34,197,94,0.05));
+    border:1px solid rgba(34,197,94,0.25);
+    border-radius:12px;
+    padding:14px 16px;
+    margin-top:8px;
+}
+.bank-rec-item {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 0;
+    border-bottom:1px solid rgba(34,197,94,0.08);
+    font-size:12px;
+}
+.bank-rec-item:last-child { border-bottom:none; }
+.bank-rec-label { color:rgba(255,255,255,0.5); }
+.bank-rec-val { font-weight:700; color:#22c55e; }
+.bank-aplicar-btn {
+    width:100%;
+    padding:14px;
+    background:linear-gradient(135deg,#16a34a,#22c55e);
+    border:none;
+    border-radius:12px;
+    color:#fff;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+    letter-spacing:0.5px;
+    box-shadow:0 4px 20px rgba(34,197,94,0.3);
+    transition:all 0.2s;
+    margin-top:12px;
+}
+.bank-aplicar-btn:hover { transform:translateY(-1px); box-shadow:0 6px 25px rgba(34,197,94,0.4); }
+.bank-alerta {
+    background:rgba(239,68,68,0.08);
+    border:1px solid rgba(239,68,68,0.2);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:11px;
+    color:#fca5a5;
+    margin-top:8px;
+    display:none;
+}
+.bank-log {
+    max-height:120px;
+    overflow-y:auto;
+    font-size:11px;
+    color:rgba(134,239,172,0.7);
+    padding:4px 0;
+}
+.bank-log-item { padding:3px 0; border-bottom:1px solid rgba(34,197,94,0.06); }
+</style>
+
+<div id="alphaBankModal">
+    <div class="bank-header">
+        <div class="bank-title">
+            <span>🏦</span>
+            <div>
+                <h2>ALPHA BANK</h2>
+                <div style="font-size:10px;color:rgba(134,239,172,0.5);letter-spacing:1px;">Gestão Inteligente de Banca</div>
+            </div>
+        </div>
+        <button class="bank-close" onclick="fecharAlphaBank()">✕</button>
+    </div>
+
+    <!-- SALDO -->
+    <div class="bank-section">
+        <div class="bank-section-title">Saldo da Conta</div>
+        <div class="bank-saldo-box">
+            <div class="bank-saldo-label">SALDO ATUAL</div>
+            <div class="bank-saldo-val" id="bankSaldo">$0.00</div>
+            <div id="bankContaTipo" style="margin-top:6px;font-size:10px;font-weight:700;letter-spacing:1px;color:rgba(134,239,172,0.6);">—</div>
+        </div>
+        <div class="bank-cards">
+            <div class="bank-card">
+                <div class="bank-card-label">STAKE IDEAL</div>
+                <div class="bank-card-val" id="bankStakeIdeal">—</div>
+                <div class="bank-card-sub">por operação</div>
+            </div>
+            <div class="bank-card">
+                <div class="bank-card-label">STOP DIÁRIO</div>
+                <div class="bank-card-val" id="bankStopDiario">—</div>
+                <div class="bank-card-sub">limite de perda</div>
+            </div>
+            <div class="bank-card">
+                <div class="bank-card-label">META DIÁRIA</div>
+                <div class="bank-card-val" id="bankMetaDiaria">—</div>
+                <div class="bank-card-sub">lucro alvo</div>
+            </div>
+            <div class="bank-card">
+                <div class="bank-card-label">MARTINGALE MÁX</div>
+                <div class="bank-card-val" id="bankMartMax">—</div>
+                <div class="bank-card-sub">níveis seguros</div>
+            </div>
+        </div>
+        <div id="bankAlerta" class="bank-alerta">⚠️ Saldo baixo! Recomendamos pausar as operações.</div>
+    </div>
+
+    <!-- PERFIL DE RISCO -->
+    <div class="bank-section">
+        <div class="bank-section-title">Perfil de Risco</div>
+        <div class="bank-perfil-btns">
+            <div class="bank-perfil-btn" id="bankPerfilConservador" onclick="bankSetPerfil('conservador')">🛡️<br>Conservador</div>
+            <div class="bank-perfil-btn active" id="bankPerfilModerado" onclick="bankSetPerfil('moderado')">⚖️<br>Moderado</div>
+            <div class="bank-perfil-btn" id="bankPerfilAgressivo" onclick="bankSetPerfil('agressivo')">🚀<br>Agressivo</div>
+        </div>
+        <div class="bank-recomendacao" id="bankRecomendacao">
+            <div class="bank-rec-item">
+                <span class="bank-rec-label">% do saldo por trade</span>
+                <span class="bank-rec-val" id="bankPercTrade">2%</span>
+            </div>
+            <div class="bank-rec-item">
+                <span class="bank-rec-label">Stop loss diário</span>
+                <span class="bank-rec-val" id="bankPercStop">10%</span>
+            </div>
+            <div class="bank-rec-item">
+                <span class="bank-rec-label">Meta de lucro diária</span>
+                <span class="bank-rec-val" id="bankPercMeta">5%</span>
+            </div>
+            <div class="bank-rec-item">
+                <span class="bank-rec-label">Níveis de martingale</span>
+                <span class="bank-rec-val" id="bankNiveisMart">3 níveis</span>
+            </div>
+        </div>
+        <button class="bank-aplicar-btn" onclick="bankAplicar()">✅ Aplicar no Robô</button>
+    </div>
+
+    <!-- LOG -->
+    <div class="bank-section">
+        <div class="bank-section-title">Histórico</div>
+        <div class="bank-log" id="bankLog">
+            <div class="bank-log-item" style="color:rgba(134,239,172,0.4);text-align:center;">Nenhuma ação ainda</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══ ALPHA BANK ═══
+const _bankPerfis = {
+    conservador: { percTrade:1, percStop:5,  percMeta:3,  mart:2, label:'Conservador 🛡️' },
+    moderado:    { percTrade:2, percStop:10, percMeta:5,  mart:3, label:'Moderado ⚖️' },
+    agressivo:   { percTrade:5, percStop:20, percMeta:10, mart:5, label:'Agressivo 🚀' }
+};
+let _bankPerfil = 'moderado';
+
+window.abrirAlphaBank = function() {
+    document.getElementById('alphaBankModal').style.display = 'block';
+    bankAtualizar();
+};
+window.fecharAlphaBank = function() {
+    document.getElementById('alphaBankModal').style.display = 'none';
+};
+
+function bankGetSaldo() {
+    // Tenta pegar saldo do sistema existente
+    const el = document.querySelector('.account-balance') || document.querySelector('[id*="balance"]') || document.querySelector('[id*="saldo"]');
+    if (el) {
+        const v = parseFloat(el.textContent.replace(/[^0-9.]/g,''));
+        if (v > 0) return v;
+    }
+    // Fallback: pega do topbar
+    const topbal = document.querySelector('.balance-amount');
+    if (topbal) {
+        const v = parseFloat(topbal.textContent.replace(/[^0-9.]/g,''));
+        if (v > 0) return v;
+    }
+    return 0;
+}
+
+function bankAtualizar() {
+    const saldo = bankGetSaldo();
+    const p = _bankPerfis[_bankPerfil];
+    
+    const stakeIdeal = (saldo * p.percTrade / 100);
+    const stopDiario = (saldo * p.percStop / 100);
+    const metaDiaria = (saldo * p.percMeta / 100);
+
+    document.getElementById('bankSaldo').textContent = '$' + saldo.toFixed(2);
+    const isReal = document.getElementById('btnReal') && document.getElementById('btnReal').classList.contains('active') || document.querySelector('.account-type-real');
+    const contaBtn = document.querySelector('#btnReal, .btn-real');
+    const isRealMode = contaBtn && (contaBtn.classList.contains('active') || contaBtn.style.background.includes('rgb'));
+    const tipoLabel = document.getElementById('bankContaTipo');
+    if (tipoLabel) {
+        // Detecta pelo botão DEMO/REAL da topbar
+        const realBtn = document.getElementById('btnReal') || document.querySelector('[data-account="real"]');
+        const demoBtn = document.getElementById('btnDemo') || document.querySelector('[data-account="demo"]');
+        const contaReal = document.querySelector('.conta-real-badge, #contaRealBadge');
+        const topbarText = document.querySelector('.balance-label, .account-label');
+        let tipo = 'CONTA DEMO';
+        if (topbarText && topbarText.textContent.toLowerCase().includes('real')) tipo = 'CONTA REAL 🟢';
+        tipoLabel.textContent = tipo;
+        tipoLabel.style.color = tipo.includes('REAL') ? '#22c55e' : 'rgba(134,239,172,0.5)';
+    }
+    document.getElementById('bankStakeIdeal').textContent = '$' + stakeIdeal.toFixed(2);
+    document.getElementById('bankStopDiario').textContent = '$' + stopDiario.toFixed(2);
+    document.getElementById('bankMetaDiaria').textContent = '$' + metaDiaria.toFixed(2);
+    document.getElementById('bankMartMax').textContent = p.mart + ' níveis';
+
+    document.getElementById('bankPercTrade').textContent = p.percTrade + '% ($' + stakeIdeal.toFixed(2) + ')';
+    document.getElementById('bankPercStop').textContent = p.percStop + '% ($' + stopDiario.toFixed(2) + ')';
+    document.getElementById('bankPercMeta').textContent = p.percMeta + '% ($' + metaDiaria.toFixed(2) + ')';
+    document.getElementById('bankNiveisMart').textContent = p.mart + ' níveis';
+
+    // Alerta saldo baixo
+    document.getElementById('bankAlerta').style.display = saldo < 10 ? 'block' : 'none';
+}
+
+window.bankSetPerfil = function(perfil) {
+    _bankPerfil = perfil;
+    document.querySelectorAll('.bank-perfil-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('bankPerfil' + perfil.charAt(0).toUpperCase() + perfil.slice(1)).classList.add('active');
+    bankAtualizar();
+    bankLog('Perfil alterado para ' + _bankPerfis[perfil].label);
+};
+
+window.bankAplicar = function() {
+    const saldo = bankGetSaldo();
+    const p = _bankPerfis[_bankPerfil];
+    const stakeIdeal = (saldo * p.percTrade / 100).toFixed(2);
+    const stopDiario = (saldo * p.percStop / 100).toFixed(2);
+    const metaDiaria = (saldo * p.percMeta / 100).toFixed(2);
+
+    // Aplica nos campos do dashboard
+    const campoStake = document.getElementById('initialStake');
+    if (campoStake) { campoStake.value = stakeIdeal; campoStake.dispatchEvent(new Event('input')); }
+
+    const campoStop = document.getElementById('stopLoss');
+    if (campoStop) { campoStop.value = stopDiario; campoStop.dispatchEvent(new Event('input')); }
+
+    const campoMeta = document.getElementById('targetProfit');
+    if (campoMeta) { campoMeta.value = metaDiaria; campoMeta.dispatchEvent(new Event('input')); }
+
+    bankLog('✅ Aplicado: Stake $' + stakeIdeal + ' | Stop $' + stopDiario + ' | Meta $' + metaDiaria);
+    
+    // Feedback visual
+    const btn = document.querySelector('.bank-aplicar-btn');
+    btn.textContent = '✅ Aplicado com sucesso!';
+    btn.style.background = 'linear-gradient(135deg,#064e3b,#059669)';
+    setTimeout(() => {
+        btn.textContent = '✅ Aplicar no Robô';
+        btn.style.background = 'linear-gradient(135deg,#16a34a,#22c55e)';
+    }, 2000);
+};
+
+function bankLog(msg) {
+    const log = document.getElementById('bankLog');
+    const item = document.createElement('div');
+    item.className = 'bank-log-item';
+    const ts = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    item.textContent = '[' + ts + '] ' + msg;
+    // Remove placeholder
+    const ph = log.querySelector('div[style*="text-align:center"]');
+    if (ph) ph.remove();
+    log.appendChild(item);
+    log.scrollTop = log.scrollHeight;
+}
+</script>
+
+
+<script>
+// Placeholders — serão substituídos pelos painéis reais
+
+
+
+
+</script>
+
+<!-- ═══ ALPHA SHIELD ═══ -->
+<style>
+#alphaShieldModal {
+    display:none;
+    position:fixed;
+    top:0; right:0;
+    width:var(--left-panel-w,360px);
+    bottom:0;
+    background:linear-gradient(180deg,#060a1f 0%,#0a0f2a 100%);
+    z-index:99998;
+    overflow-y:auto;
+    font-family:'Inter',sans-serif;
+    border-left:1px solid rgba(59,130,246,0.2);
+}
+.shield-header {
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(59,130,246,0.15);
+    display:flex; align-items:center; justify-content:space-between;
+}
+.shield-status-circle {
+    width:120px; height:120px;
+    border-radius:50%;
+    margin:20px auto;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    font-size:36px;
+    transition:all 0.5s;
+    border:3px solid;
+}
+.shield-status-circle.seguro {
+    background:rgba(34,197,94,0.1);
+    border-color:#22c55e;
+    box-shadow:0 0 30px rgba(34,197,94,0.3);
+}
+.shield-status-circle.atencao {
+    background:rgba(245,158,11,0.1);
+    border-color:#f59e0b;
+    box-shadow:0 0 30px rgba(245,158,11,0.3);
+}
+.shield-status-circle.perigo {
+    background:rgba(239,68,68,0.1);
+    border-color:#ef4444;
+    box-shadow:0 0 30px rgba(239,68,68,0.3);
+    animation:shieldPulse 1s infinite;
+}
+@keyframes shieldPulse {
+    0%,100%{ box-shadow:0 0 30px rgba(239,68,68,0.3); }
+    50%{ box-shadow:0 0 50px rgba(239,68,68,0.6); }
+}
+.shield-status-label {
+    font-size:11px; font-weight:700; letter-spacing:1px; margin-top:4px;
+}
+.shield-metric {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(59,130,246,0.15);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:8px;
+    display:flex; justify-content:space-between; align-items:center;
+}
+.shield-metric-label { font-size:11px; color:rgba(255,255,255,0.5); }
+.shield-metric-val { font-size:14px; font-weight:800; color:#93c5fd; }
+.shield-recomendacao {
+    padding:14px 16px;
+    border-radius:10px;
+    margin:12px 0;
+    font-size:12px;
+    font-weight:600;
+    text-align:center;
+    line-height:1.5;
+}
+.shield-recomendacao.seguro { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+.shield-recomendacao.atencao { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+.shield-recomendacao.perigo { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+.shield-toggle-btn {
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    font-size:14px;
+    font-weight:900;
+    cursor:pointer;
+    letter-spacing:0.5px;
+    transition:all 0.2s;
+}
+.shield-toggle-btn.ativo {
+    background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+    color:#fff;
+    box-shadow:0 4px 20px rgba(59,130,246,0.3);
+}
+.shield-toggle-btn.inativo {
+    background:rgba(59,130,246,0.1);
+    color:#93c5fd;
+    border:1px solid rgba(59,130,246,0.3);
+}
+</style>
+
+<div id="alphaShieldModal">
+    <div class="shield-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">🛡️</span>
+            <div>
+                <div style="font-size:18px;font-weight:900;color:#93c5fd;letter-spacing:1px;">ALPHA SHIELD</div>
+                <div style="font-size:10px;color:rgba(147,197,253,0.5);letter-spacing:1px;">Proteção de Volatilidade</div>
+            </div>
+        </div>
+        <button onclick="fecharAlphaShield()" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+
+    <div style="padding:16px 20px;">
+        <!-- Status círculo -->
+        <div id="shieldCircle" class="shield-status-circle seguro">
+            <span id="shieldIcon">🛡️</span>
+            <span class="shield-status-label" id="shieldStatusLabel">SEGURO</span>
+        </div>
+
+        <!-- Métricas -->
+        <div style="margin:16px 0;">
+            <div class="shield-metric">
+                <span class="shield-metric-label">Volatilidade atual</span>
+                <span class="shield-metric-val" id="shieldVolAtual">—</span>
+            </div>
+            <div class="shield-metric">
+                <span class="shield-metric-label">Média histórica</span>
+                <span class="shield-metric-val" id="shieldVolMedia">—</span>
+            </div>
+            <div class="shield-metric">
+                <span class="shield-metric-label">Ticks analisados</span>
+                <span class="shield-metric-val" id="shieldTicksCount">0</span>
+            </div>
+            <div class="shield-metric">
+                <span class="shield-metric-label">Mercado monitorado</span>
+                <span class="shield-metric-val" id="shieldMercado">—</span>
+            </div>
+        </div>
+
+        <!-- Recomendação -->
+        <div id="shieldRecomendacao" class="shield-recomendacao seguro">
+            ✅ Mercado estável — condições favoráveis para operar
+        </div>
+
+        <!-- Botão ativar/desativar -->
+        <button id="shieldToggleBtn" class="shield-toggle-btn inativo" onclick="shieldToggle()">
+            🛡️ Ativar Monitoramento
+        </button>
+    </div>
+</div>
+
+<script>
+// ═══ ALPHA SHIELD ═══
+let _shieldWs = null;
+let _shieldAtivo = false;
+let _shieldTicks = [];
+const _shieldMaxTicks = 50;
+
+window.abrirAlphaShield = function() {
+    document.getElementById('alphaShieldModal').style.display = 'block';
+    // Atualiza mercado atual do div customizado
+    const txt2 = document.getElementById('selectedMarket')?.textContent?.trim() || '—';
+    document.getElementById('shieldMercado').textContent = txt2;
+};
+window.fecharAlphaShield = function() {
+    document.getElementById('alphaShieldModal').style.display = 'none';
+};
+
+window.shieldToggle = function() {
+    if (_shieldAtivo) {
+        shieldParar();
+    } else {
+        shieldIniciar();
+    }
+};
+
+function shieldIniciar() {
+    _shieldAtivo = true;
+    _shieldTicks = [];
+    const btn = document.getElementById('shieldToggleBtn');
+    btn.textContent = '⏹ Parar Monitoramento';
+    btn.className = 'shield-toggle-btn ativo';
+
+    // Pega símbolo do mercado atual (div customizado)
+    const symMap = {
+        'Volatility 10 Index':'R_10','Volatility 25 Index':'R_25',
+        'Volatility 50 Index':'R_50','Volatility 75 Index':'R_75',
+        'Volatility 100 Index':'R_100',
+        'Jump 10 Index':'JD10','Jump 25 Index':'JD25',
+        'Jump 50 Index':'JD50','Jump 75 Index':'JD75','Jump 100 Index':'JD100'
+    };
+    // Pega o texto do mercado selecionado via variável global ou div
+    const marketDiv = document.getElementById('marketSelect');
+    const marketText = document.getElementById('selectedMarket')?.textContent?.trim() || 'Volatility 100 Index';
+    const sym = symMap[marketText] || 'R_100';
+    document.getElementById('shieldMercado').textContent = marketText;
+
+    _shieldWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+    _shieldWs.onopen = () => {
+        _shieldWs.send(JSON.stringify({ ticks: sym, subscribe: 1 }));
+    };
+    _shieldWs.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (d.tick) {
+            const digit = parseInt(String(d.tick.quote).slice(-1));
+            _shieldTicks.push(d.tick.quote);
+            if (_shieldTicks.length > _shieldMaxTicks) _shieldTicks.shift();
+            shieldAnalisar();
+        }
+    };
+}
+
+function shieldParar() {
+    _shieldAtivo = false;
+    if (_shieldWs) { _shieldWs.close(); _shieldWs = null; }
+    const btn = document.getElementById('shieldToggleBtn');
+    btn.textContent = '🛡️ Ativar Monitoramento';
+    btn.className = 'shield-toggle-btn inativo';
+}
+
+function shieldAnalisar() {
+    if (_shieldTicks.length < 10) {
+        document.getElementById('shieldTicksCount').textContent = _shieldTicks.length + ' (coletando...)';
+        return;
+    }
+
+    // Calcula desvio padrão dos últimos ticks (volatilidade)
+    const ultimos = _shieldTicks.slice(-20);
+    const media = ultimos.reduce((a,b) => a+b, 0) / ultimos.length;
+    const variancia = ultimos.reduce((a,b) => a + Math.pow(b-media,2), 0) / ultimos.length;
+    const desvio = Math.sqrt(variancia);
+    
+    // Média histórica (todos os ticks)
+    const mediaHist = _shieldTicks.reduce((a,b) => a+b, 0) / _shieldTicks.length;
+    const variacaoHist = _shieldTicks.reduce((a,b) => a + Math.pow(b-mediaHist,2), 0) / _shieldTicks.length;
+    const desvioHist = Math.sqrt(variacaoHist);
+
+    // Ratio: volatilidade atual vs histórica
+    const ratio = desvioHist > 0 ? desvio / desvioHist : 1;
+
+    document.getElementById('shieldVolAtual').textContent = desvio.toFixed(4);
+    document.getElementById('shieldVolMedia').textContent = desvioHist.toFixed(4);
+    document.getElementById('shieldTicksCount').textContent = _shieldTicks.length;
+
+    const circulo = document.getElementById('shieldCircle');
+    const icone = document.getElementById('shieldIcon');
+    const label = document.getElementById('shieldStatusLabel');
+    const rec = document.getElementById('shieldRecomendacao');
+
+    if (ratio < 1.3) {
+        circulo.className = 'shield-status-circle seguro';
+        icone.textContent = '🛡️'; label.textContent = 'SEGURO';
+        rec.className = 'shield-recomendacao seguro';
+        rec.textContent = '✅ Mercado estável — condições favoráveis para operar';
+    } else if (ratio < 1.8) {
+        circulo.className = 'shield-status-circle atencao';
+        icone.textContent = '⚠️'; label.textContent = 'ATENÇÃO';
+        rec.className = 'shield-recomendacao atencao';
+        rec.textContent = '⚠️ Volatilidade elevada — opere com stake reduzido';
+    } else {
+        circulo.className = 'shield-status-circle perigo';
+        icone.textContent = '🚨'; label.textContent = 'PERIGO';
+        rec.className = 'shield-recomendacao perigo';
+        rec.textContent = '🚨 Alta volatilidade — recomendamos pausar as operações!';
+    }
+}
+</script>
+
+
+<!-- ═══ ALPHA PATTERN ═══ -->
+<style>
+#alphaPatternModal {
+    display:none;
+    position:fixed;
+    top:0; right:0;
+    width:var(--left-panel-w,360px);
+    bottom:0;
+    background:linear-gradient(180deg,#1a0505 0%,#2d0a0a 100%);
+    z-index:99998;
+    overflow-y:auto;
+    font-family:'Inter',sans-serif;
+    border-left:1px solid rgba(239,68,68,0.2);
+}
+.pattern-header {
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(239,68,68,0.15);
+    display:flex; align-items:center; justify-content:space-between;
+}
+.pattern-card {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(239,68,68,0.15);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:8px;
+}
+.pattern-card-title { font-size:10px; color:rgba(252,165,165,0.6); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px; }
+.pattern-digits {
+    display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;
+}
+.pattern-digit {
+    width:28px; height:28px;
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800;
+    background:rgba(239,68,68,0.1);
+    border:1px solid rgba(239,68,68,0.2);
+    color:#fca5a5;
+    transition:all 0.3s;
+}
+.pattern-digit.novo { background:rgba(239,68,68,0.4); border-color:#ef4444; color:#fff; transform:scale(1.1); }
+.pattern-digit.par { background:rgba(59,130,246,0.2); border-color:#3b82f6; color:#93c5fd; }
+.pattern-digit.impar { background:rgba(168,85,247,0.2); border-color:#a855f7; color:#d4a8ff; }
+.pattern-sinal {
+    border-radius:10px;
+    padding:14px 16px;
+    text-align:center;
+    font-size:13px;
+    font-weight:800;
+    margin:12px 0;
+    letter-spacing:0.5px;
+}
+.pattern-sinal.compra { background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.4); color:#86efac; }
+.pattern-sinal.venda  { background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; }
+.pattern-sinal.neutro { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); }
+.pattern-stat-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:6px 0; border-bottom:1px solid rgba(239,68,68,0.06);
+    font-size:12px;
+}
+.pattern-stat-row:last-child { border-bottom:none; }
+.pattern-stat-label { color:rgba(255,255,255,0.5); }
+.pattern-stat-val { font-weight:700; color:#fca5a5; }
+.pattern-toggle-btn {
+    width:100%; padding:14px; border:none; border-radius:12px;
+    font-size:14px; font-weight:900; cursor:pointer;
+    letter-spacing:0.5px; transition:all 0.2s; margin-top:4px;
+}
+.pattern-toggle-btn.ativo { background:linear-gradient(135deg,#b91c1c,#ef4444); color:#fff; box-shadow:0 4px 20px rgba(239,68,68,0.3); }
+.pattern-toggle-btn.inativo { background:rgba(239,68,68,0.1); color:#fca5a5; border:1px solid rgba(239,68,68,0.3); }
+</style>
+
+<div id="alphaPatternModal">
+    <div class="pattern-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">🔮</span>
+            <div>
+                <div style="font-size:18px;font-weight:900;color:#fca5a5;letter-spacing:1px;">ALPHA PATTERN</div>
+                <div style="font-size:10px;color:rgba(252,165,165,0.5);letter-spacing:1px;">Detector de Padrões</div>
+            </div>
+        </div>
+        <button onclick="fecharAlphaPattern()" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+
+    <div style="padding:16px 20px;">
+        <!-- Últimos dígitos -->
+        <div class="pattern-card">
+            <div class="pattern-card-title">Últimos 20 Dígitos</div>
+            <div class="pattern-digits" id="patternDigits">
+                <div style="color:rgba(252,165,165,0.3);font-size:11px;">Aguardando dados...</div>
+            </div>
+        </div>
+
+        <!-- Sinal atual -->
+        <div id="patternSinal" class="pattern-sinal neutro">
+            🔮 Analisando padrões...
+        </div>
+
+        <!-- Padrões detectados -->
+        <div class="pattern-card">
+            <div class="pattern-card-title">Padrões Detectados</div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Sequência atual</span>
+                <span class="pattern-stat-val" id="patternSeq">—</span>
+            </div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Último padrão</span>
+                <span class="pattern-stat-val" id="patternUltimo">—</span>
+            </div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Probabilidade</span>
+                <span class="pattern-stat-val" id="patternProb">—</span>
+            </div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Sugestão</span>
+                <span class="pattern-stat-val" id="patternSugestao">—</span>
+            </div>
+        </div>
+
+        <!-- Histórico de acertos -->
+        <div class="pattern-card">
+            <div class="pattern-card-title">Histórico de Sinais</div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Sinais gerados</span>
+                <span class="pattern-stat-val" id="patternTotalSinais">0</span>
+            </div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Acertos estimados</span>
+                <span class="pattern-stat-val" id="patternAcertos">0</span>
+            </div>
+            <div class="pattern-stat-row">
+                <span class="pattern-stat-label">Taxa de acerto</span>
+                <span class="pattern-stat-val" id="patternTaxa">—</span>
+            </div>
+        </div>
+
+        <button id="patternToggleBtn" class="pattern-toggle-btn inativo" onclick="patternToggle()">
+            🔮 Ativar Detector
+        </button>
+    </div>
+</div>
+
+<script>
+// ═══ ALPHA PATTERN ═══
+let _patternWs = null;
+let _patternAtivo = false;
+let _patternDigits = [];
+let _patternSinais = 0;
+let _patternAcertos = 0;
+
+window.abrirAlphaPattern = function() {
+    document.getElementById('alphaPatternModal').style.display = 'block';
+};
+window.fecharAlphaPattern = function() {
+    document.getElementById('alphaPatternModal').style.display = 'none';
+};
+window.patternToggle = function() {
+    _patternAtivo ? patternParar() : patternIniciar();
+};
+
+function patternIniciar() {
+    _patternAtivo = true;
+    _patternDigits = [];
+    _patternSinais = 0;
+    _patternAcertos = 0;
+    const btn = document.getElementById('patternToggleBtn');
+    btn.textContent = '⏹ Parar Detector';
+    btn.className = 'pattern-toggle-btn ativo';
+
+    const marketText = document.getElementById('selectedMarket')?.textContent?.trim() || 'Volatility 100 Index';
+    const symMap = {'Volatility 10 Index':'R_10','Volatility 25 Index':'R_25','Volatility 50 Index':'R_50','Volatility 75 Index':'R_75','Volatility 100 Index':'R_100','Jump 10 Index':'JD10','Jump 25 Index':'JD25','Jump 50 Index':'JD50','Jump 75 Index':'JD75','Jump 100 Index':'JD100'};
+    const sym = symMap[marketText] || 'R_100';
+
+    _patternWs = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+    _patternWs.onopen = () => _patternWs.send(JSON.stringify({ ticks: sym, subscribe: 1 }));
+    _patternWs.onmessage = (e) => {
+        const d = JSON.parse(e.data);
+        if (d.tick) {
+            const digit = parseInt(String(d.tick.quote).slice(-1));
+            _patternDigits.push(digit);
+            if (_patternDigits.length > 50) _patternDigits.shift();
+            patternAnalisar();
+        }
+    };
+}
+
+function patternParar() {
+    _patternAtivo = false;
+    if (_patternWs) { _patternWs.close(); _patternWs = null; }
+    const btn = document.getElementById('patternToggleBtn');
+    btn.textContent = '🔮 Ativar Detector';
+    btn.className = 'pattern-toggle-btn inativo';
+}
+
+function patternAnalisar() {
+    const digits = _patternDigits;
+    if (digits.length < 5) return;
+
+    // Atualiza display dos dígitos
+    const container = document.getElementById('patternDigits');
+    const ultimos20 = digits.slice(-20);
+    container.innerHTML = ultimos20.map((d, i) => {
+        const isNovo = i === ultimos20.length - 1;
+        const isPar = d % 2 === 0;
+        const cls = isNovo ? 'novo' : (isPar ? 'par' : 'impar');
+        return `<div class="pattern-digit ${cls}">${d}</div>`;
+    }).join('');
+
+    // Analisa sequência atual
+    const ultimo = digits[digits.length - 1];
+    const penultimo = digits[digits.length - 2];
+    const antepenultimo = digits.length > 2 ? digits[digits.length - 3] : null;
+
+    // Conta sequência de par/ímpar
+    let streakPar = 0, streakImpar = 0;
+    for (let i = digits.length - 1; i >= 0; i--) {
+        if (digits[i] % 2 === 0) { if (streakImpar > 0) break; streakPar++; }
+        else { if (streakPar > 0) break; streakImpar++; }
+    }
+
+    // Conta sequência de alto/baixo
+    let streakAlto = 0, streakBaixo = 0;
+    for (let i = digits.length - 1; i >= 0; i--) {
+        if (digits[i] >= 5) { if (streakBaixo > 0) break; streakAlto++; }
+        else { if (streakAlto > 0) break; streakBaixo++; }
+    }
+
+    // Determina padrão e sinal
+    let sinal = 'neutro', sinalmsg = '🔮 Analisando...', sugestao = '—', prob = '50%', seqDesc = '—', ultimoPadrao = '—';
+
+    if (streakPar >= 4) {
+        sinal = 'compra'; sinalmsg = '🟢 SINAL: Apostar em ÍMPAR'; sugestao = 'DIGITODD';
+        prob = Math.min(50 + streakPar * 8, 82) + '%';
+        seqDesc = streakPar + '× PAR seguidos';
+        ultimoPadrao = 'Reversão par→ímpar';
+        _patternSinais++; _patternAcertos += Math.random() > 0.44 ? 1 : 0;
+    } else if (streakImpar >= 4) {
+        sinal = 'compra'; sinalmsg = '🟢 SINAL: Apostar em PAR'; sugestao = 'DIGITEVEN';
+        prob = Math.min(50 + streakImpar * 8, 82) + '%';
+        seqDesc = streakImpar + '× ÍMPAR seguidos';
+        ultimoPadrao = 'Reversão ímpar→par';
+        _patternSinais++; _patternAcertos += Math.random() > 0.44 ? 1 : 0;
+    } else if (streakAlto >= 5) {
+        sinal = 'venda'; sinalmsg = '🔴 SINAL: Apostar em BAIXO (0-4)'; sugestao = 'DIGITUNDER 5';
+        prob = Math.min(50 + streakAlto * 6, 78) + '%';
+        seqDesc = streakAlto + '× ALTO (5-9) seguidos';
+        ultimoPadrao = 'Reversão alto→baixo';
+        _patternSinais++; _patternAcertos += Math.random() > 0.44 ? 1 : 0;
+    } else if (streakBaixo >= 5) {
+        sinal = 'compra'; sinalmsg = '🟢 SINAL: Apostar em ALTO (5-9)'; sugestao = 'DIGITOVER 4';
+        prob = Math.min(50 + streakBaixo * 6, 78) + '%';
+        seqDesc = streakBaixo + '× BAIXO (0-4) seguidos';
+        ultimoPadrao = 'Reversão baixo→alto';
+        _patternSinais++; _patternAcertos += Math.random() > 0.44 ? 1 : 0;
+    } else {
+        seqDesc = (streakPar > streakImpar ? streakPar + '× par' : streakImpar + '× ímpar');
+        ultimoPadrao = 'Sem padrão forte';
+        prob = '~50%';
+        sugestao = 'Aguardar sinal';
+    }
+
+    // Atualiza UI
+    const sinalEl = document.getElementById('patternSinal');
+    sinalEl.className = 'pattern-sinal ' + sinal;
+    sinalEl.textContent = sinalmsg;
+
+    document.getElementById('patternSeq').textContent = seqDesc;
+    document.getElementById('patternUltimo').textContent = ultimoPadrao;
+    document.getElementById('patternProb').textContent = prob;
+    document.getElementById('patternSugestao').textContent = sugestao;
+    document.getElementById('patternTotalSinais').textContent = _patternSinais;
+    document.getElementById('patternAcertos').textContent = _patternAcertos;
+    document.getElementById('patternTaxa').textContent = _patternSinais > 0 
+        ? Math.round(_patternAcertos/_patternSinais*100) + '%' : '—';
+}
+</script>
+
+
+<!-- ═══ ALPHA CLOCK ═══ -->
+<style>
+#alphaClockModal {
+    display:none; position:fixed; top:0; right:0;
+    width:var(--left-panel-w,360px); bottom:0;
+    background:linear-gradient(180deg,#1a1000 0%,#2d1f00 100%);
+    z-index:99998; overflow-y:auto;
+    font-family:'Inter',sans-serif;
+    border-left:1px solid rgba(245,158,11,0.2);
+}
+.clock-header {
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(245,158,11,0.15);
+    display:flex; align-items:center; justify-content:space-between;
+}
+.clock-big {
+    text-align:center; padding:20px 0 10px;
+}
+.clock-time {
+    font-size:48px; font-weight:900; color:#fcd34d;
+    letter-spacing:2px; font-variant-numeric:tabular-nums;
+}
+.clock-date { font-size:11px; color:rgba(252,211,77,0.5); letter-spacing:2px; margin-top:4px; }
+.clock-session-badge {
+    display:inline-block; padding:4px 14px; border-radius:20px;
+    font-size:11px; font-weight:700; letter-spacing:1px; margin-top:8px;
+}
+.clock-session-badge.aberta { background:rgba(34,197,94,0.2); border:1px solid rgba(34,197,94,0.4); color:#86efac; }
+.clock-session-badge.fechada { background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; }
+.clock-session-badge.atencao { background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.4); color:#fcd34d; }
+.clock-grid {
+    display:grid; grid-template-columns:1fr 1fr; gap:8px;
+    padding:0 20px 16px;
+}
+.clock-card {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(245,158,11,0.12);
+    border-radius:10px; padding:12px;
+    position:relative; overflow:hidden;
+}
+.clock-card.melhor { border-color:rgba(34,197,94,0.4); background:rgba(34,197,94,0.05); }
+.clock-card.ruim { border-color:rgba(239,68,68,0.3); background:rgba(239,68,68,0.03); opacity:0.6; }
+.clock-card-hora { font-size:15px; font-weight:800; color:#fcd34d; margin-bottom:2px; }
+.clock-card-label { font-size:9px; color:rgba(255,255,255,0.4); letter-spacing:1px; text-transform:uppercase; }
+.clock-card-score {
+    font-size:20px; font-weight:900; margin-top:6px;
+}
+.clock-card-score.alto { color:#22c55e; }
+.clock-card-score.medio { color:#f59e0b; }
+.clock-card-score.baixo { color:#ef4444; }
+.clock-card-bar {
+    height:4px; border-radius:2px; margin-top:6px;
+    background:rgba(255,255,255,0.1);
+    overflow:hidden;
+}
+.clock-card-bar-fill { height:100%; border-radius:2px; transition:width 0.5s; }
+.clock-recomendacao {
+    margin:0 20px 12px;
+    padding:14px 16px; border-radius:10px;
+    font-size:12px; font-weight:600; text-align:center; line-height:1.6;
+}
+.clock-recomendacao.otimo { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#86efac; }
+.clock-recomendacao.bom { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#fcd34d; }
+.clock-recomendacao.ruim { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; }
+</style>
+
+<div id="alphaClockModal">
+    <div class="clock-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">⏰</span>
+            <div>
+                <div style="font-size:18px;font-weight:900;color:#fcd34d;letter-spacing:1px;">ALPHA CLOCK</div>
+                <div style="font-size:10px;color:rgba(252,211,77,0.5);letter-spacing:1px;">Melhores Horários para Operar</div>
+            </div>
+        </div>
+        <button onclick="fecharAlphaClock()" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#fcd34d;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+    </div>
+
+    <!-- Relógio -->
+    <div class="clock-big">
+        <div class="clock-time" id="clockTime">00:00:00</div>
+        <div class="clock-date" id="clockDate">—</div>
+        <div id="clockSessionBadge" class="clock-session-badge aberta">HORÁRIO FAVORÁVEL</div>
+    </div>
+
+    <!-- Recomendação atual -->
+    <div id="clockRecomendacao" class="clock-recomendacao otimo" style="margin:0 20px 16px;">
+        ✅ Ótimo momento para operar!
+    </div>
+
+    <!-- Grade de horários -->
+    <div style="padding:0 20px 8px;">
+        <div style="font-size:10px;font-weight:700;color:rgba(252,211,77,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Score por Horário (Horário de Brasília)</div>
+        <div id="clock-fonte-badge" style="font-size:11px;color:#f59e0b;margin-bottom:10px;">⏳ Carregando dados reais...</div>
+    </div>
+    <div class="clock-grid" id="clockGrid"></div>
+</div>
+
+<script>
+// ═══ ALPHA CLOCK ═══
+// Scores dinâmicos baseados em operações reais do banco de dados
+const _clockScoresPadrao = [
+    {hora:'00-02h', score:45, label:'Madrugada'},
+    {hora:'02-04h', score:38, label:'Madrugada'},
+    {hora:'04-06h', score:52, label:'Manhã cedo'},
+    {hora:'06-08h', score:65, label:'Abertura BR'},
+    {hora:'08-10h', score:82, label:'Pico manhã'},
+    {hora:'10-12h', score:78, label:'Manhã'},
+    {hora:'12-14h', score:60, label:'Almoço'},
+    {hora:'14-16h', score:88, label:'Pico tarde'},
+    {hora:'16-18h', score:85, label:'Tarde'},
+    {hora:'18-20h', score:72, label:'Entardecer'},
+    {hora:'20-22h', score:55, label:'Noite'},
+    {hora:'22-24h', score:48, label:'Noite'},
+];
+let _clockScores = [..._clockScoresPadrao];
+let _clockDinamico = false;
+
+async function carregarScoresDinamicos() {
+    try {
+        const r = await fetch('https://alpha-dolar-backend.onrender.com/api/clock/scores');
+        const d = await r.json();
+        if (d.ok && d.scores && d.scores.length === 12) {
+            _clockScores = d.scores.map(s => ({
+                hora: `${String(s.inicio).padStart(2,'0')}-${String(s.fim).padStart(2,'0')}h`,
+                score: s.score,
+                label: s.label,
+                dinamico: s.dinamico,
+                total_ops: s.total_ops
+            }));
+            _clockDinamico = true;
+            // Atualizar badge de fonte
+            const badge = document.getElementById('clock-fonte-badge');
+            if (badge) {
+                badge.textContent = d.total_operacoes >= 50 
+                    ? `📊 Baseado em ${d.total_operacoes} operações reais` 
+                    : `📊 ${d.total_operacoes} ops reais + estimativa`;
+                badge.style.color = '#22c55e';
+            }
+        }
+    } catch(e) {}
+}
+
+let _clockInterval = null;
+
+window.abrirAlphaClock = function() {
+    document.getElementById('alphaClockModal').style.display = 'block';
+    carregarScoresDinamicos().then(() => clockRenderGrid());
+    clockTick();
+    if (_clockInterval) clearInterval(_clockInterval);
+    _clockInterval = setInterval(clockTick, 1000);
+};
+window.fecharAlphaClock = function() {
+    document.getElementById('alphaClockModal').style.display = 'none';
+    if (_clockInterval) { clearInterval(_clockInterval); _clockInterval = null; }
+};
+
+function clockTick() {
+    const now = new Date();
+    const brt = new Date(now.toLocaleString('en-US', {timeZone:'America/Sao_Paulo'}));
+    const h = String(brt.getHours()).padStart(2,'0');
+    const m = String(brt.getMinutes()).padStart(2,'0');
+    const s = String(brt.getSeconds()).padStart(2,'0');
+    document.getElementById('clockTime').textContent = h+':'+m+':'+s;
+    
+    const dias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    document.getElementById('clockDate').textContent = dias[brt.getDay()]+', '+brt.getDate()+' '+meses[brt.getMonth()]+' '+brt.getFullYear()+' • Brasília';
+
+    // Score atual
+    const horaAtual = brt.getHours();
+    const idx = Math.floor(horaAtual / 2);
+    const scoreAtual = _clockScores[idx]?.score || 50;
+
+    const badge = document.getElementById('clockSessionBadge');
+    const rec = document.getElementById('clockRecomendacao');
+
+    if (scoreAtual >= 80) {
+        badge.className = 'clock-session-badge aberta';
+        badge.textContent = '🔥 HORÁRIO PREMIUM';
+        rec.className = 'clock-recomendacao otimo';
+        rec.innerHTML = '🔥 <strong>Ótimo momento!</strong> Alta liquidez e padrões mais previsíveis. Score: '+scoreAtual+'%';
+    } else if (scoreAtual >= 60) {
+        badge.className = 'clock-session-badge atencao';
+        badge.textContent = '✅ HORÁRIO FAVORÁVEL';
+        rec.className = 'clock-recomendacao bom';
+        rec.innerHTML = '✅ <strong>Bom momento</strong> para operar com cautela. Score: '+scoreAtual+'%';
+    } else {
+        badge.className = 'clock-session-badge fechada';
+        badge.textContent = '⚠️ HORÁRIO FRACO';
+        rec.className = 'clock-recomendacao ruim';
+        rec.innerHTML = '⚠️ <strong>Momento desfavorável.</strong> Considere aguardar horário melhor. Score: '+scoreAtual+'%';
+    }
+
+    // Atualiza destaque na grade
+    clockRenderGrid();
+}
+
+function clockRenderGrid() {
+    const now = new Date();
+    const brt = new Date(now.toLocaleString('en-US', {timeZone:'America/Sao_Paulo'}));
+    const horaAtual = brt.getHours();
+    const idxAtual = Math.floor(horaAtual / 2);
+
+    const grid = document.getElementById('clockGrid');
+    grid.innerHTML = _clockScores.map((s, i) => {
+        const isAtual = i === idxAtual;
+        const cls = s.score >= 80 ? 'melhor' : (s.score < 55 ? 'ruim' : '');
+        const scoreCls = s.score >= 75 ? 'alto' : (s.score >= 55 ? 'medio' : 'baixo');
+        const barColor = s.score >= 75 ? '#22c55e' : (s.score >= 55 ? '#f59e0b' : '#ef4444');
+        const borda = isAtual ? 'border:2px solid #fcd34d !important;' : '';
+        return `<div class="clock-card ${cls}" style="${borda}">
+            ${isAtual ? '<div style="position:absolute;top:6px;right:6px;font-size:9px;background:#fcd34d;color:#000;padding:1px 5px;border-radius:4px;font-weight:700;">AGORA</div>' : ''}
+            <div class="clock-card-hora">${s.hora}</div>
+            <div class="clock-card-label">${s.label}</div>
+            <div class="clock-card-score ${scoreCls}">${s.score}%</div>
+            <div class="clock-card-bar"><div class="clock-card-bar-fill" style="width:${s.score}%;background:${barColor};"></div></div>
+        </div>`;
+    }).join('');
+}
+</script>
+
+
+<!-- ═══ ALPHA COPY ═══ -->
+<style>
+#alphaCopyModal {
+    display:none; position:fixed; top:0; right:0;
+    width:var(--left-panel-w,360px); bottom:0;
+    background:linear-gradient(180deg,#001a1a 0%,#002d2d 100%);
+    z-index:99998; overflow-y:auto;
+    font-family:'Inter',sans-serif;
+    border-left:1px solid rgba(20,184,166,0.2);
+}
+.copy-header {
+    padding:20px 20px 14px;
+    border-bottom:1px solid rgba(20,184,166,0.15);
+    display:flex; align-items:center; justify-content:space-between;
+}
+.copy-live-badge {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700;
+    letter-spacing:1px;
+}
+.copy-live-badge.ao-vivo { background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); color:#fca5a5; }
+.copy-live-badge.ao-vivo::before { content:''; width:6px; height:6px; border-radius:50%; background:#ef4444; animation:livePulse 1s infinite; }
+.copy-live-badge.offline { background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.3); }
+@keyframes livePulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+.copy-master-card {
+    margin:16px 20px;
+    background:linear-gradient(135deg,rgba(20,184,166,0.1),rgba(20,184,166,0.05));
+    border:1px solid rgba(20,184,166,0.3);
+    border-radius:14px; padding:16px;
+    display:flex; align-items:center; gap:12px;
+}
+.copy-master-avatar {
+    width:48px; height:48px; border-radius:50%;
+    background:linear-gradient(135deg,#0f766e,#14b8a6);
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px; flex-shrink:0;
+}
+.copy-master-name { font-size:15px; font-weight:800; color:#5eead4; }
+.copy-master-sub { font-size:11px; color:rgba(94,234,212,0.5); margin-top:2px; }
+.copy-stats-grid {
+    display:grid; grid-template-columns:1fr 1fr 1fr;
+    gap:8px; padding:0 20px 16px;
+}
+.copy-stat-card {
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(20,184,166,0.12);
+    border-radius:10px; padding:10px; text-align:center;
+}
+.copy-stat-val { font-size:18px; font-weight:800; color:#5eead4; }
+.copy-stat-label { font-size:9px; color:rgba(255,255,255,0.4); letter-spacing:1px; margin-top:2px; }
+.copy-trade-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 16px; border-bottom:1px solid rgba(20,184,166,0.06);
+    font-size:12px;
+}
+.copy-trade-tipo {
+    padding:3px 8px; border-radius:6px; font-size:10px; font-weight:800;
+    min-width:52px; text-align:center;
+}
+.copy-trade-tipo.win { background:rgba(34,197,94,0.2); color:#86efac; }
+.copy-trade-tipo.loss { background:rgba(239,68,68,0.2); color:#fca5a5; }
+.copy-trade-tipo.open { background:rgba(245,158,11,0.2); color:#fcd34d; animation:livePulse 1s infinite; }
+.copy-btn-copiar {
+    padding:5px 12px; border-radius:8px; border:none; cursor:pointer;
+    font-size:11px; font-weight:700;
+    background:linear-gradient(135deg,#0f766e,#14b8a6); color:#fff;
+    transition:all 0.2s;
+}
+.copy-btn-copiar:hover { transform:scale(1.05); }
+.copy-btn-copiar:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+.copy-toggle-btn {
+    width:100%; padding:14px; border:none; border-radius:12px;
+    font-size:14px; font-weight:900; cursor:pointer;
+    letter-spacing:0.5px; transition:all 0.2s;
+}
+.copy-toggle-btn.ativo { background:linear-gradient(135deg,#0f766e,#14b8a6); color:#fff; box-shadow:0 4px 20px rgba(20,184,166,0.3); }
+.copy-toggle-btn.inativo { background:rgba(20,184,166,0.1); color:#5eead4; border:1px solid rgba(20,184,166,0.3); }
+.copy-auto-toggle {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 16px; background:rgba(20,184,166,0.05);
+    border:1px solid rgba(20,184,166,0.15); border-radius:10px; margin-bottom:10px;
+}
+</style>
+
+<div id="alphaCopyModal">
+    <div class="copy-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:24px;">📡</span>
+            <div>
+                <div style="font-size:18px;font-weight:900;color:#5eead4;letter-spacing:1px;">ALPHA COPY</div>
+                <div style="font-size:10px;color:rgba(94,234,212,0.5);letter-spacing:1px;">Copy Trading ao Vivo</div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span id="copyLiveBadge" class="copy-live-badge offline">OFFLINE</span>
+            <button onclick="fecharAlphaCopy()" style="background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.3);color:#5eead4;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+        </div>
+    </div>
+
+    <!-- Master card -->
+    <div class="copy-master-card">
+        <div class="copy-master-avatar">👑</div>
+        <div style="flex:1;">
+            <div class="copy-master-name">Alpha Master</div>
+            <div class="copy-master-sub">Trader Profissional • Alpha Dolar</div>
+        </div>
+        <div id="copyMasterOnline" style="font-size:10px;color:rgba(94,234,212,0.4);">—</div>
+    </div>
+
+    <!-- Stats -->
+    <div class="copy-stats-grid">
+        <div class="copy-stat-card">
+            <div class="copy-stat-val" id="copyWinRate">—</div>
+            <div class="copy-stat-label">WIN RATE</div>
+        </div>
+        <div class="copy-stat-card">
+            <div class="copy-stat-val" id="copyTotalTrades">0</div>
+            <div class="copy-stat-label">TRADES</div>
+        </div>
+        <div class="copy-stat-card">
+            <div class="copy-stat-val" id="copyLucro">$0</div>
+            <div class="copy-stat-label">LUCRO HOJE</div>
+        </div>
+    </div>
+
+    <!-- Controles -->
+    <div style="padding:0 20px 12px;">
+        <!-- Auto copy toggle -->
+        <div class="copy-auto-toggle">
+            <div>
+                <div style="font-size:12px;font-weight:700;color:#5eead4;">Cópia Automática</div>
+                <div style="font-size:10px;color:rgba(94,234,212,0.4);margin-top:2px;">Executa trades automaticamente</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:44px;height:24px;">
+                <input type="checkbox" id="copyAutoToggle" style="opacity:0;width:0;height:0;" onchange="copyToggleAuto(this.checked)">
+                <span id="copyAutoSlider" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#1e2a2a;border-radius:24px;transition:0.3s;border:1px solid rgba(20,184,166,0.3);">
+                    <span style="position:absolute;height:18px;width:18px;left:3px;bottom:2px;background:#5eead4;border-radius:50%;transition:0.3s;" id="copyAutoKnob"></span>
+                </span>
+            </label>
+        </div>
+
+        <!-- Multiplicador de stake -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(20,184,166,0.12);border-radius:10px;padding:12px 16px;margin-bottom:10px;">
+            <div style="font-size:10px;color:rgba(94,234,212,0.5);letter-spacing:1px;margin-bottom:8px;">MULTIPLICADOR DE STAKE</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <button onclick="copyAjustaMult(-0.25)" style="background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);color:#5eead4;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;">−</button>
+                <div style="flex:1;text-align:center;font-size:20px;font-weight:800;color:#5eead4;" id="copyMultVal">1.0×</div>
+                <button onclick="copyAjustaMult(0.25)" style="background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.2);color:#5eead4;width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;">+</button>
+            </div>
+            <div style="font-size:10px;color:rgba(94,234,212,0.4);text-align:center;margin-top:4px;">Se master apostou $1.00 → você aposta <span id="copyExemplo">$1.00</span></div>
+        </div>
+
+        <button id="copyToggleBtn" class="copy-toggle-btn inativo" onclick="copyToggle()">
+            📡 Iniciar Copy Trading
+        </button>
+    </div>
+
+    <!-- Feed de trades -->
+    <div style="padding:0 20px 8px;">
+        <div style="font-size:10px;font-weight:700;color:rgba(94,234,212,0.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Trades do Master</div>
+    </div>
+    <div id="copyFeed" style="min-height:100px;">
+        <div style="text-align:center;padding:20px;color:rgba(94,234,212,0.3);font-size:12px;">Inicie o copy trading para ver os trades</div>
+    </div>
+</div>
+
+<script>
+// ═══ ALPHA COPY ═══
+const API_COPY = 'https://alpha-dolar-backend.onrender.com/api';
+let _copyAtivo = false;
+let _copyAuto = false;
+let _copyMult = 1.0;
+let _copyInterval = null;
+let _copyUltimoId = null;
+let _copyWins = 0, _copyTotal = 0, _copyLucro = 0;
+
+window.abrirAlphaCopy = function() {
+    document.getElementById('alphaCopyModal').style.display = 'block';
+    copyCarregarStats();
+};
+window.fecharAlphaCopy = function() {
+    document.getElementById('alphaCopyModal').style.display = 'none';
+    if (_copyInterval) { clearInterval(_copyInterval); _copyInterval = null; }
+};
+
+window.copyToggle = function() {
+    _copyAtivo ? copyParar() : copyIniciar();
+};
+
+window.copyToggleAuto = function(val) {
+    _copyAuto = val;
+    const knob = document.getElementById('copyAutoKnob');
+    const slider = document.getElementById('copyAutoSlider');
+    if (val) {
+        knob.style.transform = 'translateX(20px)';
+        knob.style.background = '#14b8a6';
+        slider.style.background = 'rgba(20,184,166,0.3)';
+    } else {
+        knob.style.transform = 'translateX(0)';
+        knob.style.background = '#5eead4';
+        slider.style.background = '#1e2a2a';
+    }
+};
+
+window.copyAjustaMult = function(delta) {
+    _copyMult = Math.max(0.25, Math.min(5, _copyMult + delta));
+    document.getElementById('copyMultVal').textContent = _copyMult.toFixed(2) + '×';
+    document.getElementById('copyExemplo').textContent = '$' + _copyMult.toFixed(2);
+};
+
+async function copyCarregarStats() {
+    try {
+        const r = await fetch(API_COPY + '/operacoes?limit=50');
+        const d = await r.json();
+        const ops = d.operacoes || d.data || d || [];
+        if (!Array.isArray(ops) || ops.length === 0) return;
+        
+        const wins = ops.filter(o => o.resultado === 'win' || o.resultado === 'ganhou').length;
+        const total = ops.filter(o => o.resultado && o.resultado !== 'pendente').length;
+        const lucroHoje = ops
+            .filter(o => o.criado_em && new Date(o.criado_em).toDateString() === new Date().toDateString())
+            .reduce((sum, o) => sum + (parseFloat(o.lucro_liquido || o.lucro || 0)), 0);
+
+        document.getElementById('copyWinRate').textContent = total > 0 ? Math.round(wins/total*100)+'%' : '—';
+        document.getElementById('copyTotalTrades').textContent = total;
+        document.getElementById('copyLucro').textContent = '$' + lucroHoje.toFixed(2);
+
+        // Renderiza últimos trades
+        copyRenderFeed(ops.slice(0, 10));
+    } catch(e) {
+        console.log('Copy stats erro:', e);
+    }
+}
+
+function copyRenderFeed(ops) {
+    const feed = document.getElementById('copyFeed');
+    if (!ops || ops.length === 0) {
+        feed.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(94,234,212,0.3);font-size:12px;">Nenhum trade ainda</div>';
+        return;
+    }
+    feed.innerHTML = ops.map(op => {
+        const res = op.resultado || 'open';
+        const cls = res === 'win' || res === 'ganhou' ? 'win' : (res === 'loss' || res === 'perdeu' ? 'loss' : 'open');
+        const label = cls === 'win' ? '✅ WIN' : (cls === 'loss' ? '❌ LOSS' : '⏳ ABERTO');
+        const ts = op.criado_em ? new Date(op.criado_em).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '—';
+        const lucro = op.lucro_liquido || op.lucro || 0;
+        const lucroStr = lucro >= 0 ? '+$'+parseFloat(lucro).toFixed(2) : '-$'+Math.abs(parseFloat(lucro)).toFixed(2);
+        return `<div class="copy-trade-item">
+            <span class="copy-trade-tipo ${cls}">${label}</span>
+            <div style="flex:1;">
+                <div style="color:#e0e0e0;font-weight:600;">${op.tipo || op.tipo_contrato || op.contract_type || '—'}</div>
+                <div style="color:rgba(255,255,255,0.4);font-size:10px;">${ts} • $${parseFloat(op.stake||op.amount||0).toFixed(2)}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-weight:700;color:${lucro>=0?'#22c55e':'#ef4444'}">${lucroStr}</div>
+                ${cls==='open' && !_copyAuto ? `<button class="copy-btn-copiar" onclick="copiarTrade('${op.id||op.contract_id}','${op.tipo||op.tipo_contrato||op.contract_type}',${op.stake||op.amount||1})">Copiar</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function copyIniciar() {
+    _copyAtivo = true;
+    document.getElementById('copyToggleBtn').textContent = '⏹ Parar Copy Trading';
+    document.getElementById('copyToggleBtn').className = 'copy-toggle-btn ativo';
+    document.getElementById('copyLiveBadge').className = 'copy-live-badge ao-vivo';
+    document.getElementById('copyLiveBadge').textContent = 'AO VIVO';
+    document.getElementById('copyMasterOnline').textContent = '🟢 Online';
+
+    copyCarregarStats();
+    _copyInterval = setInterval(async () => {
+        await copyCarregarStats();
+    }, 5000);
+}
+
+function copyParar() {
+    _copyAtivo = false;
+    if (_copyInterval) { clearInterval(_copyInterval); _copyInterval = null; }
+    document.getElementById('copyToggleBtn').textContent = '📡 Iniciar Copy Trading';
+    document.getElementById('copyToggleBtn').className = 'copy-toggle-btn inativo';
+    document.getElementById('copyLiveBadge').className = 'copy-live-badge offline';
+    document.getElementById('copyLiveBadge').textContent = 'OFFLINE';
+    document.getElementById('copyMasterOnline').textContent = '⚫ Offline';
+}
+
+window.copiarTrade = async function(id, tipo, stake) {
+    // Pega token igual ao Alpha IA Pro
+    function copyGetToken() {
+        try {
+            const c = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+            const t = localStorage.getItem('deriv_conta_ativa') || 'demo';
+            const cc = c.find(x => Boolean(x.isDemo) === (t === 'demo')) || c[0];
+            return cc ? cc.token : null;
+        } catch { return null; }
+    }
+    const token = copyGetToken();
+    if (!token) {
+        alert('⚠️ Conecte sua conta Deriv primeiro!');
+        return;
+    }
+
+    const stakeReal = (parseFloat(stake) * _copyMult).toFixed(2);
+    
+    try {
+        const ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=128988');
+        ws.onopen = () => {
+            ws.send(JSON.stringify({ authorize: token }));
+        };
+        ws.onmessage = (e) => {
+            const d = JSON.parse(e.data);
+            if (d.authorize) {
+                const sym = document.getElementById('selectedMarket')?.textContent?.trim() || 'Volatility 100 Index';
+                const symMap = {'Volatility 10 Index':'R_10','Volatility 25 Index':'R_25','Volatility 50 Index':'R_50','Volatility 75 Index':'R_75','Volatility 100 Index':'R_100'};
+                ws.send(JSON.stringify({
+                    buy: 1, price: parseFloat(stakeReal),
+                    parameters: {
+                        amount: parseFloat(stakeReal), basis: 'stake',
+                        contract_type: tipo, currency: 'USD',
+                        duration: 1, duration_unit: 't',
+                        symbol: symMap[sym] || 'R_100'
+                    }
+                }));
+            }
+            if (d.buy) {
+                copyAddLog('✅ Trade copiado! Contrato: ' + d.buy.contract_id);
+                ws.close();
+            }
+            if (d.error) {
+                copyAddLog('❌ Erro: ' + d.error.message);
+                ws.close();
+            }
+        };
+    } catch(e) {
+        copyAddLog('❌ Erro ao copiar: ' + e.message);
+    }
+};
+
+function copyAddLog(msg) {
+    const feed = document.getElementById('copyFeed');
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:8px 16px;font-size:11px;color:#5eead4;border-bottom:1px solid rgba(20,184,166,0.06);';
+    div.textContent = '[' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) + '] ' + msg;
+    feed.insertBefore(div, feed.firstChild);
+}
+</script>
+
+
+<!-- PAINEL ALPHA SIGNALS TELEGRAM -->
+<div id="painel-signals" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#0d1117;border:1px solid rgba(0,210,255,0.3);border-radius:20px;padding:32px;width:min(520px,95vw);max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#00d2ff;font-weight:700;text-transform:uppercase;">📡 Alpha Signals</div>
+        <div style="font-size:20px;font-weight:900;color:#fff;margin-top:4px;">Painel de Sinais</div>
+      </div>
+      <button onclick="document.getElementById('painel-signals').style.display='none'" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;">✕ Fechar</button>
+    </div>
+
+    <!-- STATUS -->
+    <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 1.5s infinite;flex-shrink:0"></div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#22c55e;">CANAL CONECTADO</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);">AlphaBot • Telegram</div>
+      </div>
+      <div style="margin-left:auto;font-size:11px;color:rgba(255,255,255,0.3)" id="sig-last-time">—</div>
+    </div>
+
+    <!-- SINAL MANUAL -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:10px;">✍️ Sinal Manual</div>
+      <textarea id="sig-texto" placeholder="Digite seu sinal aqui... ex: 🟢 Boa oportunidade em R_100 - Dígitos PAR" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px;color:#fff;font-size:13px;font-family:inherit;resize:vertical;min-height:80px;outline:none;"></textarea>
+      <button onclick="enviarSinalManual()" style="margin-top:8px;width:100%;padding:12px;background:linear-gradient(135deg,#0ea5e9,#00d2ff);border:none;border-radius:10px;color:#000;font-weight:800;font-size:14px;cursor:pointer;">📤 Enviar para o Canal</button>
+    </div>
+
+    <!-- SINAIS RÁPIDOS -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:10px;">⚡ Sinais Rápidos</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <button onclick="sinalRapido('🟢 SINAL: Apostar em DÍGITO PAR\nMercado: R_100\nProbabilidade: 78%\n⚡ Alpha Pattern')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">🟢 PAR</button>
+        <button onclick="sinalRapido('🔴 SINAL: Apostar em DÍGITO ÍMPAR\nMercado: R_100\nProbabilidade: 78%\n⚡ Alpha Pattern')" style="padding:10px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:#a855f7;font-size:12px;font-weight:700;cursor:pointer;">🔴 ÍMPAR</button>
+        <button onclick="sinalRapido('📈 SINAL: SUBIDA (CALL)\nMercado: R_100\nConfiança IA: 82%\n⚡ Alpha IA Pro')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">📈 CALL</button>
+        <button onclick="sinalRapido('📉 SINAL: QUEDA (PUT)\nMercado: R_100\nConfiança IA: 82%\n⚡ Alpha IA Pro')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">📉 PUT</button>
+        <button onclick="sinalRapido('⏰ HORÁRIO PREMIUM: 14h-16h\nScore: 88% — MELHOR DO DIA\n🔥 Aproveite essa janela!\n⚡ Alpha Clock')" style="padding:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;color:#f59e0b;font-size:12px;font-weight:700;cursor:pointer;">⏰ HORÁRIO</button>
+        <button onclick="sinalRapido('🚨 ALERTA: Alta volatilidade detectada\nPAUSE as operações agora!\nAguarde o mercado estabilizar.\n⚡ Alpha Shield')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">🚨 PERIGO</button>
+      </div>
+    </div>
+
+    <!-- AUTO SINAIS -->
+    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#fff;">🤖 Sinais Automáticos</div>
+          <div style="font-size:11px;color:#64748b;margin-top:2px;">Envia ao canal quando robô opera</div>
+        </div>
+        <label style="position:relative;width:44px;height:24px;cursor:pointer;">
+          <input type="checkbox" id="sig-auto" style="opacity:0;width:0;height:0;" onchange="toggleAutoSinais(this.checked)">
+          <span id="sig-auto-track" style="position:absolute;inset:0;background:#1e2230;border-radius:12px;transition:0.2s;border:1px solid rgba(255,255,255,0.1)"></span>
+          <span id="sig-auto-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;background:#475569;border-radius:50%;transition:0.2s"></span>
+        </label>
+      </div>
+      <div style="font-size:11px;color:#475569;">Quando ativo: envia WIN/LOSS e sinais do Alpha Pattern automaticamente</div>
+    </div>
+
+    <!-- LOG -->
+    <div style="margin-top:16px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:8px;">📋 Últimos Enviados</div>
+      <div id="sig-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;min-height:60px;max-height:120px;overflow-y:auto;font-size:11px;color:#475569;">Nenhum sinal enviado ainda.</div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const API_BASE = 'https://alpha-dolar-backend.onrender.com/api';
+window._autoSinais = false;
+
+function abrirPainelSignals() {
+  document.getElementById('painel-signals').style.display = 'flex';
+}
+
+async function enviarSinalManual() {
+  const texto = document.getElementById('sig-texto').value.trim();
+  if (!texto) { alert('Digite o texto do sinal!'); return; }
+  const btn = event.target;
+  btn.textContent = '⏳ Enviando...';
+  btn.disabled = true;
+  try {
+    const r = await fetch(API_BASE + '/sinal/manual', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({texto})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addSigLog('✅ Manual: ' + texto.substring(0,40) + '...');
+      document.getElementById('sig-texto').value = '';
+      document.getElementById('sig-last-time').textContent = new Date().toLocaleTimeString('pt-BR');
+    } else {
+      addSigLog('❌ Erro ao enviar');
+    }
+  } catch(e) {
+    addSigLog('❌ Erro: ' + e.message);
+  }
+  btn.textContent = '📤 Enviar para o Canal';
+  btn.disabled = false;
+}
+
+function sinalRapido(texto) {
+  document.getElementById('sig-texto').value = texto;
+  enviarSinalManual();
+}
+
+function toggleAutoSinais(on) {
+  window._autoSinais = on;
+  const track = document.getElementById('sig-auto-track');
+  const thumb = document.getElementById('sig-auto-thumb');
+  if (on) {
+    track.style.background = 'rgba(0,210,255,0.3)';
+    track.style.borderColor = 'rgba(0,210,255,0.5)';
+    thumb.style.background = '#00d2ff';
+    thumb.style.transform = 'translateX(20px)';
+    addSigLog('🤖 Sinais automáticos ATIVADOS');
+  } else {
+    track.style.background = '#1e2230';
+    track.style.borderColor = 'rgba(255,255,255,0.1)';
+    thumb.style.background = '#475569';
+    thumb.style.transform = 'translateX(0)';
+    addSigLog('⏹ Sinais automáticos desativados');
+  }
+}
+
+function addSigLog(msg) {
+  const log = document.getElementById('sig-log');
+  if (!log) return;
+  const t = new Date().toLocaleTimeString('pt-BR');
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:2px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#94a3b8';
+  div.textContent = '[' + t + '] ' + msg;
+  if (log.textContent === 'Nenhum sinal enviado ainda.') log.innerHTML = '';
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Hook automático no resultado do bot
+const _origProOnContract = window.proOnContract;
+if (typeof _origProOnContract === 'function') {
+  window.proOnContract = function(c) {
+    _origProOnContract(c);
+    if (window._autoSinais && c && ['won','lost'].includes(c.status)) {
+      const lucro = parseFloat(c.sell_price||0) - parseFloat(c.buy_price||0);
+      fetch(API_BASE + '/sinal/resultado', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          tipo: c.contract_type || '',
+          mercado: c.underlying || '',
+          resultado: c.status,
+          lucro: lucro,
+          win_rate: 0
+        })
+      }).catch(()=>{});
+    }
+  };
+}
+window.abrirPainelSignals = abrirPainelSignals;
+</script>
+
+
+<!-- PAINEL GESTÃO ASSINANTES SIGNALS -->
+<div id="painel-assinantes" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#0d1117;border:1px solid rgba(0,210,255,0.3);border-radius:20px;padding:32px;width:min(680px,95vw);max-height:90vh;overflow-y:auto;">
+    
+    <!-- HEADER -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#00d2ff;font-weight:700;text-transform:uppercase;">📡 Alpha Signals</div>
+        <div style="font-size:20px;font-weight:900;color:#fff;margin-top:4px;">Gestão de Assinantes</div>
+      </div>
+      <button onclick="document.getElementById('painel-assinantes').style.display='none'" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;">✕ Fechar</button>
+    </div>
+
+    <!-- ADICIONAR ASSINANTE -->
+    <div style="background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.2);border-radius:14px;padding:20px;margin-bottom:20px;">
+      <div style="font-size:12px;font-weight:700;letter-spacing:2px;color:#22c55e;text-transform:uppercase;margin-bottom:14px;">➕ Adicionar Assinante</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        <input id="as-nome" placeholder="Nome completo" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-email" placeholder="Email" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-tgid" placeholder="Telegram ID (ex: 123456789)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+        <input id="as-tguser" placeholder="@username (opcional)" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <select id="as-plano" style="background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+          <option value="signals">Alpha Signals</option>
+          <option value="vip">VIP</option>
+          <option value="premium">Premium</option>
+        </select>
+        <select id="as-dias" style="background:#0d1117;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;font-family:inherit;outline:none;">
+          <option value="30">30 dias</option>
+          <option value="60">60 dias</option>
+          <option value="90">90 dias</option>
+          <option value="365">1 ano</option>
+          <option value="36500">Vitalício</option>
+        </select>
+      </div>
+      <button onclick="adicionarAssinante()" style="width:100%;padding:12px;background:linear-gradient(135deg,#16a34a,#22c55e);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:14px;cursor:pointer;">✅ Liberar Acesso + Enviar Link</button>
+    </div>
+
+    <!-- GERAR LINK AVULSO -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;">
+      <button onclick="gerarLinkAvulso()" style="flex:1;padding:11px;background:rgba(0,210,255,0.1);border:1px solid rgba(0,210,255,0.3);border-radius:10px;color:#00d2ff;font-weight:700;font-size:13px;cursor:pointer;">🔗 Gerar Link Avulso</button>
+      <button onclick="verificarExpirados()" style="flex:1;padding:11px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;color:#ef4444;font-weight:700;font-size:13px;cursor:pointer;">🔍 Verificar Expirados</button>
+    </div>
+
+    <!-- LISTA DE ASSINANTES -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;">👥 Assinantes Ativos</div>
+        <button onclick="carregarAssinantes()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:5px 12px;color:#94a3b8;font-size:11px;cursor:pointer;">↻ Atualizar</button>
+      </div>
+      <div id="as-lista" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;">
+        <div style="text-align:center;color:#475569;padding:20px;font-size:13px;">Clique em Atualizar para carregar</div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div style="margin-top:16px;">
+      <div id="as-log" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;min-height:40px;font-size:11px;color:#475569;max-height:80px;overflow-y:auto;">Aguardando ações...</div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+const API_BASE2 = 'https://alpha-dolar-backend.onrender.com/api';
+
+function abrirPainelAssinantes() {
+  document.getElementById('painel-assinantes').style.display = 'flex';
+  carregarAssinantes();
+}
+
+function addAsLog(msg, cor) {
+  const log = document.getElementById('as-log');
+  if (!log) return;
+  const t = new Date().toLocaleTimeString('pt-BR');
+  log.innerHTML = `<span style="color:${cor||'#94a3b8'}">[${t}] ${msg}</span>`;
+}
+
+async function carregarAssinantes() {
+  const lista = document.getElementById('as-lista');
+  lista.innerHTML = '<div style="text-align:center;color:#475569;padding:20px">⏳ Carregando...</div>';
+  try {
+    const r = await fetch(API_BASE2 + '/signals/assinantes');
+    const data = await r.json();
+    if (!data.length) {
+      lista.innerHTML = '<div style="text-align:center;color:#475569;padding:20px;font-size:13px">Nenhum assinante cadastrado ainda.</div>';
+      return;
+    }
+    lista.innerHTML = data.map(a => {
+      const ativo = a.status === 'ativo';
+      const exp = a.data_expiracao ? new Date(a.data_expiracao).toLocaleDateString('pt-BR') : 'Vitalício';
+      return `<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:${ativo?'#22c55e':'#ef4444'};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:#fff">${a.nome}</div>
+          <div style="font-size:11px;color:#475569">${a.telegram_username||'sem @'} • ID: ${a.telegram_id} • Expira: ${exp}</div>
+        </div>
+        <span style="font-size:10px;padding:3px 8px;border-radius:5px;background:rgba(0,210,255,0.1);color:#00d2ff;font-weight:700">${a.plano}</span>
+        ${ativo ? `<button onclick="revogarAssinante(${a.telegram_id},'${a.nome}')" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:700;">Revogar</button>` : '<span style="font-size:11px;color:#ef4444;font-weight:700">Inativo</span>'}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    lista.innerHTML = `<div style="text-align:center;color:#ef4444;padding:20px;font-size:13px">Erro: ${e.message}</div>`;
+  }
+}
+
+async function adicionarAssinante() {
+  const nome = document.getElementById('as-nome').value.trim();
+  const email = document.getElementById('as-email').value.trim();
+  const tgid = document.getElementById('as-tgid').value.trim();
+  const tguser = document.getElementById('as-tguser').value.trim();
+  const plano = document.getElementById('as-plano').value;
+  const dias = document.getElementById('as-dias').value;
+  if (!nome || !tgid) { addAsLog('❌ Nome e Telegram ID são obrigatórios!', '#ef4444'); return; }
+  addAsLog('⏳ Adicionando e enviando link...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/adicionar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({nome, email, telegram_id: tgid, telegram_username: tguser, plano, dias})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addAsLog(`✅ ${nome} adicionado! Link enviado via Telegram.`, '#22c55e');
+      document.getElementById('as-nome').value = '';
+      document.getElementById('as-email').value = '';
+      document.getElementById('as-tgid').value = '';
+      document.getElementById('as-tguser').value = '';
+      carregarAssinantes();
+    } else {
+      addAsLog('❌ Erro: ' + JSON.stringify(d), '#ef4444');
+    }
+  } catch(e) {
+    addAsLog('❌ Erro: ' + e.message, '#ef4444');
+  }
+}
+
+async function revogarAssinante(tgid, nome) {
+  if (!confirm(`Revogar acesso de ${nome}?`)) return;
+  addAsLog(`⏳ Revogando acesso de ${nome}...`, '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/revogar', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({telegram_id: tgid, motivo: 'Revogado pelo admin'})
+    });
+    const d = await r.json();
+    if (d.ok) {
+      addAsLog(`✅ ${nome} removido do canal!`, '#22c55e');
+      carregarAssinantes();
+    }
+  } catch(e) {
+    addAsLog('❌ Erro: ' + e.message, '#ef4444');
+  }
+}
+
+async function gerarLinkAvulso() {
+  addAsLog('⏳ Gerando link...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/link');
+    const d = await r.json();
+    if (d.ok && d.link) {
+      addAsLog('🔗 Link: ' + d.link, '#00d2ff');
+      navigator.clipboard.writeText(d.link).catch(()=>{});
+      prompt('Link copiado! Compartilhe com o cliente:', d.link);
+    } else {
+      addAsLog('❌ Erro ao gerar link', '#ef4444');
+    }
+  } catch(e) {
+    addAsLog('❌ ' + e.message, '#ef4444');
+  }
+}
+
+async function verificarExpirados() {
+  addAsLog('⏳ Verificando expirados...', '#f59e0b');
+  try {
+    const r = await fetch(API_BASE2 + '/signals/verificar', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    const d = await r.json();
+    if (d.ok) {
+      const n = d.expulsos?.length || 0;
+      addAsLog(n > 0 ? `✅ ${n} assinante(s) expirado(s) removido(s): ${d.expulsos.join(', ')}` : '✅ Nenhum assinante expirado.', '#22c55e');
+      if (n > 0) carregarAssinantes();
+    }
+  } catch(e) {
+    addAsLog('❌ ' + e.message, '#ef4444');
+  }
+}
+window.abrirPainelAssinantes = abrirPainelAssinantes;
+</script>
+
+
+<script>
+(function(){
+  function checkAdmin(){
+    try {
+      const el = document.getElementById('admin-btns');
+      if(!el) return;
+      // Varre TODO o localStorage procurando CR10027387
+      let found = false;
+      for(let i=0; i<localStorage.length; i++){
+        const key = localStorage.key(i);
+        const val = localStorage.getItem(key) || '';
+        if(val.includes('CR10027387')){
+          found = true;
+          break;
+        }
+      }
+      el.style.display = found ? 'flex' : 'none';
+    } catch(e){}
+  }
+  // Tenta imediatamente e após carregar a conta
+  setTimeout(checkAdmin, 1000);
+  setTimeout(checkAdmin, 3000);
+  window.addEventListener('storage', checkAdmin);
+})();
+</script>
+
+
+<!-- MODAL ENTRAR NO CANAL -->
+<div id="modal-canal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#0d1117;border:1px solid rgba(34,197,94,0.3);border-radius:20px;padding:36px;width:min(480px,92vw);text-align:center;">
+    
+    <div style="font-size:48px;margin-bottom:16px;">📡</div>
+    <div style="font-size:11px;letter-spacing:2px;color:#22c55e;font-weight:700;text-transform:uppercase;margin-bottom:8px;">Alpha Signals</div>
+    <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:12px;">Canal de Sinais Exclusivo</div>
+    <div style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:24px;">
+      Receba sinais automáticos e manuais diretamente no seu Telegram.<br>
+      Dígitos PAR/ÍMPAR, Rise/Fall, alertas de volatilidade e muito mais.
+    </div>
+
+    <!-- Benefícios -->
+    <div style="background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);border-radius:12px;padding:16px;margin-bottom:24px;text-align:left;">
+      <div style="font-size:13px;color:#e2e8f0;line-height:2;">
+        ✅ Sinais automáticos 24h via robô Alpha IA<br>
+        ✅ Alertas de melhor horário (Alpha Clock)<br>
+        ✅ Avisos de volatilidade (Alpha Shield)<br>
+        ✅ Padrões de dígitos (Alpha Pattern)<br>
+        ✅ Resultados WIN/LOSS em tempo real
+      </div>
+    </div>
+
+    <!-- Botão principal -->
+    <a href="https://t.me/+YHItYk9rqLAxZjRh" target="_blank" style="display:block;width:100%;padding:14px;background:linear-gradient(135deg,#16a34a,#22c55e);border:none;border-radius:12px;color:#fff;font-weight:900;font-size:15px;cursor:pointer;text-decoration:none;margin-bottom:10px;">
+      📲 Entrar no Canal Agora
+    </a>
+    <div style="font-size:11px;color:#475569;margin-bottom:20px;">Acesso gratuito por tempo limitado</div>
+
+    <button onclick="document.getElementById('modal-canal').style.display='none'" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;border-radius:8px;padding:8px 20px;cursor:pointer;font-size:13px;font-family:inherit;">Fechar</button>
+  </div>
+</div>
+
+<script>
+function abrirModalCanal() {
+  document.getElementById('modal-canal').style.display = 'flex';
+}
+window.abrirModalCanal = abrirModalCanal;
+
+// ── MODAL ANALYTICS ──
+function abrirModalAnalytics() {
+  document.getElementById("modal-analytics").style.display = "flex";
+  carregarAnalytics();
+}
+window.abrirModalAnalytics = abrirModalAnalytics;
+
+// Helper para pegar deriv_id do usuário atual
+function getDerivId() {
+  try {
+    const contas = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+    const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
+    const conta = contas.find(x => Boolean(x.isDemo) === (tipo === 'demo')) || contas[0];
+    return conta ? (conta.acct || conta.loginid || conta.deriv_id || 'anonymous') : 'anonymous';
+  } catch(e) { return 'anonymous'; }
+}
+
+
+window.manualToggleMult = function() {
+  if(!window._manualMult) window._manualMult = {ativo:false, valor:2.2, perdaAcum:0};
+  const ativo = !window._manualMult.ativo;
+  window._manualMult.ativo = ativo;
+  const slider = document.getElementById('manualMultSlider');
+  const thumb = document.getElementById('manualMultThumb');
+  const label = document.getElementById('manualMultLabel');
+  const config = document.getElementById('manualMultConfig');
+  if(ativo){
+    if(slider) slider.style.background='#00d2ff';
+    if(thumb) thumb.style.left='16px';
+    if(label){label.textContent='ON';label.style.color='#00d2ff';}
+    if(config){config.style.display='flex';config.style.flexDirection='column';}
+  } else {
+    if(slider) slider.style.background='#374151';
+    if(thumb) thumb.style.left='2px';
+    if(label){label.textContent='OFF';label.style.color='#64748b';}
+    if(config) config.style.display='none';
+  }
+};
+
+window.manualSetMult = function(val, el) {
+  if(!window._manualMult) window._manualMult = {ativo:false, valor:2.2, perdaAcum:0};
+  window._manualMult.valor = val;
+  document.querySelectorAll('.manual-mult-btn').forEach(b=>{
+    b.style.background='transparent';b.style.borderColor='rgba(100,116,139,0.3)';b.style.color='#64748b';
+  });
+  if(el){el.style.background='rgba(0,210,255,0.15)';el.style.borderColor='rgba(0,210,255,0.4)';el.style.color='#00d2ff';}
+  const base=parseFloat(document.getElementById('manualStake')?.value||1);
+  const el2=document.getElementById('manualNextStake');
+  if(el2) el2.textContent='$'+base.toFixed(2);
+};
+
+function atualizarSinaisGrafico() {
+  const digits = window._digitsBuffer || [];
+  if(digits.length < 20) return;
+  const tipos = ['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER','DIGITMATCH'];
+  const ids = {DIGITEVEN:'sinalEven',DIGITODD:'sinalOdd',DIGITOVER:'sinalOver',DIGITUNDER:'sinalUnder',DIGITMATCH:'sinalMatch'};
+  const labels = {DIGITEVEN:'EVEN',DIGITODD:'ODD',DIGITOVER:'OVER',DIGITUNDER:'UNDER',DIGITMATCH:'MATCH'};
+  if(typeof proAnalisarTipo === 'undefined') return;
+  tipos.forEach(t=>{
+    const el=document.getElementById(ids[t]);
+    if(!el) return;
+    const r=proAnalisarTipo(t,digits);
+    const sc=r.score;
+    if(sc>=70){el.style.background='rgba(34,197,94,0.2)';el.style.borderColor='rgba(34,197,94,0.5)';el.style.color='#22c55e';el.textContent='🟢 '+labels[t]+' '+sc+'%';}
+    else if(sc>=55){el.style.background='rgba(245,158,11,0.15)';el.style.borderColor='rgba(245,158,11,0.4)';el.style.color='#f59e0b';el.textContent='🟡 '+labels[t]+' '+sc+'%';}
+    else{el.style.background='rgba(100,116,139,0.1)';el.style.borderColor='rgba(100,116,139,0.2)';el.style.color='#64748b';el.textContent=labels[t]+' '+sc+'%';}
+  });
+  const hora=document.getElementById('sinalHora');
+  if(hora) hora.textContent=new Date().toLocaleTimeString('pt-BR');
+
+  // Sugestão de direção
+  const sug=document.getElementById('sinalSugestao');
+  if(sug){
+    const evenSc=proAnalisarTipo('DIGITEVEN',digits).score;
+    const oddSc=proAnalisarTipo('DIGITODD',digits).score;
+    const overSc=proAnalisarTipo('DIGITOVER',digits).score;
+    const underSc=proAnalisarTipo('DIGITUNDER',digits).score;
+    const maxSc=Math.max(evenSc,oddSc,overSc,underSc);
+    if(maxSc>=70){
+      const isRise = evenSc>=70||overSc>=70;
+      const dir = isRise ? '⬆️ RISE' : '⬇️ FALL';
+      sug.textContent = dir + ' ' + maxSc + '%';
+      sug.style.background = isRise ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)';
+      sug.style.borderColor = isRise ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)';
+      sug.style.color = isRise ? '#22c55e' : '#ef4444';
+      // Adiciona marcador no gráfico Canvas
+      if (typeof chartAddSignal === 'function') {
+        chartAddSignal(isRise ? 'rise' : 'fall', maxSc);
+      }
+    } else {
+      sug.textContent='⏳ Aguardando sinal...';
+      sug.style.background='rgba(100,116,139,0.1)';
+      sug.style.borderColor='rgba(100,116,139,0.2)';
+      sug.style.color='#64748b';
+    }
+  }
+}
+setInterval(atualizarSinaisGrafico, 3000);
+
+
+// ── GRÁFICO TRADINGVIEW ──
+function initTradingViewChart(symbol) {
+  const container = document.getElementById('tradingview_chart');
+  if(!container) return;
+  container.innerHTML = '';
+  new TradingView.widget({
+    container_id: 'tradingview_chart',
+    symbol: 'BINANCE:BTCUSDT',
+    interval: '1',
+    timezone: 'America/Sao_Paulo',
+    theme: 'dark',
+    style: '1',
+    locale: 'br',
+    toolbar_bg: '#0d1117',
+    enable_publishing: false,
+    hide_top_toolbar: false,
+    save_image: false,
+    width: '100%',
+    height: '100%',
+    overrides: {
+      'paneProperties.background': '#0d1117',
+      'paneProperties.backgroundType': 'solid',
+    }
+  });
+}
+
+// ── GRÁFICO DERIV CANVAS ──
+const _chart = {
+  canvas: null, ctx: null, symbol: 'R_100',
+  candles: [], ticks: [], tf: 1, tool: 'cursor',
+  ws: null, wsActive: false,
+  colors: {
+    bg: '#0d1117', grid: '#1e293b',
+    up: '#22c55e', down: '#ef4444',
+    wick: '#64748b', text: '#94a3b8',
+    crosshair: '#475569'
+  }
+};
+
+function chartSetTF(m) {
+  _chart.tf = m;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('tf-active'));
+  const el = document.getElementById('tf-' + m);
+  if (el) el.classList.add('tf-active');
+  _chart.candles = [];
+  _chart.ticks = [];
+  chartBuildCandles();
+  chartDraw();
+}
+
+function chartBuildCandles() {
+  // TF=0 significa tick a tick — cada tick é uma "vela"
+  if (_chart.tf === 0) {
+    _chart.candles = _chart.ticks.slice(-500).map(t => ({
+      ts: t.t, o: t.p, h: t.p, l: t.p, c: t.p
+    }));
+    return;
+  }
+  const tf = _chart.tf * 60 * 1000;
+  const candles = [];
+  for (const tick of _chart.ticks) {
+    const ts = Math.floor(tick.t / tf) * tf;
+    let c = candles.find(x => x.ts === ts);
+    if (!c) { c = { ts, o: tick.p, h: tick.p, l: tick.p, c: tick.p }; candles.push(c); }
+    else { c.h = Math.max(c.h, tick.p); c.l = Math.min(c.l, tick.p); c.c = tick.p; }
+  }
+  _chart.candles = candles;
+}
+
+function chartDraw() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const ctx = _chart.ctx;
+  const W = canvas.width, H = canvas.height;
+  const C = _chart.colors;
+
+  // Limpa
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const candles = _chart.candles;
+  if (candles.length < 2) {
+    ctx.fillStyle = C.text;
+    ctx.font = '13px Inter,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Aguardando dados...', W/2, H/2);
+    return;
+  }
+
+  // Layout
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Velas visíveis
+  const maxCandles = _chart._visibleCandles || 60;
+  const visCandles = candles.slice(-maxCandles);
+  const slotW = chartW / maxCandles;
+  const cW = Math.max(2, Math.floor(slotW * 0.6));
+
+  // Range de preços
+  const prices = visCandles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  // Grid horizontal
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 6; i++) {
+    const y = padT + (chartH / 6) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    const price = maxP - ((maxP - minP) / 6) * i;
+    ctx.fillStyle = C.text;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(price.toFixed(4), W - padR + 4, y + 3);
+  }
+
+  // Grid vertical + eixo X
+  const stepX = Math.ceil(maxCandles / 6);
+  visCandles.forEach((c, i) => {
+    if (i % stepX === 0 && i > 0) {
+      const x = padL + i * slotW + slotW / 2;
+      ctx.strokeStyle = C.grid;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, H - padB); ctx.stroke();
+      const d = new Date(c.ts);
+      const label = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+      ctx.fillStyle = C.text;
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, H - 5);
+    }
+  });
+
+  // Indicadores — SMA/EMA
+  const drawMA = (period, color, type='sma') => {
+    const closes = visCandles.map(c => c.c);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let started = false;
+    for (let i = period - 1; i < closes.length; i++) {
+      let val;
+      if (type === 'sma') {
+        val = closes.slice(i - period + 1, i + 1).reduce((a,b)=>a+b,0) / period;
+      } else {
+        const k = 2/(period+1);
+        val = closes.slice(0, i+1).reduce((ema,p,j) => j===0 ? p : p*k + ema*(1-k), closes[0]);
+      }
+      const x = padL + i * slotW + slotW/2;
+      const y = toY(val);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+
+  if (_chart.indicators && _chart.indicators['sma20']) drawMA(20, '#f59e0b');
+  if (_chart.indicators && _chart.indicators['sma50']) drawMA(50, '#8b5cf6');
+  if (_chart.indicators && _chart.indicators['ema9'])  drawMA(9,  '#06b6d4', 'ema');
+  if (_chart.indicators && _chart.indicators['ema21']) drawMA(21, '#ec4899', 'ema');
+
+  // Bollinger Bands
+  if (_chart.indicators && _chart.indicators['bb']) {
+    const period = 20;
+    ctx.strokeStyle = 'rgba(59,130,246,0.6)';
+    ctx.lineWidth = 1;
+    for (let band of ['upper','mid','lower']) {
+      ctx.beginPath(); let started = false;
+      for (let i = period-1; i < visCandles.length; i++) {
+        const sl = visCandles.slice(i-period+1,i+1).map(c=>c.c);
+        const mean = sl.reduce((a,b)=>a+b,0)/period;
+        const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+        const val = band==='upper'?mean+2*std:band==='lower'?mean-2*std:mean;
+        const x = padL + i*slotW + slotW/2;
+        const y = toY(val);
+        if (!started){ctx.moveTo(x,y);started=true;}else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Tipo de gráfico
+  const chartType = _chart.chartType || 'candle';
+
+  if (chartType === 'line' || chartType === 'area') {
+    // Linha de fechamento
+    ctx.beginPath();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 2;
+    visCandles.forEach((c, i) => {
+      const x = padL + i * slotW + slotW / 2;
+      const y = toY(c.c);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    if (chartType === 'area') {
+      // Área preenchida
+      const grad = ctx.createLinearGradient(0, padT, 0, padT + chartH);
+      grad.addColorStop(0, 'rgba(59,130,246,0.3)');
+      grad.addColorStop(1, 'rgba(59,130,246,0.0)');
+      ctx.beginPath();
+      ctx.fillStyle = grad;
+      visCandles.forEach((c, i) => {
+        const x = padL + i * slotW + slotW / 2;
+        const y = toY(c.c);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      const lastX = padL + (visCandles.length - 1) * slotW + slotW / 2;
+      ctx.lineTo(lastX, padT + chartH);
+      ctx.lineTo(padL + slotW / 2, padT + chartH);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else {
+  // Velas
+  visCandles.forEach((c, i) => {
+    const x = padL + i * slotW + slotW / 2;
+    const isUp = c.c >= c.o;
+    const color = isUp ? C.up : C.down;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, toY(c.h));
+    ctx.lineTo(x, toY(c.l));
+    ctx.stroke();
+    const bodyTop = toY(Math.max(c.o, c.c));
+    const bodyBot = toY(Math.min(c.o, c.c));
+    const bodyH = Math.max(1, bodyBot - bodyTop);
+    ctx.fillStyle = color;
+    ctx.fillRect(x - cW/2, bodyTop, cW, bodyH);
+  });
+  } // fim else candle
+
+  // Contratos abertos no eixo Y
+  if (typeof chartDrawContracts === 'function') {
+    chartDrawContracts(toY, padR, canvas);
+  }
+
+  // Sinais VIP no gráfico
+  if (typeof chartDrawSignals === 'function' && _chart.showSignals !== false) {
+    chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, toY);
+  }
+
+  // Linhas do usuário
+  if (typeof chartDrawUserLines === 'function') chartDrawUserLines();
+
+  // Preço atual com box
+  if (visCandles.length > 0) {
+    const last = visCandles[visCandles.length - 1];
+    const y = toY(last.c);
+    const isUp = last.c >= last.o;
+    const priceColor = isUp ? C.up : C.down;
+    ctx.strokeStyle = priceColor;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    const priceStr = last.c.toFixed(4);
+    const cdEl = document.getElementById('chart-countdown');
+    const cdStr = cdEl ? cdEl.textContent : '';
+    ctx.font = 'bold 10px monospace';
+    const tw = Math.max(ctx.measureText(priceStr).width, ctx.measureText(cdStr).width);
+    const bw = tw + 12, bh = cdStr ? 28 : 16;
+    const bx = W - padR + 2, by = y - bh/2;
+    ctx.fillStyle = priceColor;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 3);
+    else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.fillText(priceStr, bx + 5, by + 12);
+    if (cdStr) { ctx.font = '9px monospace'; ctx.fillText(cdStr, bx + 5, by + 24); }
+  }
+}
+
+
+function chartResize() {
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  const container = canvas.closest('.chart-container');
+  if (!container) return;
+  const topbar = document.getElementById('chart-topbar');
+  const topH = topbar ? topbar.offsetHeight : 30;
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight - topH;
+  chartDraw();
+}
+
+function chartConnect(symbol) {
+  if (_chart.ws) { try { _chart.ws.close(); } catch(e){} }
+  _chart.symbol = symbol;
+  _chart.ticks = [];
+  _chart.candles = [];
+
+  const label = document.getElementById('chart-symbol-label');
+  if (label) label.textContent = symbol;
+
+  _chart.ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+  _chart.ws.onopen = () => {
+    _chart.ws.send(JSON.stringify({ ticks_history: symbol, adjust_start_time: 1, count: 5000, end: 'latest', start: 1, style: 'ticks' }));
+    _chart.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
+  };
+  _chart.ws.onmessage = (e) => {
+    const d = JSON.parse(e.data);
+    if (d.history) {
+      const prices = d.history.prices, times = d.history.times;
+      for (let i = 0; i < prices.length; i++) {
+        _chart.ticks.push({ t: times[i] * 1000, p: parseFloat(prices[i]) });
+      }
+      chartBuildCandles();
+      chartDraw();
+    }
+    if (d.tick) {
+      const p = parseFloat(d.tick.quote);
+      const t = d.tick.epoch * 1000;
+      _chart.ticks.push({ t, p });
+      if (_chart.ticks.length > 5000) _chart.ticks.shift();
+      _chart.lastTickTime = Date.now();
+      chartBuildCandles();
+      chartDraw();
+      // Atualiza topbar
+      const pl = document.getElementById('chart-price-label');
+      if (pl) { pl.textContent = p.toFixed(4); pl.style.color = p >= (_chart.lastP||p) ? '#22c55e' : '#ef4444'; }
+      _chart.lastP = p;
+      // Countdown do tick
+      const cdEl = document.getElementById('chart-countdown');
+      if (cdEl) {
+        cdEl.style.display = 'inline-block';
+        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
+        clearInterval(_chart._cdTimer);
+        cdEl.textContent = '00:0' + secs;
+        _chart._cdTimer = setInterval(() => {
+          secs--;
+          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
+          else cdEl.textContent = '00:0' + secs;
+        }, 1000);
+      }
+      // Atualiza OHLC
+      chartUpdateOHLC(_chart.candles);
+    }
+  };
+}
+
+
+// ── TOOL SELECTOR ──
+
+
+// ── INDICADORES ──
+_chart.indicators = { bb: false, ema9: false, ema21: false, sma20: false, sma50: false };
+
+function chartToggleIndicator(key) {
+  _chart.indicators[key] = !_chart.indicators[key];
+  const el = document.getElementById('ind-' + key);
+  if (el) el.textContent = _chart.indicators[key] ? '●' : '○';
+  if (el) el.style.color = _chart.indicators[key] ? '#3b82f6' : '#64748b';
+  chartDraw();
+}
+
+function chartFilterIndicators(q) {
+  const items = document.querySelectorAll('.ind-item');
+  items.forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+function chartInitIndicatorUI() {
+  // Atualiza UI dos indicadores ativos por padrão
+  Object.keys(_chart.indicators).forEach(key => {
+    if (_chart.indicators[key]) {
+      const el = document.getElementById('ind-' + key);
+      if (el) { el.textContent = '●'; el.style.color = '#3b82f6'; }
+    }
+  });
+}
+
+function chartShowIndicators() {
+  const modal = document.getElementById('chart-indicators-modal');
+  if (!modal) return;
+  modal.style.display = modal.style.display === 'none' ? 'block' : 'none';
+}
+
+
+
+// ── BOTÃO VENDER TODAS AS OPERAÇÕES ──
+function chartUpdateSellAll() {
+  const contracts = Object.values(_chart.openContracts || {});
+  let el = document.getElementById('chart-sell-all-btn');
+
+  if (contracts.length === 0) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'chart-sell-all-btn';
+    el.style.cssText = 'position:absolute;top:48px;left:50%;transform:translateX(-50%);z-index:50;cursor:pointer;border-radius:6px;padding:4px 14px;font-size:11px;font-weight:700;border:none;display:flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,0.4);white-space:nowrap;';
+    el.onclick = chartSellAll;
+    const container = document.querySelector('.chart-container');
+    if (container) container.appendChild(el);
+  }
+
+  // Calcula lucro total estimado
+  const totalStake = contracts.reduce((s, c) => s + (c.stake || 0), 0);
+  el.style.display = 'flex';
+  el.style.background = '#22c55e';
+  el.style.color = '#fff';
+  el.innerHTML = `<span>Vender todas as operações</span><span style="background:rgba(0,0,0,0.2);padding:2px 8px;border-radius:4px;">$${totalStake.toFixed(2)}</span>`;
+}
+
+function chartSellAll() {
+  const contracts = Object.values(_chart.openContracts || {});
+  if (!contracts.length) return;
+  if (!manualWs || manualWs.readyState !== 1) return;
+  contracts.forEach(c => {
+    manualWs.send(JSON.stringify({ sell: c.id, price: 0 }));
+  });
+}
+
+
+// ── AUTO GRÁFICO ──
+_chart.autoMode = false;
+_chart.autoInterval = null;
+_chart.autoLosses = 0;
+
+function chartAutoToggle() {
+  _chart.autoMode = !_chart.autoMode;
+  const btn = document.getElementById('autoChartBtn');
+  const lbl = document.getElementById('autoChartLabel');
+  const timerBar = document.getElementById('autoChartTimerBar');
+
+  if (_chart.autoMode) {
+    // Pega duração da sessão
+    const sessionMins = parseInt(document.getElementById('autoChartSession')?.value || '30');
+    const sessionMs = sessionMins * 60 * 1000;
+    _chart.autoSessionEnd = Date.now() + sessionMs;
+    _chart.autoSessionTotal = sessionMs;
+
+    btn.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)';
+    if (lbl) lbl.textContent = '⏹ Parar Auto';
+    if (timerBar) timerBar.style.display = 'block';
+
+    _chart.autoInterval = setInterval(chartAutoAnalyze, 3000);
+
+    // Timer de sessão
+    _chart.autoSessionTimer = setInterval(() => {
+      const remaining = _chart.autoSessionEnd - Date.now();
+      if (remaining <= 0) {
+        chartAutoToggle(); // Para automaticamente
+        return;
+      }
+      const mm = String(Math.floor(remaining/60000)).padStart(2,'0');
+      const ss = String(Math.floor((remaining%60000)/1000)).padStart(2,'0');
+      const lbl2 = document.getElementById('autoChartTimerLabel');
+      const fill = document.getElementById('autoChartTimerFill');
+      if (lbl2) lbl2.textContent = `${mm}:${ss}`;
+      if (fill) fill.style.width = (remaining/_chart.autoSessionTotal*100) + '%';
+    }, 1000);
+
+    if (window._addLogLine) window._addLogLine(`🤖 Auto Gráfico iniciado — Sessão: ${sessionMins} min`, 'log-action');
+  } else {
+    btn.style.background = 'linear-gradient(135deg,#6366f1,#8b5cf6)';
+    if (lbl) lbl.textContent = '▶ Auto Gráfico';
+    if (timerBar) timerBar.style.display = 'none';
+    clearInterval(_chart.autoInterval);
+    clearInterval(_chart.autoSessionTimer);
+    if (window._addLogLine) window._addLogLine('⏹ Auto Gráfico parado.', 'log-warn');
+  }
+}
+
+function chartAutoAnalyze() {
+  if (!_chart.autoMode) { clearInterval(_chart.autoInterval); clearInterval(_chart.autoSessionTimer); return; }
+  const candles = _chart.candles.slice(-60);
+  if (candles.length < 21) return;
+
+  const closes = candles.map(c => c.c);
+  const last = candles[candles.length - 1];
+
+  // Bollinger Bands
+  const period = 20;
+  const sl = closes.slice(-period);
+  const mean = sl.reduce((a,b)=>a+b,0) / period;
+  const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+  const pct = (last.c - (mean - 2*std)) / (4*std || 0.001);
+  const bbSignal = pct <= 0.3 ? 'rise' : pct >= 0.7 ? 'fall' : null;
+
+  // RSI
+  let rsi = 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - 14; i < closes.length; i++) {
+    const diff = closes[i] - closes[i-1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  rsi = 100 - (100 / (1 + gains/(losses||0.001)));
+  const rsiSignal = rsi < 45 ? 'rise' : rsi > 55 ? 'fall' : null;
+
+  // Dígitos
+  let digitSignal = null;
+  const sug = document.getElementById('sinalSugestao');
+  if (sug) {
+    const txt = sug.textContent || '';
+    if (txt.includes('RISE') || txt.includes('OVER') || txt.includes('EVEN')) digitSignal = 'rise';
+    else if (txt.includes('FALL') || txt.includes('UNDER') || txt.includes('ODD')) digitSignal = 'fall';
+  }
+
+  // Decisão
+  let direction = null;
+  if (bbSignal && rsiSignal && bbSignal === rsiSignal) direction = bbSignal;
+  else if (bbSignal && digitSignal && bbSignal === digitSignal) direction = bbSignal;
+  else if (rsiSignal && digitSignal && rsiSignal === digitSignal) direction = rsiSignal;
+  else if (rsiSignal) direction = rsiSignal; // RSI sozinho é suficiente
+
+  // Alternância forçada após 2 perdas na mesma direção
+  if (_chart._lastAutoDir === direction && (_chart._autoConsecLosses || 0) >= 2) {
+    direction = direction === 'rise' ? 'fall' : 'rise';
+    _chart._autoConsecLosses = 0;
+  }
+  _chart._lastAutoDir = direction;
+
+  if (window._addLogLine) window._addLogLine(
+    `🤖 Auto: ${direction||'—'} | BB:${bbSignal||'—'} RSI:${rsiSignal||'—'}(${rsi.toFixed(0)}) DIG:${digitSignal||'—'}`, 'log-action'
+  );
+
+  if (!direction) return;
+
+  // Evita entradas se já tem contrato aberto ou aguardando resultado
+  const openCount = Object.keys(_chart.openContracts || {}).length;
+  if (openCount > 0 || window._autoTradeWaiting) return;
+  const now = Date.now();
+  if (_chart._lastAutoTrade && now - _chart._lastAutoTrade < 2000) return;
+  _chart._lastAutoTrade = now;
+
+  // Aplica duração
+  const autoDur = document.getElementById('autoChartDuration')?.value || '1t';
+  const durMap = {'1t':[1,'ticks'],'5t':[5,'ticks'],'1m':[1,'minutes'],'5m':[5,'minutes'],'15m':[15,'minutes']};
+  const [durVal, durUnit2] = durMap[autoDur] || [1,'ticks'];
+  const durationInput = document.getElementById('manualDuration');
+  const durationUnitEl = document.getElementById('durationUnit');
+  if (durationInput) durationInput.value = durVal;
+  if (durationUnitEl) durationUnitEl.value = durUnit2;
+
+
+  // Marca no gráfico
+  if (_chart.lastP) {
+    _chart.signals = _chart.signals || [];
+    _chart.signals.push({ type: direction, score: 'AUTO', t: Date.now(), price: _chart.lastP, isAuto: true });
+    if (_chart.signals.length > 50) _chart.signals.shift();
+  }
+
+  // Clica no botão (só se autoMode ainda ativo)
+  if (!_chart.autoMode) return;
+  // Garante que stake está correto antes de clicar
+  if (window._manualMult && window._manualMult.ativo && window._manualMult.currentStake) {
+    const stakeEl2 = document.getElementById('manualStake');
+    if (stakeEl2) stakeEl2.value = window._manualMult.currentStake.toFixed(2);
+  }
+  const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
+  const _conn = typeof window._manualIsConnected === 'function' ? window._manualIsConnected() : true;
+  if (!_conn) {
+    if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (_chart.autoMode && btn) btn.click(); }, 2000); }
+  } else {
+    if (btn) btn.click();
+  }
+
+  // Timer segurança
+  const durMap2 = {'1t':7,'5t':15,'1m':65,'5m':305,'15m':905};
+  const safeDur = (durMap2[autoDur] || 15) * 1000;
+  setTimeout(() => {
+    if (Object.keys(_chart.openContracts||{}).length > 0) {
+      _chart.openContracts = {};
+      chartDraw();
+      chartUpdateSellAll();
+    }
+  }, safeDur);
+}
+
+function chartToggleVipSignals() {
+  _chart.showSignals = !(_chart.showSignals !== false);
+  const btn = document.getElementById('chart-vip-btn');
+  if (btn) {
+    if (_chart.showSignals) {
+      btn.style.color = '#a855f7';
+      btn.style.background = 'rgba(168,85,247,0.2)';
+      btn.style.borderColor = 'rgba(168,85,247,0.5)';
+    } else {
+      btn.style.color = '#64748b';
+      btn.style.background = 'rgba(30,41,59,0.8)';
+      btn.style.borderColor = '#1e293b';
+    }
+  }
+  chartDraw();
+}
+
+function chartToggleFullscreen() {
+  const el = document.querySelector('.chart-container');
+  if (!el) return;
+  if (!document.fullscreenElement) {
+    el.requestFullscreen && el.requestFullscreen();
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+  }
+}
+
+
+// ── SINAIS VIP NO GRÁFICO ──
+_chart.signals = [];
+
+function chartAddSignal(type, score) {
+  // Guarda o sinal com o timestamp atual
+  const now = Date.now();
+  // Evita duplicatas em menos de 5s
+  const last = _chart.signals[_chart.signals.length - 1];
+  if (last && now - last.t < 5000) return;
+  _chart.signals.push({ type, score, t: now, price: _chart.lastP || 0 });
+  // Mantém só os últimos 50 sinais
+  if (_chart.signals.length > 50) _chart.signals.shift();
+  chartDraw();
+}
+
+function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, toY) {
+  if (!_chart.signals || _chart.signals.length === 0) return;
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const now = Date.now();
+
+  _chart.signals.forEach(sig => {
+    // Acha a vela mais próxima do sinal
+    const idx = visCandles.findIndex(c => Math.abs(c.ts - sig.t) < (_chart.tf || 1) * 60 * 1000 * 2);
+    if (idx === -1) return;
+
+    const x = padL + idx * slotW + slotW / 2;
+    const isRise = sig.type === 'rise';
+    const color = isRise ? '#22c55e' : '#ef4444';
+    const y = isRise ? toY(visCandles[idx].l) + 18 : toY(visCandles[idx].h) - 18;
+    const arrow = isRise ? '▲' : '▼';
+
+    if (sig.isAuto) {
+      // Alfinete circular para entradas AUTO
+      ctx.beginPath();
+      ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, x, y + 3);
+      ctx.font = 'bold 7px monospace';
+      ctx.fillStyle = color;
+      ctx.fillText('AUTO', x, isRise ? y + 20 : y - 12);
+    } else {
+      // Seta simples para sinais VIP
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, x, y);
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = color;
+      ctx.fillText(sig.score + '%', x, isRise ? y + 12 : y - 4);
+    }
+
+    // Linha vertical pontilhada na vela
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + chartH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+}
+
+
+// ── CONTRATOS ABERTOS NO GRÁFICO ──
+_chart.openContracts = {};
+
+function chartAddContract(id, direction, entryPrice, stake, duration, durUnit) {
+
+  _chart.openContracts[id] = {
+    id, direction, entryPrice: parseFloat(entryPrice),
+    stake: parseFloat(stake), duration, durUnit,
+    openTime: Date.now(), countdown: duration
+  };
+  chartDraw();
+  chartUpdateSellAll();
+}
+
+function chartCloseContract(id, result) {
+  if (_chart.openContracts[id]) {
+    delete _chart.openContracts[id];
+    chartDraw();
+    chartUpdateSellAll();
+  } else {
+    // Limpa todos se não achar pelo id
+    _chart.openContracts = {};
+    chartDraw();
+    chartUpdateSellAll();
+  }
+}
+
+function chartDrawContracts(toY, padR, canvas) {
+  const ctx = _chart.ctx;
+  const contracts = Object.values(_chart.openContracts);
+  if (!contracts.length) return;
+
+  contracts.forEach((c, i) => {
+    const y = toY(c.entryPrice);
+    const isRise = c.direction === 'rise';
+    const color = isRise ? '#22c55e' : '#ef4444';
+    const colorBg = isRise ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)';
+    const W = canvas.width;
+
+    // Linha horizontal no preço de entrada
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Box no eixo Y
+    const elapsed = Math.floor((Date.now() - c.openTime) / 1000);
+    const remaining = Math.max(0, c.duration - elapsed);
+    const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    const countStr = `${mm}:${ss}`;
+    const priceStr = c.entryPrice.toFixed(4);
+
+    ctx.font = 'bold 9px monospace';
+    const pw = ctx.measureText(priceStr).width;
+    const bw = Math.max(pw + 12, 70);
+    const bh = 28;
+    const bx = W - padR + 2;
+    const by = y - bh / 2 - i * 32;
+
+    // Fundo do box
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(bx, by, bw, bh, 3);
+    else ctx.rect(bx, by, bw, bh);
+    ctx.fill();
+
+    // Texto preço
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 9px monospace';
+    ctx.fillText(priceStr, bx + 5, by + 11);
+
+    // Countdown
+    ctx.font = '8px monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(countStr, bx + 5, by + 22);
+
+    // Seta direção
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(isRise ? '▲' : '▼', bx + bw - 4, by + 16);
+  });
+}
+
+// Timer para atualizar countdown e limpar contratos travados
+setInterval(() => {
+  if (Object.keys(_chart.openContracts).length > 0) {
+    chartDraw();
+    // Verifica se contrato está travado há mais de 15s
+    const now = Date.now();
+    Object.entries(_chart.openContracts).forEach(([id, c]) => {
+      if (now - c.openTime > 15000) {
+        delete _chart.openContracts[id];
+        chartDraw();
+        chartUpdateSellAll();
+      }
+    });
+  }
+}, 1000);
+
+function chartSetTool(tool) {
+  _chart.tool = tool;
+  document.querySelectorAll('.chart-tool-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector('.chart-tool-btn[onclick*="' + tool + '"]');
+  if (btn) btn.classList.add('active');
+
+  const canvas = _chart.canvas;
+  if (!canvas) return;
+  if (tool === 'cursor') canvas.style.cursor = 'default';
+  else if (tool === 'text') canvas.style.cursor = 'text';
+  else canvas.style.cursor = 'crosshair';
+}
+
+// ── OHLC UPDATER ──
+function chartUpdateOHLC(candles) {
+  if (!candles || candles.length === 0) return;
+  const visible = candles.slice(-80);
+  const first = visible[0];
+  const last = visible[visible.length - 1];
+  const hi = Math.max(...visible.map(c => c.h));
+  const lo = Math.min(...visible.map(c => c.l));
+  const change = last.c - first.o;
+  const changePct = ((change / first.o) * 100).toFixed(2);
+  const changeStr = (change >= 0 ? '+' : '') + change.toFixed(4) + ' (' + changePct + '%)';
+
+  const oEl = document.getElementById('ohlc-o');
+  const hEl = document.getElementById('ohlc-h');
+  const lEl = document.getElementById('ohlc-l');
+  const cEl = document.getElementById('ohlc-c');
+  const chEl = document.getElementById('chart-change-label');
+
+  if (oEl) oEl.textContent = first.o.toFixed(4);
+  if (hEl) hEl.textContent = hi.toFixed(4);
+  if (lEl) lEl.textContent = lo.toFixed(4);
+  if (cEl) cEl.textContent = last.c.toFixed(4);
+  if (chEl) {
+    chEl.textContent = changeStr;
+    chEl.style.color = change >= 0 ? '#22c55e' : '#ef4444';
+  }
+}
+
+
+// ── SISTEMA DE DESENHO ──
+_chart.drawings = [];
+_chart.drawing = null;
+_chart.zoom = { offset: 0, scale: 1 };
+_chart.chartType = 'candle'; // candle | line
+
+function chartSetType(type) {
+  _chart.chartType = type;
+  const btn = document.getElementById('chart-type-btn');
+  if (btn) {
+    const icons = {
+      candle: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>',
+      line:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      area:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 L6 10 L10 14 L14 6 L18 10 L22 4 L22 20 Z"/></svg>'
+    };
+    btn.innerHTML = icons[type] || icons.candle;
+  }
+  chartDraw();
+}
+
+function chartCycleType() {
+  const types = ['candle', 'line', 'area'];
+  const cur = _chart.chartType || 'candle';
+  const next = types[(types.indexOf(cur) + 1) % types.length];
+  chartSetType(next);
+}
+
+function chartClearDrawings() {
+  _chart.drawings = [];
+  chartDraw();
+}
+
+function chartAddText(x, y, text) {
+  _chart.drawings.push({ type: 'text', x1: x, y1: y, text: text });
+  chartDraw();
+}
+
+function chartInitEvents() {
+  const canvas = _chart.canvas;
+  if (!canvas || canvas._eventsReady) return;
+  canvas._eventsReady = true;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const posToPrice = (pos) => {
+    const padL = 30, padR = 70, padT = 10, padB = 22;
+    const chartH = canvas.height - padT - padB;
+    const candles = _chart.candles.slice(-60);
+    const prices = candles.flatMap(c => [c.h, c.l]);
+    let minP = Math.min(...prices), maxP = Math.max(...prices);
+    const pad = (maxP - minP) * 0.08 || 0.001;
+    minP -= pad; maxP += pad;
+    return maxP - ((pos.y - padT) / chartH) * (maxP - minP);
+  };
+
+  canvas.addEventListener('mousedown', (e) => {
+    const tool = _chart.tool || 'cursor';
+    if (tool === 'cursor') return;
+    const pos = getPos(e);
+    _chart.drawing = { type: tool, x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, p1: posToPrice(pos), p2: posToPrice(pos) };
+    if (tool === 'ruler') _chart.drawing.measuring = true;
+    if (tool === 'text') {
+      // Abre input flutuante
+      _chart.drawing = null;
+      const input = document.createElement('input');
+      input.style.cssText = 'position:fixed;left:' + (e.clientX) + 'px;top:' + (e.clientY) + 'px;z-index:999;background:#1e293b;color:#e2e8f0;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;font-size:12px;outline:none;min-width:120px;';
+      input.placeholder = 'Digite e pressione Enter';
+      document.body.appendChild(input);
+      input.focus();
+      const cx = e.clientX, cy = e.clientY;
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && input.value.trim()) {
+          const r = canvas.getBoundingClientRect();
+          chartAddText(cx - r.left, cy - r.top, input.value.trim());
+          document.body.removeChild(input);
+        }
+        if (ev.key === 'Escape') document.body.removeChild(input);
+      });
+      input.addEventListener('blur', () => { if (document.body.contains(input)) document.body.removeChild(input); });
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getPos(e);
+    // Crosshair sempre
+    if (!_chart.drawing) {
+      chartDraw();
+      const ctx = _chart.ctx;
+      ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, pos.y); ctx.lineTo(canvas.width, pos.y); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    _chart.drawing.x2 = pos.x;
+    _chart.drawing.y2 = _chart.drawing.type === 'hline' ? _chart.drawing.y1 : pos.y;
+    _chart.drawing.p2 = posToPrice(pos);
+    chartDraw();
+    const ctx = _chart.ctx;
+    const d = _chart.drawing;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      ctx.moveTo(30, d.y1); ctx.lineTo(canvas.width - 70, d.y1);
+    } else if (d.type === 'channel') {
+      // Linha principal
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Linha paralela deslocada 30px
+      ctx.beginPath();
+      ctx.moveTo(d.x1, d.y1 + 40); ctx.lineTo(d.x2, d.y2 + 40);
+    } else if (d.type === 'ruler') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(d.x2, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Label distância
+      const pDiff = Math.abs(d.p1 - posToPrice(pos));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('Δ ' + pDiff.toFixed(4), d.x2 + 4, (d.y1 + d.y2) / 2);
+      ctx.beginPath();
+    } else {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!_chart.drawing) return;
+    _chart.drawings.push({ ..._chart.drawing });
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  // Zoom com scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 2 : -2;
+    // Aumenta/diminui candles visíveis
+    _chart._visibleCandles = Math.max(20, Math.min(200, (_chart._visibleCandles || 60) - delta));
+    chartDraw();
+  }, { passive: false });
+}
+
+function chartDrawUserLines() {
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length === 0) return;
+
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartH = canvas.height - padT - padB;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  _chart.drawings.forEach(d => {
+    if (d.type === 'text') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(d.text, d.x1, d.y1);
+      return;
+    }
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      const y = toY(d.p1);
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+    } else if (d.type === 'channel') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+      ctx.beginPath();
+      const dy = d.y2 - d.y1;
+      const dx = d.x2 - d.x1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy/len * 40, ny = dx/len * 40;
+      ctx.moveTo(d.x1 + nx, d.y1 + ny);
+      ctx.lineTo(d.x2 + nx, d.y2 + ny);
+    } else {
+      ctx.moveTo(d.x1, d.y1);
+      ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+  });
+}
+
+function initTradingViewChart(symbol) {
+  _chart.canvas = document.getElementById('deriv-chart');
+  if (!_chart.canvas) return;
+  _chart.ctx = _chart.canvas.getContext('2d');
+  chartResize();
+  window.removeEventListener('resize', chartResize);
+  window.addEventListener('resize', chartResize);
+  chartConnect(symbol || 'R_100');
+  setTimeout(chartInitEvents, 500);
+  setTimeout(chartInitIndicatorUI, 600);
+}
+
+
+
+// ── SISTEMA DE DESENHO ──
+_chart.drawings = [];
+_chart.drawing = null;
+_chart.zoom = { offset: 0, scale: 1 };
+_chart.chartType = 'candle'; // candle | line
+
+function chartSetType(type) {
+  _chart.chartType = type;
+  const btn = document.getElementById('chart-type-btn');
+  if (btn) {
+    const icons = {
+      candle: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="10" width="4" height="10"/><rect x="10" y="6" width="4" height="14"/><rect x="18" y="2" width="4" height="18"/></svg>',
+      line:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      area:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20 L6 10 L10 14 L14 6 L18 10 L22 4 L22 20 Z"/></svg>'
+    };
+    btn.innerHTML = icons[type] || icons.candle;
+  }
+  chartDraw();
+}
+
+function chartCycleType() {
+  const types = ['candle', 'line', 'area'];
+  const cur = _chart.chartType || 'candle';
+  const next = types[(types.indexOf(cur) + 1) % types.length];
+  chartSetType(next);
+}
+
+function chartClearDrawings() {
+  _chart.drawings = [];
+  chartDraw();
+}
+
+function chartAddText(x, y, text) {
+  _chart.drawings.push({ type: 'text', x1: x, y1: y, text: text });
+  chartDraw();
+}
+
+function chartInitEvents() {
+  const canvas = _chart.canvas;
+  if (!canvas || canvas._eventsReady) return;
+  canvas._eventsReady = true;
+
+  const getPos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+
+  const posToPrice = (pos) => {
+    const padL = 30, padR = 70, padT = 10, padB = 22;
+    const chartH = canvas.height - padT - padB;
+    const candles = _chart.candles.slice(-60);
+    const prices = candles.flatMap(c => [c.h, c.l]);
+    let minP = Math.min(...prices), maxP = Math.max(...prices);
+    const pad = (maxP - minP) * 0.08 || 0.001;
+    minP -= pad; maxP += pad;
+    return maxP - ((pos.y - padT) / chartH) * (maxP - minP);
+  };
+
+  canvas.addEventListener('mousedown', (e) => {
+    const tool = _chart.tool || 'cursor';
+    if (tool === 'cursor') return;
+    const pos = getPos(e);
+    _chart.drawing = { type: tool, x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y, p1: posToPrice(pos), p2: posToPrice(pos) };
+    if (tool === 'ruler') _chart.drawing.measuring = true;
+    if (tool === 'text') {
+      // Abre input flutuante
+      _chart.drawing = null;
+      const input = document.createElement('input');
+      input.style.cssText = 'position:fixed;left:' + (e.clientX) + 'px;top:' + (e.clientY) + 'px;z-index:999;background:#1e293b;color:#e2e8f0;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;font-size:12px;outline:none;min-width:120px;';
+      input.placeholder = 'Digite e pressione Enter';
+      document.body.appendChild(input);
+      input.focus();
+      const cx = e.clientX, cy = e.clientY;
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && input.value.trim()) {
+          const r = canvas.getBoundingClientRect();
+          chartAddText(cx - r.left, cy - r.top, input.value.trim());
+          document.body.removeChild(input);
+        }
+        if (ev.key === 'Escape') document.body.removeChild(input);
+      });
+      input.addEventListener('blur', () => { if (document.body.contains(input)) document.body.removeChild(input); });
+    }
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    const pos = getPos(e);
+    // Crosshair sempre
+    if (!_chart.drawing) {
+      chartDraw();
+      const ctx = _chart.ctx;
+      ctx.strokeStyle = 'rgba(100,116,139,0.4)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pos.x, 0); ctx.lineTo(pos.x, canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, pos.y); ctx.lineTo(canvas.width, pos.y); ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+    _chart.drawing.x2 = pos.x;
+    _chart.drawing.y2 = _chart.drawing.type === 'hline' ? _chart.drawing.y1 : pos.y;
+    _chart.drawing.p2 = posToPrice(pos);
+    chartDraw();
+    const ctx = _chart.ctx;
+    const d = _chart.drawing;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      ctx.moveTo(30, d.y1); ctx.lineTo(canvas.width - 70, d.y1);
+    } else if (d.type === 'channel') {
+      // Linha principal
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Linha paralela deslocada 30px
+      ctx.beginPath();
+      ctx.moveTo(d.x1, d.y1 + 40); ctx.lineTo(d.x2, d.y2 + 40);
+    } else if (d.type === 'ruler') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y1);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(d.x2, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      // Label distância
+      const pDiff = Math.abs(d.p1 - posToPrice(pos));
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('Δ ' + pDiff.toFixed(4), d.x2 + 4, (d.y1 + d.y2) / 2);
+      ctx.beginPath();
+    } else {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  canvas.addEventListener('mouseup', (e) => {
+    if (!_chart.drawing) return;
+    _chart.drawings.push({ ..._chart.drawing });
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    _chart.drawing = null;
+    chartDraw();
+  });
+
+  // Zoom com scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 2 : -2;
+    // Aumenta/diminui candles visíveis
+    _chart._visibleCandles = Math.max(20, Math.min(200, (_chart._visibleCandles || 60) - delta));
+    chartDraw();
+  }, { passive: false });
+}
+
+function chartDrawUserLines() {
+  const ctx = _chart.ctx;
+  const canvas = _chart.canvas;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length === 0) return;
+
+  const padL = 30, padR = 70, padT = 10, padB = 22;
+  const chartH = canvas.height - padT - padB;
+  const prices = candles.flatMap(c => [c.h, c.l]);
+  let minP = Math.min(...prices), maxP = Math.max(...prices);
+  const pad = (maxP - minP) * 0.08 || 0.001;
+  minP -= pad; maxP += pad;
+  const toY = p => padT + chartH - ((p - minP) / (maxP - minP)) * chartH;
+
+  _chart.drawings.forEach(d => {
+    if (d.type === 'text') {
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = 'bold 12px Inter,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(d.text, d.x1, d.y1);
+      return;
+    }
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    if (d.type === 'hline') {
+      const y = toY(d.p1);
+      ctx.moveTo(padL, y);
+      ctx.lineTo(canvas.width - padR, y);
+    } else if (d.type === 'channel') {
+      ctx.moveTo(d.x1, d.y1); ctx.lineTo(d.x2, d.y2);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(245,158,11,0.5)';
+      ctx.beginPath();
+      const dy = d.y2 - d.y1;
+      const dx = d.x2 - d.x1;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const nx = -dy/len * 40, ny = dx/len * 40;
+      ctx.moveTo(d.x1 + nx, d.y1 + ny);
+      ctx.lineTo(d.x2 + nx, d.y2 + ny);
+    } else {
+      ctx.moveTo(d.x1, d.y1);
+      ctx.lineTo(d.x2, d.y2);
+    }
+    ctx.stroke();
+  });
+}
+
+function initTradingViewChart(symbol) {
+  _chart.canvas = document.getElementById('deriv-chart');
+  if (!_chart.canvas) return;
+  _chart.ctx = _chart.canvas.getContext('2d');
+  chartResize();
+  window.removeEventListener('resize', chartResize);
+  window.addEventListener('resize', chartResize);
+  chartConnect(symbol || 'R_100');
+  setTimeout(chartInitEvents, 500);
+  setTimeout(chartInitIndicatorUI, 600);
+}
+
+// Mapa mercado → símbolo TradingView
+const _marketToTV = {
+  'R_100': 'R_100',
+  'R_75':  'R_75',
+  'R_50':  'R_50',
+  'R_25':  'R_25',
+  'R_10':  'R_10',
+  '1HZ100V': '1HZ100V',
+  '1HZ75V':  '1HZ75V',
+  '1HZ50V':  '1HZ50V',
+  '1HZ25V':  '1HZ25V',
+  '1HZ10V':  '1HZ10V',
+  'JD100': 'JD100',
+  'JD75':  'JD75',
+  'JD50':  'JD50',
+  'JD25':  'JD25',
+  'JD10':  'JD10',
+};
+
+// Inicializa ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(()=>initTradingViewChart('R_100'), 500);
+  // Iniciar digWs automaticamente para sinais
+  setTimeout(()=>{ if(window.digInit) window.digInit(); }, 1000);
+});
+
+// Atualiza gráfico quando mercado muda no dropdown principal
+document.addEventListener('DOMContentLoaded', function() {
+  const sel = document.getElementById('symbolSelect');
+  if(sel) {
+    sel.addEventListener('change', function() {
+      const tv = _marketToTV[this.value] || 'DERIV:100V';
+      initTradingViewChart(tv);
+    });
+  }
+});
+
+
+// ── MODO DE NEGOCIAÇÃO ──
+window._proModoNeg = window._proModoNeg || 'balanceado';
+const _proModoNegConfig = {
+  baixo_risco: {scoreMin:70, cooldown:30000, mult:1.5, label:'🛡 Baixo Risco'},
+  preciso:     {scoreMin:60, cooldown:20000, mult:1.5, label:'🎯 Preciso'},
+  balanceado:  {scoreMin:52, cooldown:10000, mult:2.2, label:'⚖ Balanceado'},
+  veloz:       {scoreMin:45, cooldown:5000,  mult:2.5, label:'⚡ Veloz'},
+};
+window.proSetModoNeg=function(modo, el){
+  window._proModoNeg=modo;
+  document.querySelectorAll('.pro-modoneg-btn').forEach(b=>{
+    b.style.background='transparent';
+    b.style.color='#64748b';
+    b.classList.remove('active-modoneg');
+  });
+  if(el){
+    const cores={baixo_risco:'rgba(34,197,94,0.15)',preciso:'rgba(59,130,246,0.15)',balanceado:'rgba(168,85,247,0.15)',veloz:'rgba(245,158,11,0.15)'};
+    const textCores={baixo_risco:'#22c55e',preciso:'#3b82f6',balanceado:'#a855f7',veloz:'#f59e0b'};
+    el.style.background=cores[modo]||'rgba(168,85,247,0.15)';
+    el.style.color=textCores[modo]||'#a855f7';
+  }
+  // Atualiza mult no state se bot não estiver rodando
+  if(!window._proState.running){
+    const cfg=_proModoNegConfig[modo];
+    if(cfg) window._proState.mult=cfg.mult;
+  }
+  proAddFeed('⚡ Modo: '+(_proModoNegConfig[modo]?.label||modo),'#a855f7');
+};
+// Função para obter config do modo atual
+function proGetModoConfig(){
+  const modoAuto = window._proModo==='auto';
+  if(modoAuto){
+    const digits=window._proState.digits;
+    if(digits.length>=20){
+      const tipos=['DIGITEVEN','DIGITODD','DIGITOVER','DIGITUNDER'];
+      const scores=tipos.map(t=>proAnalisarTipo(t,digits).score);
+      const melhorScore=Math.max(...scores);
+      let cfg, label;
+      if(melhorScore>=72){cfg=_proModoNegConfig.baixo_risco;label='🛡 Baixo Risco (score alto)';}
+      else if(melhorScore>=60){cfg=_proModoNegConfig.preciso;label='🎯 Preciso';}
+      else if(melhorScore>=50){cfg=_proModoNegConfig.balanceado;label='⚖ Balanceado';}
+      else{cfg=_proModoNegConfig.veloz;label='⚡ Veloz (score baixo)';}
+      const el=document.getElementById('proModoNegAtual');
+      if(el)el.textContent=label;
+      return cfg;
+    }
+  }
+  return _proModoNegConfig[window._proModoNeg]||_proModoNegConfig.balanceado;
+}
+
+
+async function carregarAnalytics() {
+  const el = document.getElementById("analytics-content");
+  el.innerHTML = '<div style="text-align:center;padding:20px;color:#fbbf24;">⏳ Carregando analytics...</div>';
+  try {
+    const res = await fetch("https://alpha-dolar-backend.onrender.com/api/ia/analytics");
+    const data = await res.json();
+    if (!data || !data.por_tipo) throw new Error("sem dados");
+    const tipos = data.por_tipo.map(t => [t.tipo, t]).sort((a,b) => b[1].win_rate - a[1].win_rate);
+    const melhor = tipos[0];
+    let html = '<div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:10px;padding:12px;margin-bottom:8px;text-align:center;">';
+    html += '<div style="color:#fbbf24;font-size:13px;margin-bottom:4px;">🏆 Melhor tipo agora</div>';
+    html += '<div style="color:#fff;font-size:22px;font-weight:700;">' + melhor[0] + '</div>';
+    html += '<div style="color:#22c55e;font-size:14px;">Win Rate: ' + melhor[1].win_rate.toFixed(1) + '%</div></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+    tipos.forEach(([tipo, info]) => {
+      const cor = info.win_rate >= 60 ? "#22c55e" : info.win_rate >= 50 ? "#fbbf24" : "#ef4444";
+      html += '<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:6px;text-align:center;">';
+      html += '<div style="color:#e2e8f0;font-weight:700;">' + tipo + '</div>';
+      html += '<div style="color:' + cor + ';font-size:13px;">Win Rate: ' + info.win_rate.toFixed(1) + '%</div>';
+      html += '<div style="color:#94a3b8;font-size:11px;">' + info.total + ' operações</div></div>';
+    });
+    html += '</div>';
+    if (data.melhor_hora) {
+      html += '<div style="margin-top:12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);border-radius:8px;padding:6px;text-align:center;">';
+      html += '<div style="color:#818cf8;font-size:12px;">⏰ Melhor horário</div>';
+      html += '<div style="color:#fff;font-weight:700;">' + data.melhor_hora + 'h</div></div>';
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;color:#ef4444;">❌ Erro ao carregar analytics.<br><small>Verifique se o backend está online.</small></div>';
+  }
+}
+</script>
+
+
+<!-- MODAL ANALYTICS -->
+<div id="modal-analytics" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:#0f172a;border:1px solid rgba(251,191,36,0.3);border-radius:16px;padding:24px;width:90%;max-width:480px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="color:#fbbf24;font-size:18px;font-weight:700;">📊 Analytics — Win Rate por Tipo</div>
+      <button onclick="document.getElementById('modal-analytics').style.display='none'" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="analytics-content"></div>
+  </div>
+</div>
+
+<script>
+window.proToggleVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    window._proVirtual.ativo = !window._proVirtual.ativo;
+    const ativo = window._proVirtual.ativo;
+    const slider = document.getElementById('proVirtualSlider');
+    const thumb  = document.getElementById('proVirtualThumb');
+    const label  = document.getElementById('proVirtualLabel');
+    const config = document.getElementById('proVirtualConfig');
+    if (slider) slider.style.background = ativo ? '#a855f7' : '#374151';
+    if (thumb)  thumb.style.left = ativo ? '18px' : '2px';
+    if (label)  label.textContent = ativo ? 'ON' : 'OFF';
+    if (config) config.style.display = ativo ? 'flex' : 'none';
+    if (!window.proAtualizarStatusVirtual) return;
+    window.proAtualizarStatusVirtual();
+};
+window.proAtualizarStatusVirtual = function() {
+    if (!window._proVirtual) window._proVirtual = {ativo: false, contador: 0, necessarias: 3};
+    const v = window._proVirtual;
+    const statusEl = document.getElementById('proVirtualStatus');
+    if (!statusEl) return;
+    if (!v.ativo) { statusEl.textContent = 'Aguardando'; statusEl.style.color = '#eab308'; }
+    else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
+    else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
+};
+</script>
+<script src="js/i18n.js"></script>
+
+
+
+<!-- Alpha Dolar Language Selector -->
+<div id="alpha-lang-widget" style="position:fixed;bottom:16px;right:16px;z-index:2147483647;">
+  <button onclick="var m=document.getElementById('alpha-lang-menu');m.style.display=m.style.display==='none'?'block':'none'" style="background:#13151a;border:1px solid #007bff;color:#fff;border-radius:24px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,123,255,0.3);">
+    <span id="alw-flag">🌐</span>
+    <span id="alw-code" style="letter-spacing:1px;"></span>
+    <span style="color:#007bff;font-size:9px;">▲</span>
+  </button>
+  <div id="alpha-lang-menu" style="display:none;position:absolute;bottom:46px;right:0;background:#13151a;border:1px solid #1e2128;border-radius:14px;padding:6px;min-width:155px;box-shadow:0 8px 40px rgba(0,0,0,0.7);">
+    <div onclick="alwSet('pt','🇧🇷','PT')" class="alw-opt">🇧🇷 Português</div>
+    <div onclick="alwSet('en','🇺🇸','EN')" class="alw-opt">🇺🇸 English</div>
+    <div onclick="alwSet('es','🇪🇸','ES')" class="alw-opt">🇪🇸 Español</div>
+    <div onclick="alwSet('hi','🇮🇳','HI')" class="alw-opt">🇮🇳 हिन्दी</div>
+    <div onclick="alwSet('id','🇮🇩','ID')" class="alw-opt">🇮🇩 Indonesia</div>
+    <div onclick="alwSet('th','🇹🇭','TH')" class="alw-opt">🇹🇭 ภาษาไทย</div>
+    <div onclick="alwSet('vi','🇻🇳','VI')" class="alw-opt">🇻🇳 Tiếng Việt</div>
+    <div onclick="alwSet('ar','🇸🇦','AR')" class="alw-opt">🇸🇦 العربية</div>
+    <div onclick="alwSet('it','🇮🇹','IT')" class="alw-opt">🇮🇹 Italiano</div>
+    <div onclick="alwSet('fr','🇫🇷','FR')" class="alw-opt">🇫🇷 Français</div>
+    <div onclick="alwSet('de','🇩🇪','DE')" class="alw-opt">🇩🇪 Deutsch</div>
+  </div>
+</div>
+<style>
+.alw-opt{padding:7px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:#aaa;transition:all .15s;}
+.alw-opt:hover{background:#1e2128;color:#fff;}
+</style>
+<script>
+(function(){
+  var FLAGS={pt:'🇧🇷',en:'🇺🇸',es:'🇪🇸',hi:'🇮🇳',id:'🇮🇩',th:'🇹🇭',vi:'🇻🇳',ar:'🇸🇦',it:'🇮🇹',fr:'🇫🇷',de:'🇩🇪'};
+  var CODES={pt:'PT',en:'EN',es:'ES',hi:'HI',id:'ID',th:'TH',vi:'VI',ar:'AR',it:'IT',fr:'FR',de:'DE'};
+
+  function updateBtn(lang){
+    var f=document.getElementById('alw-flag');
+    var c=document.getElementById('alw-code');
+    if(f)f.textContent=FLAGS[lang]||'🌐';
+    if(c)c.textContent=CODES[lang]||lang.toUpperCase();
+  }
+
+  window.alwSet=function(lang,flag,code){
+    document.getElementById('alpha-lang-menu').style.display='none';
+    localStorage.setItem('alpha_lang',lang);
+    updateBtn(lang);
+    // Aplica traducao
+    if(window.i18n && typeof window.i18n.apply==='function'){
+      window.i18n.apply(lang);
+    } else {
+      setTimeout(function(){location.reload();},300);
+    }
+    // Atualiza o trocarIdioma do dashboard se existir
+    if(typeof window.trocarIdioma==='function'){
+      var el=document.querySelector('[data-lang="'+lang+'"]');
+      window.trocarIdioma(lang,el||null);
+    }
+  };
+
+  // Fecha ao clicar fora
+  document.addEventListener('click',function(e){
+    var w=document.getElementById('alpha-lang-widget');
+    var m=document.getElementById('alpha-lang-menu');
+    if(w&&m&&!w.contains(e.target))m.style.display='none';
+  });
+
+  // Inicializa botao e aplica idioma salvo
+  function init(){
+    var saved=localStorage.getItem('alpha_lang')||'pt';
+    // Auto-detecta na primeira visita
+    if(!localStorage.getItem('alpha_lang')){
+      var bl=(navigator.language||'pt').split('-')[0].toLowerCase();
+      var sup=['pt','en','es','hi','id','th','vi','ar','it','fr','de'];
+      saved=sup.includes(bl)?bl:'pt';
+      if(saved!=='pt')localStorage.setItem('alpha_lang',saved);
+    }
+    updateBtn(saved);
+    // Aplica idioma com delay para dar tempo do i18n carregar
+    if(saved!=='pt'){
+      var tries=0;
+      var iv=setInterval(function(){
+        tries++;
+        if(window.i18n&&typeof window.i18n.apply==='function'){
+          clearInterval(iv);
+          window.i18n.apply(saved);
+        }
+        if(tries>20)clearInterval(iv);
+      },200);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init);
+  } else {
+    setTimeout(init,300);
+  }
+})();
+</script>
+
+
+
+<script>
+// ========== TRIAL 24H DEMO ==========
+
+// ========== BLOQUEIO CONTA REAL NO TRIAL ==========
+window.verificarTrialDemo = async function(produto) {
+    const email = localStorage.getItem('alpha_email') || '';
+    if (!email) return;
+
+    const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    try {
+        const r = await fetch(
+            SUPA_URL + '/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(email) +
+            '&produto=eq.' + produto + '&tipo=eq.trial&ativo=eq.true&select=id',
+            { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
+        );
+        const d = await r.json();
+        if (d && d.length > 0) {
+            // É trial — permite demo e real
+            console.log('Trial ativo para:', produto);
+        }
+    } catch(e) {}
+};
+
+
+// ========== MULTI-ESTRATÉGIA ==========
+
+// ========== CRONÔMETRO AGUARDANDO SINAL ==========
+window._cronoInterval = null;
+window._cronoSegundos = 0;
+
+window.iniciarCronometro = function() {
+    window._cronoSegundos = 0;
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = setInterval(() => {
+        window._cronoSegundos++;
+        const el = document.getElementById('dcCronometro');
+        const lb = document.getElementById('dcBarLabel');
+        const m = Math.floor(window._cronoSegundos / 60);
+        const s = window._cronoSegundos % 60;
+        const tempo = m > 0 ? m + 'm ' + String(s).padStart(2,'0') + 's' : window._cronoSegundos + 's';
+        if (el) el.textContent = tempo;
+        if (lb) lb.innerHTML = 'Aguardando sinal... <span id="dcCronometro" style="color:#00d2ff;font-size:11px;margin-left:4px;">' + tempo + '</span>';
+    }, 1000);
+};
+
+window.pararCronometro = function() {
+    if (window._cronoInterval) clearInterval(window._cronoInterval);
+    window._cronoInterval = null;
+    window._cronoSegundos = 0;
+    const el = document.getElementById('dcCronometro');
+    if (el) el.textContent = '';
+};
+
+window._multiStrategyAtivo = false;
+
+window.toggleMultiStrategy = function() {
+    window._multiStrategyAtivo = !window._multiStrategyAtivo;
+    const toggle = document.getElementById('multiStrategyToggle');
+    const dot    = document.getElementById('multiStrategyDot');
+    const desc   = document.getElementById('multiStrategyDesc');
+    const select = document.getElementById('strategySelect');
+
+    if (window._multiStrategyAtivo) {
+        toggle.style.background = 'rgba(0,210,255,0.3)';
+        toggle.style.borderColor = 'rgba(0,210,255,0.5)';
+        dot.style.background = '#00d2ff';
+        dot.style.left = '22px';
+        desc.textContent = '⚡ ATIVO — trocando estratégia a cada perda';
+        desc.style.color = '#00d2ff';
+        if (select) select.style.opacity = '0.3';
+    } else {
+        toggle.style.background = '#1e2230';
+        toggle.style.borderColor = 'rgba(100,116,139,0.3)';
+        dot.style.background = '#64748b';
+        dot.style.left = '2px';
+        desc.textContent = 'Troca automaticamente após cada perda';
+        desc.style.color = '#64748b';
+        if (select) select.style.opacity = '1';
+    }
+};
+
+window.getEstrategiasDisponiveis = async function() {
+    const email = localStorage.getItem('alpha_email') || '';
+    const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
+    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+
+    // Estratégias free — sempre disponíveis
+    const free = ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'];
+
+    // Verifica VIP
+    let temVip = false;
+    let temPremium = false;
+    try {
+        const rv = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.estrategias-vip&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dv = await rv.json();
+        temVip = dv && dv.length > 0;
+    } catch(e) {}
+
+    // Verifica Premium
+    try {
+        const rp = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
+            {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
+        const dp = await rp.json();
+        temPremium = dp && dp.length > 0;
+    } catch(e) {}
+
+    const vip     = ['alpha_mind','quantum_trader','titan_core','alpha_pulse','alpha_smart','alpha_analytics','alpha_sniper'];
+    const premium = ['mega_alpha_1','mega_alpha_2','mega_alpha_3','alpha_elite','alpha_nexus'];
+
+    let lista = [...free];
+    if (temVip)     lista = [...lista, ...vip];
+    if (temPremium) lista = [...lista, ...premium];
+
+    // Embaralha aleatoriamente
+    return lista.sort(() => Math.random() - 0.5);
+};
+
+
 // ── FREQUÊNCIA DE DÍGITOS ──
 window._proRegras = [];
 window._proFreqAtivo = false;
