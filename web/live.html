@@ -4041,6 +4041,7 @@ body { overflow-x: hidden !important; }
                 if (msg.msg_type === 'buy' && !msg.error) {
                     const id = msg.buy.contract_id;
                     pendingContracts[id] = { direction: msg.buy.longcode?.includes('higher') ? 'CALL' : 'PUT' };
+                    if (_chart) _chart.openContracts = _chart.openContracts || {}; if (_chart) _chart.openContracts[id] = {id};
                     // Subscribe ao contrato
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
                     riseBtn?.classList.remove('loading');
@@ -8396,7 +8397,7 @@ function chartAutoToggle() {
 }
 
 function chartAutoAnalyze() {
-  if (!_chart.autoMode) return;
+  if (!_chart.autoMode) { clearInterval(_chart.autoInterval); clearInterval(_chart.autoSessionTimer); return; }
   const candles = _chart.candles.slice(-60);
   if (candles.length < 21) return;
 
