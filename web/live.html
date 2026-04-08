@@ -4042,6 +4042,7 @@ body { overflow-x: hidden !important; }
                     const id = msg.buy.contract_id;
                     pendingContracts[id] = { direction: msg.buy.longcode?.includes('higher') ? 'CALL' : 'PUT' };
                     if (_chart) _chart.openContracts = _chart.openContracts || {}; if (_chart) _chart.openContracts[id] = {id};
+                    window._autoTradeWaiting = true; // Bloqueia próximo trade até resultado
                     // Subscribe ao contrato
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
                     riseBtn?.classList.remove('loading');
@@ -4082,6 +4083,7 @@ body { overflow-x: hidden !important; }
                         }
                     }
                     if (c.status === 'won' || c.status === 'lost') {
+                        window._autoTradeWaiting = false; // Libera próximo trade
                         const isWin = c.status === 'won';
                         const lucro = parseFloat(c.profit) || 0;
                         manualPnl += lucro;
@@ -8476,9 +8478,9 @@ function chartAutoAnalyze() {
 
   if (!direction) return;
 
-  // Evita entradas se já tem contrato aberto
+  // Evita entradas se já tem contrato aberto ou aguardando resultado
   const openCount = Object.keys(_chart.openContracts || {}).length;
-  if (openCount > 0) return;
+  if (openCount > 0 || window._autoTradeWaiting) return;
   const now = Date.now();
   if (_chart._lastAutoTrade && now - _chart._lastAutoTrade < 2000) return;
   _chart._lastAutoTrade = now;
