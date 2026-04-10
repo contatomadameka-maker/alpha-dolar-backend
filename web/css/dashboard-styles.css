@@ -1525,3 +1525,18 @@ input:checked + .slider:before {
 #toggleLeftBtn { left: 12px; bottom: 12px; }
 #toggleRightBtn { right: 60px; bottom: 12px; }
 #toggleBothBtn { left: 50%; transform: translateX(-50%); bottom: 12px; }
+
+/* ── Botões toggle mais visíveis ── */
+.panel-toggle-btn {
+    background: rgba(0,0,0,0.8) !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
+    color: #fff !important;
+    font-size: 11px !important;
+    padding: 5px 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+.panel-toggle-btn:hover {
+    background: rgba(14,165,233,0.8) !important;
+    border-color: #0ea5e9 !important;
+}
+#toggleRightBtn { right: 100px !important; }
