@@ -13257,6 +13257,46 @@ window.pararCronometro = function() {
     if (el) el.textContent = '';
 };
 </script>
+<script>
+(function() {
+    var layout, hideLeft = false, hideRight = false;
+    function updateLayout() {
+        if (!layout) return;
+        layout.classList.remove('hide-left','hide-right','hide-both');
+        if (hideLeft && hideRight) layout.classList.add('hide-both');
+        else if (hideLeft) layout.classList.add('hide-left');
+        else if (hideRight) layout.classList.add('hide-right');
+        document.getElementById('toggleLeftBtnL').textContent = hideLeft ? '▶ IA' : '◀ IA';
+        document.getElementById('toggleRightBtnL').textContent = hideRight ? 'Manual ◀' : 'Manual ▶';
+    }
+    setTimeout(function() {
+        layout = document.querySelector('.main-layout');
+        if (!layout) return;
+        var btnL = document.createElement('button');
+        btnL.id = 'toggleLeftBtnL';
+        btnL.className = 'panel-toggle-btn';
+        btnL.textContent = '◀ IA';
+        btnL.onclick = function() { hideLeft = !hideLeft; updateLayout(); };
+        document.body.appendChild(btnL);
+        var btnR = document.createElement('button');
+        btnR.id = 'toggleRightBtnL';
+        btnR.className = 'panel-toggle-btn';
+        btnR.textContent = 'Manual ▶';
+        btnR.onclick = function() { hideRight = !hideRight; updateLayout(); };
+        document.body.appendChild(btnR);
+        var btnB = document.createElement('button');
+        btnB.id = 'toggleBothBtnL';
+        btnB.className = 'panel-toggle-btn';
+        btnB.textContent = '⛶ Fullscreen';
+        btnB.onclick = function() {
+            if (hideLeft && hideRight) { hideLeft = false; hideRight = false; }
+            else { hideLeft = true; hideRight = true; }
+            updateLayout();
+        };
+        document.body.appendChild(btnB);
+    }, 1500);
+})();
+</script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
