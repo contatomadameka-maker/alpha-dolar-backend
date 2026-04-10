@@ -1499,3 +1499,24 @@ input:checked + .slider:before {
     .left-panel { order: 3 !important; }
     .right-panel { order: 4 !important; }
 }
+
+/* ── Colapso de painéis ── */
+.main-layout { transition: grid-template-columns 0.3s ease; }
+.main-layout.hide-left { grid-template-columns: 0px 1fr 20% !important; }
+.main-layout.hide-right { grid-template-columns: 25% 1fr 0px !important; }
+.main-layout.hide-both { grid-template-columns: 0px 1fr 0px !important; }
+.main-layout.hide-left .left-panel,
+.main-layout.hide-both .left-panel { overflow: hidden !important; padding: 0 !important; min-width: 0 !important; }
+.main-layout.hide-right .right-panel,
+.main-layout.hide-both .right-panel { overflow: hidden !important; padding: 0 !important; min-width: 0 !important; }
+.panel-toggle-btn {
+    position: fixed; bottom: 12px; z-index: 1000;
+    background: rgba(14,165,233,0.15); border: 1px solid rgba(14,165,233,0.3);
+    color: #0ea5e9; border-radius: 8px; padding: 6px 10px;
+    cursor: pointer; font-size: 12px; font-weight: 700;
+    transition: all 0.2s; backdrop-filter: blur(4px);
+}
+.panel-toggle-btn:hover { background: rgba(14,165,233,0.3); }
+#toggleLeftBtn { left: 12px; }
+#toggleRightBtn { right: 12px; }
+#toggleBothBtn { left: 50%; transform: translateX(-50%); }
