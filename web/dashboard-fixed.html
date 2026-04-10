@@ -9593,6 +9593,51 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
     }
 };
 </script>
+
+<script>
+(function() {
+    var layout = document.querySelector('.main-layout');
+    var hideLeft = false, hideRight = false;
+
+    function updateLayout() {
+        layout.classList.remove('hide-left','hide-right','hide-both');
+        if (hideLeft && hideRight) layout.classList.add('hide-both');
+        else if (hideLeft) layout.classList.add('hide-left');
+        else if (hideRight) layout.classList.add('hide-right');
+        document.getElementById('toggleLeftBtn').textContent = hideLeft ? '▶ IA' : '◀ IA';
+        document.getElementById('toggleRightBtn').textContent = hideRight ? 'Manual ◀' : 'Manual ▶';
+    }
+
+    window.addEventListener('load', function() {
+        layout = document.querySelector('.main-layout');
+
+        var btnL = document.createElement('button');
+        btnL.id = 'toggleLeftBtn';
+        btnL.className = 'panel-toggle-btn';
+        btnL.textContent = '◀ IA';
+        btnL.onclick = function() { hideLeft = !hideLeft; updateLayout(); };
+        document.body.appendChild(btnL);
+
+        var btnR = document.createElement('button');
+        btnR.id = 'toggleRightBtn';
+        btnR.className = 'panel-toggle-btn';
+        btnR.textContent = 'Manual ▶';
+        btnR.onclick = function() { hideRight = !hideRight; updateLayout(); };
+        document.body.appendChild(btnR);
+
+        var btnB = document.createElement('button');
+        btnB.id = 'toggleBothBtn';
+        btnB.className = 'panel-toggle-btn';
+        btnB.textContent = '⛶ Fullscreen';
+        btnB.onclick = function() {
+            if (hideLeft && hideRight) { hideLeft = false; hideRight = false; }
+            else { hideLeft = true; hideRight = true; }
+            updateLayout();
+        };
+        document.body.appendChild(btnB);
+    });
+})();
+</script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
 -->
@@ -11751,6 +11796,51 @@ window.proAtualizarStatusVirtual = function() {
     else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
 };
 </script>
+
+<script>
+(function() {
+    var layout = document.querySelector('.main-layout');
+    var hideLeft = false, hideRight = false;
+
+    function updateLayout() {
+        layout.classList.remove('hide-left','hide-right','hide-both');
+        if (hideLeft && hideRight) layout.classList.add('hide-both');
+        else if (hideLeft) layout.classList.add('hide-left');
+        else if (hideRight) layout.classList.add('hide-right');
+        document.getElementById('toggleLeftBtn').textContent = hideLeft ? '▶ IA' : '◀ IA';
+        document.getElementById('toggleRightBtn').textContent = hideRight ? 'Manual ◀' : 'Manual ▶';
+    }
+
+    window.addEventListener('load', function() {
+        layout = document.querySelector('.main-layout');
+
+        var btnL = document.createElement('button');
+        btnL.id = 'toggleLeftBtn';
+        btnL.className = 'panel-toggle-btn';
+        btnL.textContent = '◀ IA';
+        btnL.onclick = function() { hideLeft = !hideLeft; updateLayout(); };
+        document.body.appendChild(btnL);
+
+        var btnR = document.createElement('button');
+        btnR.id = 'toggleRightBtn';
+        btnR.className = 'panel-toggle-btn';
+        btnR.textContent = 'Manual ▶';
+        btnR.onclick = function() { hideRight = !hideRight; updateLayout(); };
+        document.body.appendChild(btnR);
+
+        var btnB = document.createElement('button');
+        btnB.id = 'toggleBothBtn';
+        btnB.className = 'panel-toggle-btn';
+        btnB.textContent = '⛶ Fullscreen';
+        btnB.onclick = function() {
+            if (hideLeft && hideRight) { hideLeft = false; hideRight = false; }
+            else { hideLeft = true; hideRight = true; }
+            updateLayout();
+        };
+        document.body.appendChild(btnB);
+    });
+})();
+</script>
 </body>
      ═══════════════════════════════════════════════════════════════ -->
 
@@ -11943,6 +12033,51 @@ window.proAtualizarStatusVirtual = function() {
     else if (v.contador < v.necessarias) { statusEl.textContent = 'Virtual '+v.contador+'/'+v.necessarias; statusEl.style.color = '#ec4899'; }
     else { statusEl.textContent = '✅ Entrando REAL!'; statusEl.style.color = '#22c55e'; }
 };
+</script>
+
+<script>
+(function() {
+    var layout = document.querySelector('.main-layout');
+    var hideLeft = false, hideRight = false;
+
+    function updateLayout() {
+        layout.classList.remove('hide-left','hide-right','hide-both');
+        if (hideLeft && hideRight) layout.classList.add('hide-both');
+        else if (hideLeft) layout.classList.add('hide-left');
+        else if (hideRight) layout.classList.add('hide-right');
+        document.getElementById('toggleLeftBtn').textContent = hideLeft ? '▶ IA' : '◀ IA';
+        document.getElementById('toggleRightBtn').textContent = hideRight ? 'Manual ◀' : 'Manual ▶';
+    }
+
+    window.addEventListener('load', function() {
+        layout = document.querySelector('.main-layout');
+
+        var btnL = document.createElement('button');
+        btnL.id = 'toggleLeftBtn';
+        btnL.className = 'panel-toggle-btn';
+        btnL.textContent = '◀ IA';
+        btnL.onclick = function() { hideLeft = !hideLeft; updateLayout(); };
+        document.body.appendChild(btnL);
+
+        var btnR = document.createElement('button');
+        btnR.id = 'toggleRightBtn';
+        btnR.className = 'panel-toggle-btn';
+        btnR.textContent = 'Manual ▶';
+        btnR.onclick = function() { hideRight = !hideRight; updateLayout(); };
+        document.body.appendChild(btnR);
+
+        var btnB = document.createElement('button');
+        btnB.id = 'toggleBothBtn';
+        btnB.className = 'panel-toggle-btn';
+        btnB.textContent = '⛶ Fullscreen';
+        btnB.onclick = function() {
+            if (hideLeft && hideRight) { hideLeft = false; hideRight = false; }
+            else { hideLeft = true; hideRight = true; }
+            updateLayout();
+        };
+        document.body.appendChild(btnB);
+    });
+})();
 </script>
 </body>
 </html>
