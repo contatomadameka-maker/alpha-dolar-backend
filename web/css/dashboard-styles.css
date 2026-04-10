@@ -1540,3 +1540,8 @@ input:checked + .slider:before {
     border-color: #0ea5e9 !important;
 }
 #toggleRightBtn { right: 100px !important; }
+
+/* ── Botões toggle live ── */
+#toggleLeftBtnL { left: 12px; bottom: 12px; }
+#toggleRightBtnL { right: 100px; bottom: 12px; }
+#toggleBothBtnL { left: 50%; transform: translateX(-50%); bottom: 12px; }
