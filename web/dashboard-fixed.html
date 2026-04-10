@@ -9608,7 +9608,7 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
         document.getElementById('toggleRightBtn').textContent = hideRight ? 'Manual ◀' : 'Manual ▶';
     }
 
-    window.addEventListener('load', function() {
+    setTimeout(function() {
         layout = document.querySelector('.main-layout');
 
         var btnL = document.createElement('button');
@@ -9635,7 +9635,7 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
             updateLayout();
         };
         document.body.appendChild(btnB);
-    });
+    }, 1500);
 })();
 </script>
 </body>
