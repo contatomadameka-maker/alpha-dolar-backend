@@ -5486,6 +5486,41 @@ function _criarProOverlay() {
     window._proOverlay = o;
 }
 
+
+// Atualiza labels dos botões conforme tipo de contrato
+function atualizarBotoesManuais() {
+  const tipo = document.getElementById('contractTypeSelect')?.value || 
+               document.querySelector('select[onchange*="contractType"]')?.value || '';
+  const riseBtn = document.getElementById('riseBtn');
+  const fallBtn = document.getElementById('fallBtn');
+  if (!riseBtn || !fallBtn) return;
+  const riseSpan = riseBtn.querySelector('span:last-child');
+  const fallSpan = fallBtn.querySelector('span:last-child');
+  if (!riseSpan || !fallSpan) return;
+  if (tipo === 'even_odd') {
+    riseSpan.textContent = 'PAR (EVEN)';
+    fallSpan.textContent = 'ÍMPAR (ODD)';
+  } else if (tipo === 'match_differ') {
+    riseSpan.textContent = 'MATCH';
+    fallSpan.textContent = 'DIFFER';
+  } else if (tipo === 'over_under') {
+    riseSpan.textContent = 'OVER';
+    fallSpan.textContent = 'UNDER';
+  } else {
+    riseSpan.textContent = 'Rise Equal';
+    fallSpan.textContent = 'Fall Equal';
+  }
+}
+// Observar mudança no select
+setTimeout(function() {
+  var selects = document.querySelectorAll('select');
+  selects.forEach(function(s) {
+    if (s.innerHTML.includes('even_odd') || s.innerHTML.includes('Par/Ímpar')) {
+      s.addEventListener('change', atualizarBotoesManuais);
+    }
+  });
+}, 2000);
+
 window.abrirAlphaIaPro=async function(){
   const email=localStorage.getItem('alpha_email')||'';
   const SUPA_URL='https://urlthgicnomfbyklesou.supabase.co';
@@ -5562,7 +5597,42 @@ window.fecharAlphaIaPro=function(){
   if(langBtn) langBtn.style.display='';
   document.body.classList.remove('ia-pro-open');
 };
-window._origAbrirAlphaIaPro = window.abrirAlphaIaPro;
+window._origAbrirAlphaIaPro = 
+// Atualiza labels dos botões conforme tipo de contrato
+function atualizarBotoesManuais() {
+  const tipo = document.getElementById('contractTypeSelect')?.value || 
+               document.querySelector('select[onchange*="contractType"]')?.value || '';
+  const riseBtn = document.getElementById('riseBtn');
+  const fallBtn = document.getElementById('fallBtn');
+  if (!riseBtn || !fallBtn) return;
+  const riseSpan = riseBtn.querySelector('span:last-child');
+  const fallSpan = fallBtn.querySelector('span:last-child');
+  if (!riseSpan || !fallSpan) return;
+  if (tipo === 'even_odd') {
+    riseSpan.textContent = 'PAR (EVEN)';
+    fallSpan.textContent = 'ÍMPAR (ODD)';
+  } else if (tipo === 'match_differ') {
+    riseSpan.textContent = 'MATCH';
+    fallSpan.textContent = 'DIFFER';
+  } else if (tipo === 'over_under') {
+    riseSpan.textContent = 'OVER';
+    fallSpan.textContent = 'UNDER';
+  } else {
+    riseSpan.textContent = 'Rise Equal';
+    fallSpan.textContent = 'Fall Equal';
+  }
+}
+// Observar mudança no select
+setTimeout(function() {
+  var selects = document.querySelectorAll('select');
+  selects.forEach(function(s) {
+    if (s.innerHTML.includes('even_odd') || s.innerHTML.includes('Par/Ímpar')) {
+      s.addEventListener('change', atualizarBotoesManuais);
+    }
+  });
+}, 2000);
+
+window.abrirAlphaIaPro;
 window._proModo='fixo';
 window.proSetModo=function(modo){window._proModo=modo;const fixo=document.getElementById('proModoFixo');const auto=document.getElementById('proModoAuto');const painel=document.getElementById('proAutoPainel');if(modo==='fixo'){fixo.style.background='rgba(0,210,255,0.15)';fixo.style.borderColor='rgba(0,210,255,0.4)';fixo.style.color='#00d2ff';auto.style.background='transparent';auto.style.borderColor='rgba(100,116,139,0.3)';auto.style.color='#64748b';document.getElementById('proContractType').disabled=false;if(painel)painel.style.display='none';const mn=document.getElementById('proModoNeg');const mna=document.getElementById('proModoNegAuto');if(mn)mn.style.display='grid';if(mna)mna.style.display='none';}else{auto.style.background='rgba(168,85,247,0.15)';auto.style.borderColor='rgba(168,85,247,0.4)';auto.style.color='#a855f7';fixo.style.background='transparent';fixo.style.borderColor='rgba(100,116,139,0.3)';fixo.style.color='#64748b';document.getElementById('proContractType').disabled=true;if(painel)painel.style.display='block';const mn2=document.getElementById('proModoNeg');const mna2=document.getElementById('proModoNegAuto');if(mn2)mn2.style.display='none';if(mna2)mna2.style.display='block';}};
 window.proSetMult=function(val,el){document.querySelectorAll('.pro-mult-btn').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('proMultiplier').value=val;window._proState.mult=val;};
