@@ -349,9 +349,11 @@ class AlphaDolar:
             self._ultimo_tick_time  = time.time()
             self._ultimo_sinal_time = time.time()
 
-            WATCHDOG_CONTRATO = 45
-            TICK_TIMEOUT      = 15
-            TRADE_TIMEOUT     = 60
+            # Timeouts por trading_mode
+            _tm = getattr(self.strategy, 'trading_mode', 'faster')
+            WATCHDOG_CONTRATO = 15 if _tm == 'faster' else 25 if _tm == 'balanced' else 45
+            TICK_TIMEOUT      = 10 if _tm == 'faster' else 15
+            TRADE_TIMEOUT     = 20 if _tm == 'faster' else 35 if _tm == 'balanced' else 60
 
             while self.is_running:
                 time.sleep(1)
