@@ -8360,17 +8360,28 @@ function chartConnect(symbol) {
       const pl = document.getElementById('chart-price-label');
       if (pl) { pl.textContent = p.toFixed(4); pl.style.color = p >= (_chart.lastP||p) ? '#22c55e' : '#ef4444'; }
       _chart.lastP = p;
-      // Countdown do tick
+      // Countdown da vela atual
       const cdEl = document.getElementById('chart-countdown');
       if (cdEl) {
         cdEl.style.display = 'inline-block';
-        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
         clearInterval(_chart._cdTimer);
-        cdEl.textContent = '00:0' + secs;
+        // Duração da vela em segundos conforme TF
+        const tfDurMap = {0:2, 1:60, 5:300, 15:900, 60:3600};
+        const tfDur = tfDurMap[_chart.tf] || 60;
+        // Calcular tempo restante da vela atual
+        const lastCandle = _chart.candles[_chart.candles.length - 1];
+        const candleAge = lastCandle && lastCandle.ts ? Math.floor((Date.now() - lastCandle.ts) / 1000) : 0;
+        let secsLeft = Math.max(0, tfDur - candleAge);
+        function fmtTime(s) {
+          const m = Math.floor(s / 60);
+          const ss = s % 60;
+          return (m > 0 ? String(m).padStart(2,'0') + ':' : '') + String(ss).padStart(2,'0');
+        }
+        cdEl.textContent = fmtTime(secsLeft);
         _chart._cdTimer = setInterval(() => {
-          secs--;
-          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
-          else cdEl.textContent = '00:0' + secs;
+          secsLeft = Math.max(0, secsLeft - 1);
+          cdEl.textContent = fmtTime(secsLeft);
+          if (secsLeft <= 0) clearInterval(_chart._cdTimer);
         }, 1000);
       }
       // Atualiza OHLC
