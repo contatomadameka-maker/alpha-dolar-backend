@@ -8061,6 +8061,14 @@ function chartBuildCandles() {
     else { c.h = Math.max(c.h, tick.p); c.l = Math.min(c.l, tick.p); c.c = tick.p; }
   }
   _chart.candles = candles;
+  // Timer: detectar nova vela
+  const tfSecs = {'1t':2,'1':60,'5':300,'15':900,'60':3600}[String(_chart.tf)] || 60;
+  _chart._tfSeconds = tfSecs;
+  const lastC = candles[candles.length-1];
+  if (lastC && _chart._lastCandleTs !== lastC.ts) {
+    _chart._lastCandleTs = lastC.ts;
+    _chart._candleStartTime = lastC.ts ? lastC.ts : Date.now();
+  }
 }
 
 function chartDraw() {
@@ -8092,7 +8100,7 @@ function chartDraw() {
   const maxCandles = _chart._visibleCandles || 60;
   const visCandles = candles.slice(-maxCandles);
   const slotW = chartW / maxCandles;
-  const cW = Math.max(2, Math.floor(slotW * 0.6));
+  const cW = Math.max(3, Math.floor(slotW * 0.75));
 
   // Range de preços
   const prices = visCandles.flatMap(c => [c.h, c.l]);
@@ -8217,17 +8225,46 @@ function chartDraw() {
     const x = padL + i * slotW + slotW / 2;
     const isUp = c.c >= c.o;
     const color = isUp ? C.up : C.down;
+    const isLast = i === visCandles.length - 1;
+    // Wick
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = isLast ? 2 : 1.5;
     ctx.beginPath();
     ctx.moveTo(x, toY(c.h));
     ctx.lineTo(x, toY(c.l));
     ctx.stroke();
+    // Body
     const bodyTop = toY(Math.max(c.o, c.c));
     const bodyBot = toY(Math.min(c.o, c.c));
-    const bodyH = Math.max(1, bodyBot - bodyTop);
+    const bodyH = Math.max(2, bodyBot - bodyTop);
     ctx.fillStyle = color;
     ctx.fillRect(x - cW/2, bodyTop, cW, bodyH);
+    // Borda na última vela (vela atual)
+    if (isLast) {
+      ctx.strokeStyle = isUp ? 'rgba(76,175,80,0.9)' : 'rgba(244,67,54,0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(x - cW/2, bodyTop, cW, bodyH);
+      // Timer countdown na última vela
+      if (_chart._tfSeconds && _chart._candleStartTime) {
+        const elapsed = (Date.now() - _chart._candleStartTime) / 1000;
+        const remaining = Math.max(0, _chart._tfSeconds - elapsed);
+        const mm = String(Math.floor(remaining / 60)).padStart(2,'0');
+        const ss = String(Math.floor(remaining % 60)).padStart(2,'0');
+        const timerTxt = remaining >= 60 ? mm+':'+ss : ss+'s';
+        // Caixa do timer
+        const tw = 36, th = 16;
+        const tx = x - tw/2;
+        const ty = toY(c.l) + 6;
+        ctx.fillStyle = isUp ? 'rgba(76,175,80,0.85)' : 'rgba(244,67,54,0.85)';
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tw, th, 4);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(timerTxt, x, ty + 11);
+      }
+    }
   });
   } // fim else candle
 
