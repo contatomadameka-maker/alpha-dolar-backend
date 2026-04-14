@@ -917,6 +917,10 @@ if __name__ == '__main__':
 from database import get_db, init_db
 init_db()
 
+@app.route('/landing2')
+def landing2():
+    return send_from_directory('web', 'landing2.html')
+
 @app.route('/checkout')
 def checkout():
     return send_from_directory('web', 'checkout.html')
