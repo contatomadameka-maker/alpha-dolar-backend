@@ -943,24 +943,41 @@ def robo_master_loop():
             prob = random.randint(72, 88)
             emoji_tipo = '🔵' if tipo == 'PAR' else '🟡'
             nome_tipo = 'AZUL (PAR)' if tipo == 'PAR' else 'AMARELO (ÍMPAR)'
-            
-            # Enviar sinal
+
+            # ── SINAL ANTECIPADO 30s antes ──
+            texto_antecipado = (
+                f"⏳ SINAL EM 30 SEGUNDOS!\n\n"
+                f"🎯 Mercado: {mercado}\n"
+                f"📊 Probabilidade: {prob}%\n\n"
+                f"⚡ Prepare-se para entrar!\n"
+                f"🤖 Alpha Dolar Signals"
+            )
+            sinal_manual(texto_antecipado)
+            print(f"Sinal antecipado: {tipo} {mercado}")
+
+            # Aguarda 30s para pessoa se preparar
+            for _ in range(30):
+                if not robo_master_ativo:
+                    return
+                time.sleep(1)
+
+            # ── SINAL DE ENTRADA ──
             texto_sinal = (
-                "\u2705 ENTRADA CONFIRMADA\n\n"
-                "ENTRAR NA COR " + emoji_tipo + " " + nome_tipo + "\n"
-                "\U0001f4ca Mercado: " + mercado + "\n"
-                "\U0001f3af Probabilidade: " + str(prob) + "%\n"
-                "\U0001f504 AT\u00c9 3 GALES\n\n"
-                "\U0001f916 Alpha Dolar Signals"
+                f"✅ ENTRAR AGORA!\n\n"
+                f"ENTRAR NA COR {emoji_tipo} {nome_tipo}\n"
+                f"📊 Mercado: {mercado}\n"
+                f"🎯 Probabilidade: {prob}%\n"
+                f"🔄 ATÉ 3 GALES\n\n"
+                f"🤖 Alpha Dolar Signals"
             )
             sinal_manual(texto_sinal)
-            print(f"Sinal enviado: {tipo} {mercado} {prob}%")
-            
-            # Aguardar resultado — tenta até 3 gales
+            print(f"Sinal entrada: {tipo} {mercado} {prob}%")
+
+            # Aguarda resultado
             gale = 0
             won = False
-            time.sleep(3)  # Aguarda 3s antes de verificar
-            
+            time.sleep(5)
+
             while gale <= 3 and robo_master_ativo:
                 res = _verificar_resultado_sinal(mercado, tipo)
                 if res['ok']:
@@ -971,11 +988,11 @@ def robo_master_loop():
                         gale += 1
                         if gale <= 3:
                             sinal_manual(f"🔄 GALE {gale} — ENTRAR {emoji_tipo} {nome_tipo} | {mercado}")
-                            time.sleep(3)
+                            time.sleep(5)
                 else:
                     break
-            
-            # Enviar imagem resultado
+
+            # Enviar resultado
             if won:
                 if gale == 0:
                     img_url = f"{IMG_BASE_URL}/win-sem-gale.png"
@@ -989,14 +1006,21 @@ def robo_master_loop():
             else:
                 img_url = f"{IMG_BASE_URL}/loss.png"
                 caption = "❌ LOSS — Proteção ativa. Aguarde próximo sinal."
-            
+
             _enviar_imagem_telegram(img_url, caption)
             print(f"Resultado: {'WIN' if won else 'LOSS'} gale={gale}")
 
         except Exception as e:
             print(f"Erro robo: {e}")
-        time.sleep(robo_master_intervalo)
+
+        # Aguarda em fatias de 1s para parar instantaneamente
+        for _ in range(robo_master_intervalo):
+            if not robo_master_ativo:
+                return
+            time.sleep(1)
+
     print("Robo Mestre parado!")
+
 
 def robo_master_loop_OLD():
     global robo_master_ativo
