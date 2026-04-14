@@ -52,6 +52,10 @@ def videos():
 def landing():
     return send_from_directory(WEB_FOLDER, 'landing.html')
 
+@app.route('/landing2')
+def landing2():
+    return send_from_directory(WEB_FOLDER, 'landing2.html')
+
 @app.route('/parceiro')
 def parceiro():
     return send_from_directory(WEB_FOLDER, 'parceiro.html')
