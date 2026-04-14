@@ -56,6 +56,10 @@ def landing():
 def landing2():
     return send_from_directory(WEB_FOLDER, 'landing2.html')
 
+@app.route('/links')
+def links():
+    return send_from_directory(WEB_FOLDER, 'links.html')
+
 @app.route('/parceiro')
 def parceiro():
     return send_from_directory(WEB_FOLDER, 'parceiro.html')
