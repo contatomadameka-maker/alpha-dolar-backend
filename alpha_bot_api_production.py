@@ -1017,10 +1017,14 @@ def robo_master_loop():
                 img_url = f"{IMG_BASE_URL}/loss.png"
                 caption = "❌ LOSS — Proteção ativa. Aguarde próximo sinal."
 
-            _enviar_imagem_telegram(img_url, caption)
+            print(f"Enviando imagem: {img_url}")
+            r = _enviar_imagem_telegram(img_url, caption)
+            print(f"Resultado envio imagem: {r}")
             print(f"Resultado: {'WIN' if won else 'LOSS'} gale={gale}")
         except Exception as e:
+            import traceback
             print(f"Erro robo: {e}")
+            print(traceback.format_exc())
 
         # Aguarda em fatias de 1s para parar instantaneamente
         for _ in range(robo_master_intervalo):
