@@ -941,29 +941,35 @@ def robo_master_loop():
             mercado = random.choice(MERCADOS_ROBO)
             tipo = random.choice(TIPOS_ROBO)
             prob = random.randint(72, 88)
-            emoji_tipo = '🔵' if tipo == 'PAR' else '🟡'
-            nome_tipo = 'AZUL (PAR)' if tipo == 'PAR' else 'AMARELO (ÍMPAR)'
+            emoji_tipo = '🟢' if tipo == 'PAR' else '🔴'
+            nome_tipo = 'PAR (EVEN)' if tipo == 'PAR' else 'ÍMPAR (ODD)'
 
             # ── SINAL ANTECIPADO 30s antes ──
+            import datetime, pytz
+            br_tz = pytz.timezone('America/Sao_Paulo')
+            agora = datetime.datetime.now(br_tz)
+            entrada_prevista = agora + datetime.timedelta(seconds=60)
+            hora_entrada = entrada_prevista.strftime('%H:%M')
             texto_antecipado = (
-                f"⏳ SINAL EM 30 SEGUNDOS!\n\n"
-                f"🎯 Mercado: {mercado}\n"
-                f"📊 Probabilidade: {prob}%\n\n"
-                f"⚡ Prepare-se para entrar!\n"
+                f"⏳ SINAL EM 1 MINUTO!\n\n"
+                f"🕐 Entrar até: {hora_entrada}\n"
+                f"📊 Mercado: {mercado}\n"
+                f"🎯 Tipo: {nome_tipo}\n"
+                f"📈 Probabilidade: {prob}%\n\n"
+                f"⚡ Abra o bot e prepare-se!\n"
                 f"🤖 Alpha Dolar Signals"
             )
-            sinal_manual(texto_antecipado)
             print(f"Sinal antecipado: {tipo} {mercado}")
 
             # Aguarda 30s para pessoa se preparar
-            for _ in range(30):
+            for _ in range(60):
                 if not robo_master_ativo:
                     return
                 time.sleep(1)
 
             # ── SINAL DE ENTRADA ──
             texto_sinal = (
-                f"✅ ENTRAR AGORA!\n\n"
+                f"✅ ENTRAR AGORA — {hora_entrada}!\n\n"
                 f"ENTRAR NA COR {emoji_tipo} {nome_tipo}\n"
                 f"📊 Mercado: {mercado}\n"
                 f"🎯 Probabilidade: {prob}%\n"
@@ -989,10 +995,14 @@ def robo_master_loop():
                         if gale <= 3:
                             sinal_manual(f"🔄 GALE {gale} — ENTRAR {emoji_tipo} {nome_tipo} | {mercado}")
                             time.sleep(5)
+                        else:
+                            break
                 else:
+                    # Timeout WebSocket — assumir LOSS e continuar
+                    won = False
                     break
 
-            # Enviar resultado
+            # Enviar imagem resultado sempre
             if won:
                 if gale == 0:
                     img_url = f"{IMG_BASE_URL}/win-sem-gale.png"
@@ -1009,7 +1019,6 @@ def robo_master_loop():
 
             _enviar_imagem_telegram(img_url, caption)
             print(f"Resultado: {'WIN' if won else 'LOSS'} gale={gale}")
-
         except Exception as e:
             print(f"Erro robo: {e}")
 
