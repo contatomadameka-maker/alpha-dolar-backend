@@ -14065,6 +14065,7 @@ document.addEventListener('DOMContentLoaded', function() {
     st.iniciarVirt   = document.getElementById('advIniciarVirt')?.value || 'sim';
     st.contractType  = document.getElementById('advContractType')?.value || 'DIGITEVEN';
     st.stakeAtual    = parseFloat(document.getElementById('advStake')?.value || 0.35);
+    st.stakeBase     = st.stakeAtual;
     st.stepMart      = 0;
     st.virtContador  = 0;
     st.historico     = [];
