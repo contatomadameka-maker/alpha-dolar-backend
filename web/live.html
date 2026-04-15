@@ -13323,8 +13323,8 @@ function atualizarBotoesManuaisLive() {
   var riseBtn = document.getElementById('riseBtn');
   var fallBtn = document.getElementById('fallBtn');
   if (!riseBtn || !fallBtn) return;
-  var riseSpan = riseBtn.querySelector('span:last-child') || riseBtn.querySelector('span');
-  var fallSpan = fallBtn.querySelector('span:last-child') || fallBtn.querySelector('span');
+  var riseSpan = riseBtn.querySelector('.btn-content span') || riseBtn.querySelector('span');
+  var fallSpan = fallBtn.querySelector('.btn-content span') || fallBtn.querySelector('span');
   if (!riseSpan || !fallSpan) return;
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';

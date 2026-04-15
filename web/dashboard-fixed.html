@@ -5494,8 +5494,8 @@ function atualizarBotoesManuais() {
   const riseBtn = document.getElementById('riseBtn');
   const fallBtn = document.getElementById('fallBtn');
   if (!riseBtn || !fallBtn) return;
-  const riseSpan = riseBtn.querySelector('span:last-child');
-  const fallSpan = fallBtn.querySelector('span:last-child');
+  const riseSpan = riseBtn.querySelector('.btn-content span') || riseBtn.querySelector('span');
+  const fallSpan = fallBtn.querySelector('.btn-content span') || fallBtn.querySelector('span');
   if (!riseSpan || !fallSpan) return;
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
@@ -5604,8 +5604,8 @@ function atualizarBotoesManuais() {
   const riseBtn = document.getElementById('riseBtn');
   const fallBtn = document.getElementById('fallBtn');
   if (!riseBtn || !fallBtn) return;
-  const riseSpan = riseBtn.querySelector('span:last-child');
-  const fallSpan = fallBtn.querySelector('span:last-child');
+  const riseSpan = riseBtn.querySelector('.btn-content span') || riseBtn.querySelector('span');
+  const fallSpan = fallBtn.querySelector('.btn-content span') || fallBtn.querySelector('span');
   if (!riseSpan || !fallSpan) return;
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
