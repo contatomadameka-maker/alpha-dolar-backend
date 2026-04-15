@@ -3993,12 +3993,7 @@ body { overflow-x: hidden !important; }
                 // Autorizado → buscar preços
                 if (msg.msg_type === 'authorize' && !msg.error) {
                     atualizarPrecos();
-                    // Executa trade pendente se houver
-                    if (window._pendingTrade) {
-                        const dir = window._pendingTrade;
-                        window._pendingTrade = null;
-                        setTimeout(() => executarTrade(dir), 300);
-                    }
+                    // Trade pendente removido para evitar execução automática indesejada
                     // Subscribe ao saldo
                     manualWs.send(JSON.stringify({ balance: 1, subscribe: 1 }));
                 }
@@ -4177,7 +4172,7 @@ body { overflow-x: hidden !important; }
         // ── Executar trade ──
         function executarTrade(direction) {
             if (!isConnected || !manualWs) {
-                window._pendingTrade = direction;
+                // Não salvar trade pendente — conectar e aguardar usuário clicar novamente
                 conectar();
                 return;
             }
