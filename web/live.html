@@ -8047,7 +8047,7 @@ function chartDraw() {
   const maxCandles = _chart._visibleCandles || 60;
   const visCandles = candles.slice(-maxCandles);
   const slotW = chartW / maxCandles;
-  const cW = Math.max(2, Math.floor(slotW * 0.6));
+  const cW = Math.max(3, Math.floor(slotW * 0.75));
 
   // Range de preços
   const prices = visCandles.flatMap(c => [c.h, c.l]);
@@ -8173,7 +8173,7 @@ function chartDraw() {
     const isUp = c.c >= c.o;
     const color = isUp ? C.up : C.down;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x, toY(c.h));
     ctx.lineTo(x, toY(c.l));
@@ -8282,13 +8282,22 @@ function chartConnect(symbol) {
       const cdEl = document.getElementById('chart-countdown');
       if (cdEl) {
         cdEl.style.display = 'inline-block';
-        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
         clearInterval(_chart._cdTimer);
-        cdEl.textContent = '00:0' + secs;
+        const tfDurMap = {0:2, 1:60, 5:300, 15:900, 60:3600};
+        const tfDur = tfDurMap[_chart.tf] || 60;
+        const lastCandle = _chart.candles[_chart.candles.length - 1];
+        const candleAge = lastCandle && lastCandle.ts ? Math.floor((Date.now() - lastCandle.ts) / 1000) : 0;
+        let secsLeft = Math.max(0, tfDur - candleAge);
+        function fmtTime(s) {
+          const m = Math.floor(s / 60);
+          const ss = s % 60;
+          return String(m).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+        }
+        cdEl.textContent = fmtTime(secsLeft);
         _chart._cdTimer = setInterval(() => {
-          secs--;
-          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
-          else cdEl.textContent = '00:0' + secs;
+          secsLeft = Math.max(0, secsLeft - 1);
+          cdEl.textContent = fmtTime(secsLeft);
+          if (secsLeft <= 0) clearInterval(_chart._cdTimer);
         }, 1000);
       }
       // Atualiza OHLC
@@ -11402,7 +11411,7 @@ function chartDraw() {
   const maxCandles = _chart._visibleCandles || 60;
   const visCandles = candles.slice(-maxCandles);
   const slotW = chartW / maxCandles;
-  const cW = Math.max(2, Math.floor(slotW * 0.6));
+  const cW = Math.max(3, Math.floor(slotW * 0.75));
 
   // Range de preços
   const prices = visCandles.flatMap(c => [c.h, c.l]);
@@ -11528,7 +11537,7 @@ function chartDraw() {
     const isUp = c.c >= c.o;
     const color = isUp ? C.up : C.down;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(x, toY(c.h));
     ctx.lineTo(x, toY(c.l));
@@ -11637,13 +11646,22 @@ function chartConnect(symbol) {
       const cdEl = document.getElementById('chart-countdown');
       if (cdEl) {
         cdEl.style.display = 'inline-block';
-        let secs = _chart.symbol && _chart.symbol.startsWith('1HZ') ? 1 : 2;
         clearInterval(_chart._cdTimer);
-        cdEl.textContent = '00:0' + secs;
+        const tfDurMap = {0:2, 1:60, 5:300, 15:900, 60:3600};
+        const tfDur = tfDurMap[_chart.tf] || 60;
+        const lastCandle = _chart.candles[_chart.candles.length - 1];
+        const candleAge = lastCandle && lastCandle.ts ? Math.floor((Date.now() - lastCandle.ts) / 1000) : 0;
+        let secsLeft = Math.max(0, tfDur - candleAge);
+        function fmtTime(s) {
+          const m = Math.floor(s / 60);
+          const ss = s % 60;
+          return String(m).padStart(2,'0') + ':' + String(ss).padStart(2,'0');
+        }
+        cdEl.textContent = fmtTime(secsLeft);
         _chart._cdTimer = setInterval(() => {
-          secs--;
-          if (secs <= 0) { clearInterval(_chart._cdTimer); cdEl.textContent = '00:00'; }
-          else cdEl.textContent = '00:0' + secs;
+          secsLeft = Math.max(0, secsLeft - 1);
+          cdEl.textContent = fmtTime(secsLeft);
+          if (secsLeft <= 0) clearInterval(_chart._cdTimer);
         }, 1000);
       }
       // Atualiza OHLC
@@ -13296,6 +13314,39 @@ window.pararCronometro = function() {
         document.body.appendChild(btnB);
     }, 1500);
 })();
+</script>
+<script>
+// Atualiza labels dos botões conforme tipo de contrato - LIVE
+function atualizarBotoesManuaisLive() {
+  var sel = document.getElementById('tradeTypeSelect');
+  var tipo = sel ? sel.value : '';
+  var riseBtn = document.getElementById('riseBtn');
+  var fallBtn = document.getElementById('fallBtn');
+  if (!riseBtn || !fallBtn) return;
+  var riseSpan = riseBtn.querySelector('span:last-child') || riseBtn.querySelector('span');
+  var fallSpan = fallBtn.querySelector('span:last-child') || fallBtn.querySelector('span');
+  if (!riseSpan || !fallSpan) return;
+  if (tipo === 'even_odd') {
+    riseSpan.textContent = 'PAR (EVEN)';
+    fallSpan.textContent = 'ÍMPAR (ODD)';
+  } else if (tipo === 'match_differ' || tipo === 'matches_differs') {
+    riseSpan.textContent = 'MATCH';
+    fallSpan.textContent = 'DIFFER';
+  } else if (tipo === 'over_under') {
+    riseSpan.textContent = 'OVER';
+    fallSpan.textContent = 'UNDER';
+  } else {
+    riseSpan.textContent = 'Rise Equal';
+    fallSpan.textContent = 'Fall Equal';
+  }
+}
+setTimeout(function() {
+  var sel = document.getElementById('tradeTypeSelect');
+  if (sel) {
+    sel.addEventListener('change', atualizarBotoesManuaisLive);
+    atualizarBotoesManuaisLive();
+  }
+}, 1500);
 </script>
 </body>
   ╚══════════════════════════════════════════════════════════════════╝
