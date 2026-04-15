@@ -4141,8 +4141,9 @@ body { overflow-x: hidden !important; }
                     }
                 }
 
-                // Proposal do Multiplier → comprar
-                if (msg.msg_type === 'proposal' && !msg.error) {
+                // Proposal do Multiplier → comprar SOMENTE se for multiplier pendente
+                if (msg.msg_type === 'proposal' && !msg.error && window._pendingMultiplier) {
+                    window._pendingMultiplier = false;
                     const proposalId = msg.proposal?.id;
                     if (proposalId) {
                         manualWs.send(JSON.stringify({ buy: proposalId, price: msg.proposal.ask_price }));
@@ -4216,6 +4217,7 @@ body { overflow-x: hidden !important; }
                 const multSL = parseFloat(document.getElementById('multSL')?.value || 5);
                 const multTP = parseFloat(document.getElementById('multTP')?.value || 10);
                 const multStake = parseFloat(document.getElementById('multStake')?.value || stake);
+                window._pendingMultiplier = true;
                 manualWs.send(JSON.stringify({
                     proposal: 1,
                     amount: multStake,
@@ -8804,7 +8806,7 @@ function chartAutoAnalyze() {
   if (bbSignal && rsiSignal && bbSignal === rsiSignal) direction = bbSignal;
   else if (bbSignal && digitSignal && bbSignal === digitSignal) direction = bbSignal;
   else if (rsiSignal && digitSignal && rsiSignal === digitSignal) direction = rsiSignal;
-  else if (rsiSignal) direction = rsiSignal; // RSI sozinho é suficiente
+  // RSI sozinho não é suficiente — precisa de confirmação
 
   // Alternância forçada após 2 perdas na mesma direção
   if (_chart._lastAutoDir === direction && (_chart._autoConsecLosses || 0) >= 2) {
