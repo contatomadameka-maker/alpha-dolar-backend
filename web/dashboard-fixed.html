@@ -5489,8 +5489,8 @@ function _criarProOverlay() {
 
 // Atualiza labels dos botões conforme tipo de contrato
 function atualizarBotoesManuais() {
-  const tipo = document.getElementById('contractTypeSelect')?.value || 
-               document.querySelector('select[onchange*="contractType"]')?.value || '';
+  const sel = document.getElementById('tradeTypeSelect');
+  const tipo = sel ? sel.value : '';
   const riseBtn = document.getElementById('riseBtn');
   const fallBtn = document.getElementById('fallBtn');
   if (!riseBtn || !fallBtn) return;
@@ -5500,7 +5500,7 @@ function atualizarBotoesManuais() {
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
     fallSpan.textContent = 'ÍMPAR (ODD)';
-  } else if (tipo === 'match_differ') {
+  } else if (tipo === 'match_differ' || tipo === 'matches_differs') {
     riseSpan.textContent = 'MATCH';
     fallSpan.textContent = 'DIFFER';
   } else if (tipo === 'over_under') {
@@ -5513,13 +5513,12 @@ function atualizarBotoesManuais() {
 }
 // Observar mudança no select
 setTimeout(function() {
-  var selects = document.querySelectorAll('select');
-  selects.forEach(function(s) {
-    if (s.innerHTML.includes('even_odd') || s.innerHTML.includes('Par/Ímpar')) {
-      s.addEventListener('change', atualizarBotoesManuais);
-    }
-  });
-}, 2000);
+  var sel = document.getElementById('tradeTypeSelect');
+  if (sel) {
+    sel.addEventListener('change', atualizarBotoesManuais);
+    atualizarBotoesManuais(); // aplicar ao carregar
+  }
+}, 1500);
 
 window.abrirAlphaIaPro=async function(){
   const email=localStorage.getItem('alpha_email')||'';
@@ -5600,8 +5599,8 @@ window.fecharAlphaIaPro=function(){
 window._origAbrirAlphaIaPro = 
 // Atualiza labels dos botões conforme tipo de contrato
 function atualizarBotoesManuais() {
-  const tipo = document.getElementById('contractTypeSelect')?.value || 
-               document.querySelector('select[onchange*="contractType"]')?.value || '';
+  const sel = document.getElementById('tradeTypeSelect');
+  const tipo = sel ? sel.value : '';
   const riseBtn = document.getElementById('riseBtn');
   const fallBtn = document.getElementById('fallBtn');
   if (!riseBtn || !fallBtn) return;
@@ -5611,7 +5610,7 @@ function atualizarBotoesManuais() {
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
     fallSpan.textContent = 'ÍMPAR (ODD)';
-  } else if (tipo === 'match_differ') {
+  } else if (tipo === 'match_differ' || tipo === 'matches_differs') {
     riseSpan.textContent = 'MATCH';
     fallSpan.textContent = 'DIFFER';
   } else if (tipo === 'over_under') {
@@ -5624,13 +5623,12 @@ function atualizarBotoesManuais() {
 }
 // Observar mudança no select
 setTimeout(function() {
-  var selects = document.querySelectorAll('select');
-  selects.forEach(function(s) {
-    if (s.innerHTML.includes('even_odd') || s.innerHTML.includes('Par/Ímpar')) {
-      s.addEventListener('change', atualizarBotoesManuais);
-    }
-  });
-}, 2000);
+  var sel = document.getElementById('tradeTypeSelect');
+  if (sel) {
+    sel.addEventListener('change', atualizarBotoesManuais);
+    atualizarBotoesManuais(); // aplicar ao carregar
+  }
+}, 1500);
 
 window.abrirAlphaIaPro;
 window._proModo='fixo';
