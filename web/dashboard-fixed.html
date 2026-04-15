@@ -7597,34 +7597,74 @@ function copyAddLog(msg) {
     </div>
 
     <!-- SINAIS RÁPIDOS -->
-    <div style="margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:6px;">⚡ Sinais Rápidos</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <button onclick="sinalRapido('🟢 SINAL: Apostar em DÍGITO PAR\nMercado: R_100\nProbabilidade: 78%\n⚡ Alpha Pattern')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">🟢 PAR</button>
-        <button onclick="sinalRapido('🔴 SINAL: Apostar em DÍGITO ÍMPAR\nMercado: R_100\nProbabilidade: 78%\n⚡ Alpha Pattern')" style="padding:10px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:#a855f7;font-size:12px;font-weight:700;cursor:pointer;">🔴 ÍMPAR</button>
-        <button onclick="sinalRapido('📈 SINAL: SUBIDA (CALL)\nMercado: R_100\nConfiança IA: 82%\n⚡ Alpha IA Pro')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">📈 CALL</button>
-        <button onclick="sinalRapido('📉 SINAL: QUEDA (PUT)\nMercado: R_100\nConfiança IA: 82%\n⚡ Alpha IA Pro')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">📉 PUT</button>
-        <button onclick="sinalRapido('⏰ HORÁRIO PREMIUM: 14h-16h\nScore: 88% — MELHOR DO DIA\n🔥 Aproveite essa janela!\n⚡ Alpha Clock')" style="padding:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;color:#f59e0b;font-size:12px;font-weight:700;cursor:pointer;">⏰ HORÁRIO</button>
-        <button onclick="sinalRapido('🚨 ALERTA: Alta volatilidade detectada\nPAUSE as operações agora!\nAguarde o mercado estabilizar.\n⚡ Alpha Shield')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">🚨 PERIGO</button>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:12px;">⚡ Gerador de Sinais</div>
+      
+      <!-- Seletor de Mercado -->
+      <div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:#64748b;margin-bottom:6px;">MERCADO</div>
+        <select id="sig-mercado" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
+          <optgroup label="── Volatility ──">
+            <option value="R_100">Volatility 100 Index</option>
+            <option value="R_75">Volatility 75 Index</option>
+            <option value="R_50">Volatility 50 Index</option>
+            <option value="R_25">Volatility 25 Index</option>
+            <option value="R_10">Volatility 10 Index</option>
+          </optgroup>
+          <optgroup label="── Volatility 1s ──">
+            <option value="1HZ100V">Volatility 100 (1s)</option>
+            <option value="1HZ75V">Volatility 75 (1s)</option>
+            <option value="1HZ50V">Volatility 50 (1s)</option>
+          </optgroup>
+          <optgroup label="── Jump ──">
+            <option value="JD100">Jump 100 Index</option>
+            <option value="JD75">Jump 75 Index</option>
+            <option value="JD50">Jump 50 Index</option>
+          </optgroup>
+          <optgroup label="── Crash/Boom ──">
+            <option value="BOOM1000">Boom 1000 Index</option>
+            <option value="BOOM500">Boom 500 Index</option>
+            <option value="CRASH1000">Crash 1000 Index</option>
+            <option value="CRASH500">Crash 500 Index</option>
+          </optgroup>
+          <optgroup label="── Step ──">
+            <option value="STPIDX">Step Index</option>
+          </optgroup>
+        </select>
       </div>
-    </div>
 
-    <!-- AUTO SINAIS -->
-    <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <!-- Expiração e Direção -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
         <div>
-          <div style="font-size:13px;font-weight:700;color:#fff;">🤖 Sinais Automáticos</div>
-          <div style="font-size:11px;color:#64748b;margin-top:2px;">Envia ao canal quando robô opera</div>
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px;">EXPIRAÇÃO</div>
+          <select id="sig-expiracao" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
+            <option value="M1">M1 — 1 minuto</option>
+            <option value="M5" selected>M5 — 5 minutos</option>
+            <option value="M15">M15 — 15 minutos</option>
+            <option value="M30">M30 — 30 minutos</option>
+          </select>
         </div>
-        <label style="position:relative;width:44px;height:24px;cursor:pointer;">
-          <input type="checkbox" id="sig-auto" style="opacity:0;width:0;height:0;" onchange="toggleAutoSinais(this.checked)">
-          <span id="sig-auto-track" style="position:absolute;inset:0;background:#1e2230;border-radius:12px;transition:0.2s;border:1px solid rgba(255,255,255,0.1)"></span>
-          <span id="sig-auto-thumb" style="position:absolute;top:3px;left:3px;width:18px;height:18px;background:#475569;border-radius:50%;transition:0.2s"></span>
-        </label>
+        <div>
+          <div style="font-size:11px;color:#64748b;margin-bottom:6px;">TIPO</div>
+          <select id="sig-tipo" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
+            <option value="PAR">🟢 PAR (EVEN)</option>
+            <option value="IMPAR">🔴 ÍMPAR (ODD)</option>
+            <option value="RISE">📈 RISE (SUBIDA)</option>
+            <option value="FALL">📉 FALL (QUEDA)</option>
+          </select>
+        </div>
       </div>
-      <div style="font-size:11px;color:#475569;">Quando ativo: envia WIN/LOSS e sinais do Alpha Pattern automaticamente</div>
-    </div>
 
+      <!-- Botões de envio rápido -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <button onclick="enviarSinalRapido('PAR')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">🟢 PAR</button>
+        <button onclick="enviarSinalRapido('IMPAR')" style="padding:10px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.3);border-radius:8px;color:#a855f7;font-size:12px;font-weight:700;cursor:pointer;">🔴 ÍMPAR</button>
+        <button onclick="enviarSinalRapido('RISE')" style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#22c55e;font-size:12px;font-weight:700;cursor:pointer;">📈 RISE</button>
+        <button onclick="enviarSinalRapido('FALL')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">📉 FALL</button>
+        <button onclick="enviarAlerta('horario')" style="padding:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;color:#f59e0b;font-size:12px;font-weight:700;cursor:pointer;">⏰ HORÁRIO</button>
+        <button onclick="enviarAlerta('perigo')" style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;">🚨 PERIGO</button>
+      </div>
+    </div>
     <!-- LOG -->
     <div style="margin-top:16px;">
       <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:#64748b;text-transform:uppercase;margin-bottom:8px;">📋 Últimos Enviados</div>
@@ -7667,6 +7707,79 @@ async function enviarSinalManual() {
   }
   btn.textContent = '📤 Enviar para o Canal';
   btn.disabled = false;
+}
+
+function enviarSinalRapido(direcao) {
+  const mercado = document.getElementById('sig-mercado').value;
+  const mercadoNome = document.getElementById('sig-mercado').options[document.getElementById('sig-mercado').selectedIndex].text;
+  const expiracao = document.getElementById('sig-expiracao').value;
+  const expMin = parseInt(expiracao.replace('M',''));
+  
+  // Horário atual de Brasília
+  const agora = new Date();
+  const br = new Date(agora.toLocaleString('en-US', {timeZone: 'America/Sao_Paulo'}));
+  const hh = String(br.getHours()).padStart(2,'0');
+  const mm = String(br.getMinutes()).padStart(2,'0');
+  const horaEntrada = hh + ':' + mm;
+  
+  // Calcular gales
+  const g1 = new Date(br.getTime() + expMin*60000);
+  const g2 = new Date(br.getTime() + expMin*2*60000);
+  const gale1 = String(g1.getHours()).padStart(2,'0') + ':' + String(g1.getMinutes()).padStart(2,'0');
+  const gale2 = String(g2.getHours()).padStart(2,'0') + ':' + String(g2.getMinutes()).padStart(2,'0');
+  
+  const emoji = direcao === 'PAR' ? '🟢' : direcao === 'IMPAR' ? '🔴' : direcao === 'RISE' ? '📈' : '📉';
+  const dirNome = direcao === 'PAR' ? 'PAR (EVEN)' : direcao === 'IMPAR' ? 'ÍMPAR (ODD)' : direcao;
+  
+  const texto = `✅ ENTRADA CONFIRMADA ✅
+
+🌐 Ativo: ${mercadoNome}
+⏳ Expiração: ${expiracao}
+📊 Direção: ${emoji} ${dirNome}
+🕐 Entrada: ${horaEntrada}
+
+👉 Fazer até 2 martingale em caso de loss!
+1º GALE: TERMINA EM: ${gale1}h
+2º GALE: TERMINA EM: ${gale2}h
+
+⚠️ Gerencie seu risco antes de entrar!
+
+📱 alphadolar.online
+🤖 Alpha Dolar Signals`;
+  
+  document.getElementById('sig-texto').value = texto;
+  enviarSinalManual();
+}
+
+function enviarAlerta(tipo) {
+  const agora = new Date();
+  const br = new Date(agora.toLocaleString('en-US', {timeZone: 'America/Sao_Paulo'}));
+  const hora = String(br.getHours()).padStart(2,'0') + ':' + String(br.getMinutes()).padStart(2,'0');
+  
+  let texto = '';
+  if (tipo === 'horario') {
+    texto = `⏰ HORÁRIO PREMIUM AGORA!
+
+🕐 ${hora} — Brasília
+📊 Score alto detectado
+🔥 Ótima janela para operar!
+
+⚡ Alpha Clock
+🤖 Alpha Dolar Signals`;
+  } else {
+    texto = `🚨 ALERTA DE PERIGO!
+
+⚠️ Alta volatilidade detectada
+🛑 PAUSE as operações agora!
+🕐 ${hora} — Brasília
+
+Aguarde o mercado estabilizar.
+
+⚡ Alpha Shield
+🤖 Alpha Dolar Signals`;
+  }
+  document.getElementById('sig-texto').value = texto;
+  enviarSinalManual();
 }
 
 function sinalRapido(texto) {
