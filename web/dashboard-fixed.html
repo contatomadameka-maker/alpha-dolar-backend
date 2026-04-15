@@ -1865,8 +1865,43 @@ body { overflow-x: hidden !important; }
                             <option value="touch_no_touch">Touch/No Touch</option>
                             <option value="higher_lower">Higher/Lower</option>
                         </optgroup>
+                        <optgroup label="Multiplicadores">
+                            <option value="multiplier">✖ Multipliers (Up/Down)</option>
+                        </optgroup>
                     </select>
                 </div>
+            </div>
+            <!-- PAINEL MULTIPLIER -->
+            <div class="manual-multiplier form-group" style="display:none;background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:12px;">
+              <div style="font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:1px;margin-bottom:10px;">✖ CONFIGURAÇÃO MULTIPLIER</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <div>
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">MULTIPLICADOR</div>
+                  <select id="multValue" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
+                    <option value="10">10x</option>
+                    <option value="20">20x</option>
+                    <option value="50">50x</option>
+                    <option value="100">100x</option>
+                    <option value="200" selected>200x</option>
+                    <option value="500">500x</option>
+                    <option value="1000">1000x</option>
+                  </select>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">VALOR ENTRADA</div>
+                  <input type="number" id="multStake" value="10" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">STOP LOSS ($)</div>
+                  <input type="number" id="multSL" value="5" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
+                </div>
+                <div>
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">TAKE PROFIT ($)</div>
+                  <input type="number" id="multTP" value="10" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
+                </div>
+              </div>
             </div>
             <div class="form-group">
                 <label>Duração</label>
@@ -3830,7 +3865,7 @@ body { overflow-x: hidden !important; }
         @keyframes fadeInUp { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
 
         /* Multiplicador de entrada — esconder campo que não usamos */
-        .manual-multiplier { display: none !important; }
+        .manual-multiplier { display: none; }
     </style>
 
     <script>
@@ -4111,6 +4146,16 @@ body { overflow-x: hidden !important; }
                     }
                 }
 
+                // Proposal do Multiplier → comprar
+                if (msg.msg_type === 'proposal' && !msg.error) {
+                    const proposalId = msg.proposal?.id;
+                    if (proposalId) {
+                        manualWs.send(JSON.stringify({ buy: proposalId, price: msg.proposal.ask_price }));
+                        if (window._addLogLine) {
+                            window._addLogLine(`✖ Multiplier comprado! Preço: $${msg.proposal.ask_price}`, 'log-action');
+                        }
+                    }
+                }
                 // Saldo atualizado
                 if (msg.msg_type === 'balance' && !msg.error) {
                     const saldo = parseFloat(msg.balance.balance);
@@ -4143,6 +4188,7 @@ body { overflow-x: hidden !important; }
             const durUnit = {ticks:'t',seconds:'s',minutes:'m',hours:'h',days:'d'}[durationUnit.value] || 't';
             const tradeType = document.getElementById('tradeTypeSelect')?.value || 'rise_fall_equals';
             const ctMap = {
+                multiplier:       direction === 'rise' ? 'MULTUP' : 'MULTDOWN',
                 rise_fall_equals: direction === 'rise' ? 'CALLE' : 'PUTE',
                 rise_fall:        direction === 'rise' ? 'CALL'  : 'PUT',
                 reset_call_put:   direction === 'rise' ? 'RESETCALL' : 'RESETPUT',
@@ -4168,20 +4214,45 @@ body { overflow-x: hidden !important; }
 
             // Registra contrato pendente para mostrar no gráfico
             window._pendingContract = { direction, stake, duration, durUnit };
-            manualWs.send(JSON.stringify({
-                buy: 1,
-                price: stake,
-                ...(needsBarrier && barrierVal !== null && barrierVal !== '' ? {barrier: barrierVal} : {}),
-                parameters: {
-                    amount: stake,
+
+            // Multipliers precisam de proposal separado
+            if (tradeType === 'multiplier') {
+                const multVal = parseInt(document.getElementById('multValue')?.value || 200);
+                const multSL = parseFloat(document.getElementById('multSL')?.value || 5);
+                const multTP = parseFloat(document.getElementById('multTP')?.value || 10);
+                const multStake = parseFloat(document.getElementById('multStake')?.value || stake);
+                manualWs.send(JSON.stringify({
+                    proposal: 1,
+                    amount: multStake,
                     basis: 'stake',
                     contract_type: ct,
                     currency: 'USD',
-                    duration: duration,
-                    duration_unit: durUnit,
-                    symbol: symbol
+                    symbol: symbol,
+                    multiplier: multVal,
+                    limit_order: {
+                        stop_loss: multSL,
+                        take_profit: multTP
+                    }
+                }));
+                if (window._addLogLine) {
+                    window._addLogLine(`✖ Multiplier ${ct} | ${symbol} | $${multStake} | ${multVal}x | SL:$${multSL} TP:$${multTP}`, 'log-action');
                 }
-            }));
+            } else {
+                manualWs.send(JSON.stringify({
+                    buy: 1,
+                    price: stake,
+                    ...(needsBarrier && barrierVal !== null && barrierVal !== '' ? {barrier: barrierVal} : {}),
+                    parameters: {
+                        amount: stake,
+                        basis: 'stake',
+                        contract_type: ct,
+                        currency: 'USD',
+                        duration: duration,
+                        duration_unit: durUnit,
+                        symbol: symbol
+                    }
+                }));
+            }
         }
 
         // ── Event listeners ──
@@ -5497,6 +5568,13 @@ function atualizarBotoesManuais() {
   const riseSpan = riseBtn.querySelector('.btn-content span') || riseBtn.querySelector('span');
   const fallSpan = fallBtn.querySelector('.btn-content span') || fallBtn.querySelector('span');
   if (!riseSpan || !fallSpan) return;
+
+  // Mostrar/esconder painel multiplier
+  const multPanel = document.querySelector('.manual-multiplier');
+  if (multPanel) {
+    multPanel.style.display = tipo === 'multiplier' ? 'block' : 'none';
+  }
+
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
     fallSpan.textContent = 'ÍMPAR (ODD)';
@@ -5506,6 +5584,9 @@ function atualizarBotoesManuais() {
   } else if (tipo === 'over_under') {
     riseSpan.textContent = 'OVER';
     fallSpan.textContent = 'UNDER';
+  } else if (tipo === 'multiplier') {
+    riseSpan.textContent = 'UP ✖';
+    fallSpan.textContent = 'DOWN ✖';
   } else {
     riseSpan.textContent = 'Rise Equal';
     fallSpan.textContent = 'Fall Equal';
@@ -5607,6 +5688,13 @@ function atualizarBotoesManuais() {
   const riseSpan = riseBtn.querySelector('.btn-content span') || riseBtn.querySelector('span');
   const fallSpan = fallBtn.querySelector('.btn-content span') || fallBtn.querySelector('span');
   if (!riseSpan || !fallSpan) return;
+
+  // Mostrar/esconder painel multiplier
+  const multPanel = document.querySelector('.manual-multiplier');
+  if (multPanel) {
+    multPanel.style.display = tipo === 'multiplier' ? 'block' : 'none';
+  }
+
   if (tipo === 'even_odd') {
     riseSpan.textContent = 'PAR (EVEN)';
     fallSpan.textContent = 'ÍMPAR (ODD)';
@@ -5616,6 +5704,9 @@ function atualizarBotoesManuais() {
   } else if (tipo === 'over_under') {
     riseSpan.textContent = 'OVER';
     fallSpan.textContent = 'UNDER';
+  } else if (tipo === 'multiplier') {
+    riseSpan.textContent = 'UP ✖';
+    fallSpan.textContent = 'DOWN ✖';
   } else {
     riseSpan.textContent = 'Rise Equal';
     fallSpan.textContent = 'Fall Equal';
