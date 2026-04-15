@@ -950,13 +950,21 @@ def robo_master_loop():
             agora = datetime.datetime.now(br_tz)
             entrada_prevista = agora + datetime.timedelta(seconds=60)
             hora_entrada = entrada_prevista.strftime('%H:%M')
+            import datetime, pytz
+            br_tz = pytz.timezone('America/Sao_Paulo')
+            agora = datetime.datetime.now(br_tz)
+            entrada_prevista = agora + datetime.timedelta(seconds=60)
+            hora_entrada = entrada_prevista.strftime('%H:%M')
+            # Calcular horários dos gales (M1 = +1min, +2min)
+            gale1 = (entrada_prevista + datetime.timedelta(minutes=1)).strftime('%H:%M')
+            gale2 = (entrada_prevista + datetime.timedelta(minutes=2)).strftime('%H:%M')
+            emoji_dir = '🟢' if tipo == 'PAR' else '🔴'
             texto_antecipado = (
                 f"⏳ SINAL EM 1 MINUTO!\n\n"
-                f"🕐 Entrar até: {hora_entrada}\n"
                 f"📊 Mercado: {mercado}\n"
                 f"🎯 Tipo: {nome_tipo}\n"
                 f"📈 Probabilidade: {prob}%\n\n"
-                f"⚡ Abra o bot e prepare-se!\n"
+                f"⚡ Prepare-se para entrar às {hora_entrada}!\n"
                 f"🤖 Alpha Dolar Signals"
             )
             print(f"Sinal antecipado: {tipo} {mercado}")
@@ -969,11 +977,16 @@ def robo_master_loop():
 
             # ── SINAL DE ENTRADA ──
             texto_sinal = (
-                f"✅ ENTRAR AGORA — {hora_entrada}!\n\n"
-                f"ENTRAR NA COR {emoji_tipo} {nome_tipo}\n"
-                f"📊 Mercado: {mercado}\n"
-                f"🎯 Probabilidade: {prob}%\n"
-                f"🔄 ATÉ 3 GALES\n\n"
+                f"✅ ENTRADA CONFIRMADA ✅\n\n"
+                f"🌐 Ativo: {mercado}\n"
+                f"⏳ Expiração: M1\n"
+                f"📊 Direção: {emoji_dir} {tipo}\n"
+                f"🕐 Entrada: {hora_entrada}\n\n"
+                f"👉 Fazer até 3 gales em caso de loss!\n"
+                f"1º GALE: TERMINA EM: {gale1}h\n"
+                f"2º GALE: TERMINA EM: {gale2}h\n\n"
+                f"⚠️ Gerencie seu risco antes de entrar!\n\n"
+                f"📱 alphadolar.online\n"
                 f"🤖 Alpha Dolar Signals"
             )
             sinal_manual(texto_sinal)
