@@ -9066,7 +9066,9 @@ function autoMultToggle() {
 
 function autoMultAnalyze() {
   const am = window._autoMult;
-  if (!am.running) { console.log('MULT: not running'); return; }
+  if (!am.running) return;
+  if (window._autoMult.openContract) { if(window._addLogLine) window._addLogLine('Aguardando contrato fechar...', 'log-action'); return; }
+  if(window._addLogLine) window._addLogLine('Analisando mercado...', 'log-action');
   if (window._autoMult.openContract) return; // Tem contrato aberto
   const candles = _chart.candles.slice(-60);
   if (candles.length < 21) return;
