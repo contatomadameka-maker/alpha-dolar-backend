@@ -4218,7 +4218,7 @@ body { overflow-x: hidden !important; }
                     }
                 }
                 // Proposal do Multiplier → comprar SOMENTE se for multiplier pendente
-                console.log('MULT FULL MSG:', JSON.stringify(msg).substring(0,300));
+                if (msg.error && window._pendingMultiplier) { window._pendingMultiplier = false; if(window._addLogLine) window._addLogLine('❌ Erro Multiplier: ' + msg.error.message, 'log-warn'); }
                 if (msg.msg_type === 'proposal' && !msg.error && window._pendingMultiplier) {
                     window._pendingMultiplier = false;
                     const proposalId = msg.proposal?.id;
@@ -9095,7 +9095,10 @@ function autoMultAnalyze() {
   const _multStake = parseFloat(document.getElementById('multStake')?.value || 10);
   const _multSL = parseFloat(document.getElementById('multSL')?.value || 3);
   const _multTP = parseFloat(document.getElementById('multTP')?.value || 10);
-  const _symbol = document.getElementById('manualMarket')?.value || 'R_100';
+  // Multipliers só funcionam em mercados específicos
+  const _marketSel = document.getElementById('manualMarket')?.value || 'R_10';
+  const _multMarkets = ['R_10','R_25','1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V'];
+  const _symbol = _multMarkets.includes(_marketSel) ? _marketSel : '1HZ10V';
   const _ct = direction === 'rise' ? 'MULTUP' : 'MULTDOWN';
 
   // Salvar pending contract com valores do multiplier
