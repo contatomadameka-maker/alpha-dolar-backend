@@ -9068,8 +9068,8 @@ function autoMultAnalyze() {
 
   // Sinal conservador — exige BB + RSI muito extremos
   let direction = null;
-  if (pct <= 0.15 && rsi < 35) direction = 'rise';       // Muito sobrevendido
-  else if (pct >= 0.85 && rsi > 65) direction = 'fall';  // Muito sobrecomprado
+  if (pct <= 0.25 && rsi < 42) direction = 'rise';       // Sobrevendido
+  else if (pct >= 0.75 && rsi > 58) direction = 'fall';  // Sobrecomprado
 
   if (!direction) return;
 
