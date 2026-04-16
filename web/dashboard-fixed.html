@@ -4190,6 +4190,11 @@ body { overflow-x: hidden !important; }
                 if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
                     const poc = msg.proposal_open_contract;
                     if (poc) {
+                        // Mostrar painel P&L sempre que receber atualização
+                        const pnlPanelEl = document.getElementById('multPnlPanel');
+                        if (pnlPanelEl && poc.contract_type && poc.contract_type.includes('MULT')) {
+                            pnlPanelEl.style.display = 'block';
+                        }
                         const pnl = parseFloat(poc.profit || 0);
                         const entry = parseFloat(poc.entry_spot || poc.buy_price || 0);
                         const current = parseFloat(poc.current_spot || 0);
