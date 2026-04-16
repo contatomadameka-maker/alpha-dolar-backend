@@ -4282,6 +4282,16 @@ body { overflow-x: hidden !important; }
 
             // Multipliers precisam de proposal separado
             if (tradeType === 'multiplier') {
+                // Validar saldo mínimo $50 na conta real
+                const _acctType = window.currentAccountType || localStorage.getItem('deriv_conta_ativa') || 'demo';
+                const _balance = parseFloat(window.currentBalance || 0);
+                if (_acctType === 'real' && _balance < 50) {
+                    if (window._addLogLine) window._addLogLine('❌ Saldo mínimo de $50 necessário para Multipliers na conta real!', 'log-warn');
+                    alert('⚠️ Saldo mínimo de $50 necessário para usar Multipliers na conta real!\n\nSeu saldo atual: $' + _balance.toFixed(2));
+                    if (direction === 'rise') riseBtn?.classList.remove('loading');
+                    else fallBtn?.classList.remove('loading');
+                    return;
+                }
                 const multVal = parseInt(document.getElementById('multValue')?.value || 200);
                 const multSL = parseFloat(document.getElementById('multSL')?.value || 5);
                 const multTP = parseFloat(document.getElementById('multTP')?.value || 10);
@@ -8942,6 +8952,20 @@ function chartAutoAnalyze() {
   if (window._addLogLine) window._addLogLine(
     `🤖 Auto: ${direction||'—'} | BB:${bbSignal||'—'} RSI:${rsiSignal||'—'}(${rsi.toFixed(0)}) DIG:${digitSignal||'—'}`, 'log-action'
   );
+
+  // Sinal visual para Multiplier quando BB+RSI concordam
+  if (bbSignal && rsiSignal && bbSignal === rsiSignal) {
+    if (typeof chartAddMultiplierMarker === 'function') {
+      // Só adicionar se modo multiplier ativo
+      const tradeType = document.getElementById('tradeTypeSelect')?.value;
+      if (tradeType === 'multiplier') {
+        chartAddMultiplierMarker(direction, _chart.lastP || 0);
+        if (window._addLogLine) window._addLogLine(
+          `✖ Sinal Multiplier: ${direction.toUpperCase()} | BB+RSI confirmados`, 'log-action'
+        );
+      }
+    }
+  }
 
   if (!direction) return;
 
