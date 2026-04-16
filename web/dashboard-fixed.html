@@ -4059,6 +4059,17 @@ body { overflow-x: hidden !important; }
                     riseBtn?.classList.remove('loading');
                     fallBtn?.classList.remove('loading');
                     if (isMultBuy) {
+                        // Registrar no openContracts para evitar abertura duplicada
+                        if (!_chart.openContracts) _chart.openContracts = {};
+                        _chart.openContracts[id] = {
+                            id, direction: window._pendingContract?.direction || 'rise',
+                            entryPrice: 0, stake: window._pendingContract?.stake || 10,
+                            duration: 0, durUnit: 's',
+                            openTime: Date.now(), countdown: 0,
+                            sl: window._pendingContract?.sl || 3,
+                            tp: window._pendingContract?.tp || 10,
+                            isMultiplier: true
+                        };
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
                         if (pnlPanel) pnlPanel.style.display = 'block';
@@ -4203,17 +4214,24 @@ body { overflow-x: hidden !important; }
                         if (currentEl) currentEl.textContent = current.toFixed(4);
                         // Atualizar status mas não fechar painel se Auto Mult ativo
                         if (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost') {
+                            // Remover do openContracts
+                            if (_chart.openContracts && poc.contract_id) {
+                                delete _chart.openContracts[poc.contract_id];
+                            }
                             const isAutoMult = window._autoMult && window._autoMult.running;
                             if (!isAutoMult) {
                                 const pnlPanel = document.getElementById('multPnlPanel');
                                 if (pnlPanel) pnlPanel.style.display = 'none';
                             }
-                            // Mostrar resultado
                             const pnlEl = document.getElementById('multPnlValue');
                             if (pnlEl) {
                                 const finalPnl = parseFloat(poc.profit || 0);
                                 pnlEl.textContent = (finalPnl>=0?'+':'')+'$'+finalPnl.toFixed(2);
                                 pnlEl.style.color = finalPnl >= 0 ? '#22c55e' : '#ef4444';
+                            }
+                            if (window._addLogLine) {
+                                const finalPnl = parseFloat(poc.profit || 0);
+                                window._addLogLine(`${finalPnl>=0?'▲ WIN':'▼ LOSS'} Multiplier: ${finalPnl>=0?'+':''}$${finalPnl.toFixed(2)}`, finalPnl>=0?'log-win':'log-lose');
                             }
                         }
                     }
