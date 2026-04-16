@@ -1909,7 +1909,10 @@ body { overflow-x: hidden !important; }
                   <input type="number" id="multTP" value="10" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
                 </div>
               </div>
-              <button id="autoMultBtn" onclick="autoMultToggle()" style="width:100%;margin-top:10px;padding:10px;background:linear-gradient(135deg,#92400e,#b45309);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
+            </div>
+            <!-- BOTAO AUTO MULTIPLIER - fora do painel oculto -->
+            <div id="autoMultContainer" style="display:none;margin-bottom:8px;">
+              <button id="autoMultBtn" onclick="autoMultToggle()" style="width:100%;padding:10px;background:linear-gradient(135deg,#92400e,#b45309);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
                 <span id="autoMultLabel">▶ Iniciar Auto Multiplier</span>
               </button>
             </div>
@@ -5700,6 +5703,10 @@ function atualizarBotoesManuais() {
   const multPanel = document.querySelector('.manual-multiplier');
   if (multPanel) {
     multPanel.style.display = tipo === 'multiplier' ? 'block' : 'none';
+  }
+  const autoMultCont = document.getElementById('autoMultContainer');
+  if (autoMultCont) {
+    autoMultCont.style.display = tipo === 'multiplier' ? 'block' : 'none';
   }
 
   if (tipo === 'even_odd') {
