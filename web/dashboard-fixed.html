@@ -9057,11 +9057,12 @@ function autoMultToggle() {
 
 function autoMultAnalyze() {
   const am = window._autoMult;
-  if (!am.running) return;
-  // Não abrir novo se já tem contrato aberto
-  if (Object.keys(_chart.openContracts || {}).length > 0) return;
+  if (!am.running) { console.log('MULT: not running'); return; }
+  const openC = Object.keys(_chart.openContracts || {}).length;
+  if (openC > 0) { console.log('MULT: contrato aberto', openC); return; }
   const candles = _chart.candles.slice(-60);
-  if (candles.length < 21) return;
+  console.log('MULT: candles:', candles.length);
+  if (candles.length < 21) { console.log('MULT: poucos candles'); return; }
   const closes = candles.map(c => c.c);
 
   // Bollinger Bands
