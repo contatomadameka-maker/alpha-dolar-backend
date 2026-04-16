@@ -4038,8 +4038,9 @@ body { overflow-x: hidden !important; }
                 }
 
                 // Proposta de preço → atualizar botões
-                if (msg.msg_type === 'proposal' && !msg.error) {
+                if (msg.msg_type === 'proposal' && !msg.error && !window._pendingMultiplier) {
                     const p = msg.proposal;
+                    if (p.contract_type === 'MULTUP' || p.contract_type === 'MULTDOWN') return;
                     const stake = parseFloat(stakeInput.value) || 1;
                     const pct = ((p.payout / stake - 1) * 100).toFixed(2);
                     const retorno = p.payout.toFixed(2);
