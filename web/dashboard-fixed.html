@@ -9083,10 +9083,11 @@ function autoMultAnalyze() {
   }
   const rsi = 100-(100/(1+gains/(losses||0.001)));
 
-  // Sinal conservador — exige BB + RSI muito extremos
+  // Sinal moderado
   let direction = null;
-  if (pct <= 0.25 && rsi < 42) direction = 'rise';       // Sobrevendido
-  else if (pct >= 0.75 && rsi > 58) direction = 'fall';  // Sobrecomprado
+  console.log('MULT BB:', (pct*100).toFixed(0)+'%', 'RSI:', rsi.toFixed(0));
+  if (pct <= 0.30 && rsi < 45) direction = 'rise';
+  else if (pct >= 0.70 && rsi > 55) direction = 'fall';
 
   if (!direction) return;
 
