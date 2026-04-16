@@ -1885,7 +1885,11 @@ body { overflow-x: hidden !important; }
                     <option value="20">20x</option>
                     <option value="50">50x</option>
                     <option value="100">100x</option>
-                    <option value="200" selected>200x</option>
+                    <option value="10">10x</option>
+                    <option value="20">20x</option>
+                    <option value="50" selected>50x</option>
+                    <option value="100">100x</option>
+                    <option value="200">200x</option>
                     <option value="500">500x</option>
                     <option value="1000">1000x</option>
                   </select>
@@ -1898,7 +1902,7 @@ body { overflow-x: hidden !important; }
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div>
                   <div style="font-size:11px;color:#64748b;margin-bottom:4px;">STOP LOSS ($)</div>
-                  <input type="number" id="multSL" value="5" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
+                  <input type="number" id="multSL" value="3" min="1" step="1" style="width:100%;background:#1e2128;border:1px solid #2a2d35;border-radius:8px;padding:8px;color:#fff;font-size:13px;outline:none;">
                 </div>
                 <div>
                   <div style="font-size:11px;color:#64748b;margin-bottom:4px;">TAKE PROFIT ($)</div>
@@ -4244,7 +4248,6 @@ body { overflow-x: hidden !important; }
             const stake    = parseFloat(stakeInput.value) || 1;
             const durUnit = {ticks:'t',seconds:'s',minutes:'m',hours:'h',days:'d'}[durationUnit.value] || 't';
             const tradeType = document.getElementById('tradeTypeSelect')?.value || 'rise_fall_equals';
-            console.log('TradeType:', tradeType, 'Select value:', document.getElementById('tradeTypeSelect')?.value);
             const ctMap = {
                 multiplier:       direction === 'rise' ? 'MULTUP' : 'MULTDOWN',
                 rise_fall_equals: direction === 'rise' ? 'CALLE' : 'PUTE',
