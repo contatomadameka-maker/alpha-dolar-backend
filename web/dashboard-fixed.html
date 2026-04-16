@@ -4060,16 +4060,7 @@ body { overflow-x: hidden !important; }
                     fallBtn?.classList.remove('loading');
                     if (isMultBuy) {
                         // Registrar no openContracts para evitar abertura duplicada
-                        if (!_chart.openContracts) _chart.openContracts = {};
-                        _chart.openContracts[id] = {
-                            id, direction: window._pendingContract?.direction || 'rise',
-                            entryPrice: 0, stake: window._pendingContract?.stake || 10,
-                            duration: 0, durUnit: 's',
-                            openTime: Date.now(), countdown: 0,
-                            sl: window._pendingContract?.sl || 3,
-                            tp: window._pendingContract?.tp || 10,
-                            isMultiplier: true
-                        };
+                        window._autoMult.openContract = id;
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
                         if (pnlPanel) pnlPanel.style.display = 'block';
@@ -4214,7 +4205,8 @@ body { overflow-x: hidden !important; }
                         if (currentEl) currentEl.textContent = current.toFixed(4);
                         // Atualizar status mas não fechar painel se Auto Mult ativo
                         if (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost') {
-                            // Remover do openContracts
+                            // Liberar para próximo contrato
+                            if (window._autoMult) window._autoMult.openContract = null;
                             if (_chart.openContracts && poc.contract_id) {
                                 delete _chart.openContracts[poc.contract_id];
                             }
@@ -9075,7 +9067,7 @@ function autoMultToggle() {
 function autoMultAnalyze() {
   const am = window._autoMult;
   if (!am.running) { console.log('MULT: not running'); return; }
-  if (Object.keys(_chart.openContracts || {}).length > 0) return;
+  if (window._autoMult.openContract) return; // Tem contrato aberto
   const candles = _chart.candles.slice(-60);
   if (candles.length < 21) return;
   const closes = candles.map(c => c.c);
