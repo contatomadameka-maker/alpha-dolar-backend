@@ -9048,8 +9048,10 @@ function autoMultToggle() {
     if (btn) { btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)'; }
     if (lbl) lbl.textContent = '⏹ Parar Auto Mult';
     if (window._addLogLine) window._addLogLine('▶ Auto Multiplier iniciado!', 'log-action');
+    console.log('Iniciando autoMultAnalyze...');
     autoMultAnalyze();
     am.interval = setInterval(autoMultAnalyze, 5000);
+    console.log('Interval criado:', am.interval);
   }
 }
 
