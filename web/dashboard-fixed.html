@@ -9120,6 +9120,7 @@ function autoMultAnalyze() {
     sl: _multSL, tp: _multTP, isMultiplier: true
   };
   window._pendingMultiplier = true;
+  if (window._autoMult) window._autoMult.openContract = 'pending';
 
   // Mostrar painel P&L
   const pnlPanel = document.getElementById('multPnlPanel');
