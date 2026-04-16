@@ -9032,7 +9032,6 @@ function chartAddSignal(type, score) {
 window._autoMult = { running: false, interval: null, openContract: null };
 
 function autoMultToggle() {
-  console.log('autoMultToggle chamado!');
   const am = window._autoMult;
   const btn = document.getElementById('autoMultBtn');
   const lbl = document.getElementById('autoMultLabel');
@@ -9048,21 +9047,17 @@ function autoMultToggle() {
     if (btn) { btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)'; }
     if (lbl) lbl.textContent = '⏹ Parar Auto Mult';
     if (window._addLogLine) window._addLogLine('▶ Auto Multiplier iniciado!', 'log-action');
-    console.log('Iniciando autoMultAnalyze...');
     autoMultAnalyze();
     am.interval = setInterval(autoMultAnalyze, 5000);
-    console.log('Interval criado:', am.interval);
   }
 }
 
 function autoMultAnalyze() {
   const am = window._autoMult;
   if (!am.running) { console.log('MULT: not running'); return; }
-  const openC = Object.keys(_chart.openContracts || {}).length;
-  if (openC > 0) { console.log('MULT: contrato aberto', openC); return; }
+  if (Object.keys(_chart.openContracts || {}).length > 0) return;
   const candles = _chart.candles.slice(-60);
-  console.log('MULT: candles:', candles.length);
-  if (candles.length < 21) { console.log('MULT: poucos candles'); return; }
+  if (candles.length < 21) return;
   const closes = candles.map(c => c.c);
 
   // Bollinger Bands
@@ -9083,11 +9078,10 @@ function autoMultAnalyze() {
   }
   const rsi = 100-(100/(1+gains/(losses||0.001)));
 
-  // Sinal moderado
+  // Sinal baseado principalmente no BB
   let direction = null;
-  console.log('MULT BB:', (pct*100).toFixed(0)+'%', 'RSI:', rsi.toFixed(0));
-  if (pct <= 0.30 && rsi < 45) direction = 'rise';
-  else if (pct >= 0.70 && rsi > 55) direction = 'fall';
+  if (pct <= 0.20) direction = 'rise';        // Preço na banda inferior
+  else if (pct >= 0.80) direction = 'fall';   // Preço na banda superior
 
   if (!direction) return;
 
@@ -9118,7 +9112,6 @@ function autoMultAnalyze() {
   if (multDirEl) multDirEl.textContent = direction === 'rise' ? '▲ UP' : '▼ DOWN';
 
   // Enviar proposal direto via WebSocket
-  console.log('AutoMult WS state:', window._manualWs?.readyState, 'pendente:', window._pendingMultiplier);
   if (window._manualWs && window._manualWs.readyState === 1) {
     window._manualWs.send(JSON.stringify({
       proposal: 1,
