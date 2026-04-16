@@ -4243,6 +4243,12 @@ body { overflow-x: hidden !important; }
                 if (window._addLogLine) {
                     window._addLogLine(`✖ Multiplier ${ct} | ${symbol} | $${multStake} | ${multVal}x | SL:$${multSL} TP:$${multTP}`, 'log-action');
                 }
+                // Adicionar marcador no gráfico
+                if (typeof chartAddMultiplierMarker === 'function') {
+                    const _dir = ct === 'MULTUP' ? 'rise' : 'fall';
+                    const _lastP = _chart.lastP || 0;
+                    chartAddMultiplierMarker(_dir, _lastP);
+                }
             } else {
                 manualWs.send(JSON.stringify({
                     buy: 1,
@@ -8916,6 +8922,18 @@ function chartAddSignal(type, score) {
   chartDraw();
 }
 
+function chartAddMultiplierMarker(direction, price) {
+  if (!_chart.signals) _chart.signals = [];
+  _chart.signals.push({
+    type: direction === 'rise' ? 'rise' : 'fall',
+    score: '✖',
+    t: Date.now(),
+    price: price,
+    isMultiplier: true
+  });
+  chartDraw();
+}
+
 function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, toY) {
   if (!_chart.signals || _chart.signals.length === 0) return;
   const ctx = _chart.ctx;
@@ -8949,6 +8967,22 @@ function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, t
       ctx.font = 'bold 7px monospace';
       ctx.fillStyle = color;
       ctx.fillText('AUTO', x, isRise ? y + 20 : y - 12);
+    } else if (sig.isMultiplier) {
+      // Alfinete especial para Multiplier — dourado com ✖
+      ctx.beginPath();
+      ctx.arc(x, y, 11, 0, Math.PI * 2);
+      ctx.fillStyle = '#F5C842';
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillStyle = '#080C14';
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, x, y + 3);
+      ctx.font = 'bold 7px monospace';
+      ctx.fillStyle = '#F5C842';
+      ctx.fillText('MULT', x, isRise ? y + 22 : y - 14);
     } else {
       // Seta simples para sinais VIP
       ctx.font = 'bold 14px sans-serif';
