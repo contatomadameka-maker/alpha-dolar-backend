@@ -4244,6 +4244,7 @@ body { overflow-x: hidden !important; }
             const stake    = parseFloat(stakeInput.value) || 1;
             const durUnit = {ticks:'t',seconds:'s',minutes:'m',hours:'h',days:'d'}[durationUnit.value] || 't';
             const tradeType = document.getElementById('tradeTypeSelect')?.value || 'rise_fall_equals';
+            console.log('TradeType:', tradeType, 'Select value:', document.getElementById('tradeTypeSelect')?.value);
             const ctMap = {
                 multiplier:       direction === 'rise' ? 'MULTUP' : 'MULTDOWN',
                 rise_fall_equals: direction === 'rise' ? 'CALLE' : 'PUTE',
