@@ -4058,9 +4058,8 @@ body { overflow-x: hidden !important; }
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
                     riseBtn?.classList.remove('loading');
                     fallBtn?.classList.remove('loading');
-                    if (isMultBuy) {
-                        // Registrar no openContracts para evitar abertura duplicada
-                        window._autoMult.openContract = id;
+                    if (isMultBuy || window._autoMult?.openContract === 'pending') {
+                        if (window._autoMult) window._autoMult.openContract = id;
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
                         if (pnlPanel) pnlPanel.style.display = 'block';
