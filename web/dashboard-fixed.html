@@ -8933,11 +8933,11 @@ function chartAutoAnalyze() {
   }
 
   // Clica no botão
-  // Auto Gráfico usa sempre Rise/Fall — não Multiplier
-  const _savedType = document.getElementById('tradeTypeSelect')?.value;
-  if (_savedType === 'multiplier') {
-    if (document.getElementById('tradeTypeSelect'))
-      document.getElementById('tradeTypeSelect').value = 'rise_fall_equals';
+  // Auto Gráfico — se modo multiplier ativo, pular (não interferir)
+  const _currentType = document.getElementById('tradeTypeSelect')?.value;
+  if (_currentType === 'multiplier') {
+    if (window._addLogLine) window._addLogLine('⚠️ Auto Gráfico pausado — desative o modo Multiplier primeiro', 'log-warn');
+    return;
   }
   const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
   if (typeof isConnected !== 'undefined' && !isConnected) {
