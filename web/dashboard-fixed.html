@@ -3954,6 +3954,7 @@ body { overflow-x: hidden !important; }
 
         // ── Estado ──
         let manualWs    = null;
+        window._manualWs = null; // referência global
         let manualToken = null;
         let reqId       = 1;
         let pendingContracts = {};
@@ -4018,6 +4019,7 @@ body { overflow-x: hidden !important; }
             if (manualWs) { try { manualWs.close(); } catch {} manualWs = null; }
 
             manualWs = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+            window._manualWs = manualWs;
 
             manualWs.onopen = () => {
                 isConnected = true;
@@ -9107,8 +9109,8 @@ function autoMultAnalyze() {
   if (multDirEl) multDirEl.textContent = direction === 'rise' ? '▲ UP' : '▼ DOWN';
 
   // Enviar proposal direto via WebSocket
-  if (window.manualWs && window.manualWs.readyState === 1) {
-    window.manualWs.send(JSON.stringify({
+  if (window._manualWs && window._manualWs.readyState === 1) {
+    window._manualWs.send(JSON.stringify({
       proposal: 1,
       amount: _multStake,
       basis: 'stake',
