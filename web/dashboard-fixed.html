@@ -9001,6 +9001,66 @@ function chartAddSignal(type, score) {
   chartDraw();
 }
 
+// ── AUTO MULTIPLIER ──
+window._autoMult = { running: false, interval: null, openContract: null };
+
+function autoMultToggle() {
+  const am = window._autoMult;
+  const btn = document.getElementById('autoMultBtn');
+  const lbl = document.getElementById('autoMultLabel');
+  if (am.running) {
+    am.running = false;
+    clearInterval(am.interval);
+    am.interval = null;
+    if (btn) { btn.style.background = 'linear-gradient(135deg,#92400e,#b45309)'; }
+    if (lbl) lbl.textContent = '▶ Auto Multiplier';
+    if (window._addLogLine) window._addLogLine('⏹ Auto Multiplier parado.', 'log-warn');
+  } else {
+    am.running = true;
+    if (btn) { btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)'; }
+    if (lbl) lbl.textContent = '⏹ Parar Auto Mult';
+    if (window._addLogLine) window._addLogLine('▶ Auto Multiplier iniciado!', 'log-action');
+    autoMultAnalyze();
+    am.interval = setInterval(autoMultAnalyze, 5000);
+  }
+}
+
+function autoMultAnalyze() {
+  const am = window._autoMult;
+  if (!am.running) return;
+  // Não abrir novo se já tem contrato aberto
+  if (Object.keys(_chart.openContracts || {}).length > 0) return;
+  const candles = _chart.candles.slice(-60);
+  if (candles.length < 21) return;
+  const closes = candles.map(c => c.c);
+  // Bollinger
+  const period = 20;
+  const sl = closes.slice(-period);
+  const mean = sl.reduce((a,b)=>a+b,0)/period;
+  const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
+  const pct = (closes[closes.length-1] - (mean - 2*std)) / (4*std || 0.001);
+  const bbSignal = pct <= 0.25 ? 'rise' : pct >= 0.75 ? 'fall' : null;
+  // RSI
+  let gains=0, losses=0;
+  for (let i=closes.length-14;i<closes.length;i++){
+    const diff=closes[i]-closes[i-1];
+    if(diff>0)gains+=diff;else losses-=diff;
+  }
+  const rsi=100-(100/(1+gains/(losses||0.001)));
+  const rsiSignal = rsi < 40 ? 'rise' : rsi > 60 ? 'fall' : null;
+  // Decisão — BB + RSI concordam
+  let direction = null;
+  if (bbSignal && rsiSignal && bbSignal === rsiSignal) direction = bbSignal;
+  else if (bbSignal) direction = bbSignal;
+  if (!direction) return;
+  // Executar trade Multiplier
+  const riseBtn = document.getElementById('riseBtn');
+  const fallBtn = document.getElementById('fallBtn');
+  if (window._addLogLine) window._addLogLine(`✖ Auto Mult: ${direction.toUpperCase()} | BB:${pct.toFixed(2)} RSI:${rsi.toFixed(0)}`, 'log-action');
+  if (direction === 'rise' && riseBtn) riseBtn.click();
+  else if (fallBtn) fallBtn.click();
+}
+
 function chartAddMultiplierMarker(direction, price) {
   if (!_chart.signals) _chart.signals = [];
   _chart.signals.push({
