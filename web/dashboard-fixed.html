@@ -4192,10 +4192,20 @@ body { overflow-x: hidden !important; }
                         }
                         if (entryEl) entryEl.textContent = entry.toFixed(4);
                         if (currentEl) currentEl.textContent = current.toFixed(4);
-                        // Fechar painel se contrato fechou
+                        // Atualizar status mas não fechar painel se Auto Mult ativo
                         if (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost') {
-                            const pnlPanel = document.getElementById('multPnlPanel');
-                            if (pnlPanel) pnlPanel.style.display = 'none';
+                            const isAutoMult = window._autoMult && window._autoMult.running;
+                            if (!isAutoMult) {
+                                const pnlPanel = document.getElementById('multPnlPanel');
+                                if (pnlPanel) pnlPanel.style.display = 'none';
+                            }
+                            // Mostrar resultado
+                            const pnlEl = document.getElementById('multPnlValue');
+                            if (pnlEl) {
+                                const finalPnl = parseFloat(poc.profit || 0);
+                                pnlEl.textContent = (finalPnl>=0?'+':'')+'$'+finalPnl.toFixed(2);
+                                pnlEl.style.color = finalPnl >= 0 ? '#22c55e' : '#ef4444';
+                            }
                         }
                     }
                 }
@@ -9037,32 +9047,41 @@ function autoMultAnalyze() {
   const candles = _chart.candles.slice(-60);
   if (candles.length < 21) return;
   const closes = candles.map(c => c.c);
-  // Bollinger
+
+  // Bollinger Bands
   const period = 20;
-  const sl = closes.slice(-period);
-  const mean = sl.reduce((a,b)=>a+b,0)/period;
-  const std = Math.sqrt(sl.reduce((a,b)=>a+(b-mean)**2,0)/period);
-  const pct = (closes[closes.length-1] - (mean - 2*std)) / (4*std || 0.001);
-  const bbSignal = pct <= 0.25 ? 'rise' : pct >= 0.75 ? 'fall' : null;
-  // RSI
+  const sl2 = closes.slice(-period);
+  const mean = sl2.reduce((a,b)=>a+b,0)/period;
+  const std = Math.sqrt(sl2.reduce((a,b)=>a+(b-mean)**2,0)/period);
+  const upper = mean + 2*std;
+  const lower = mean - 2*std;
+  const lastClose = closes[closes.length-1];
+  const pct = (lastClose - lower) / ((upper - lower) || 0.001);
+
+  // RSI 14
   let gains=0, losses=0;
   for (let i=closes.length-14;i<closes.length;i++){
     const diff=closes[i]-closes[i-1];
-    if(diff>0)gains+=diff;else losses-=diff;
+    if(diff>0) gains+=diff; else losses-=diff;
   }
-  const rsi=100-(100/(1+gains/(losses||0.001)));
-  const rsiSignal = rsi < 40 ? 'rise' : rsi > 60 ? 'fall' : null;
-  // Decisão — BB + RSI concordam
+  const rsi = 100-(100/(1+gains/(losses||0.001)));
+
+  // Sinal conservador — exige BB + RSI muito extremos
   let direction = null;
-  if (bbSignal && rsiSignal && bbSignal === rsiSignal) direction = bbSignal;
-  else if (bbSignal) direction = bbSignal;
+  if (pct <= 0.15 && rsi < 35) direction = 'rise';       // Muito sobrevendido
+  else if (pct >= 0.85 && rsi > 65) direction = 'fall';  // Muito sobrecomprado
+
   if (!direction) return;
-  // Executar trade Multiplier
+
+  if (window._addLogLine) window._addLogLine(
+    `✖ Auto Mult: ${direction.toUpperCase()} | BB:${(pct*100).toFixed(0)}% RSI:${rsi.toFixed(0)}`, 'log-action'
+  );
+
+  // Usar sempre o stake configurado (sem martingale)
   const riseBtn = document.getElementById('riseBtn');
   const fallBtn = document.getElementById('fallBtn');
-  if (window._addLogLine) window._addLogLine(`✖ Auto Mult: ${direction.toUpperCase()} | BB:${pct.toFixed(2)} RSI:${rsi.toFixed(0)}`, 'log-action');
   if (direction === 'rise' && riseBtn) riseBtn.click();
-  else if (fallBtn) fallBtn.click();
+  else if (direction === 'fall' && fallBtn) fallBtn.click();
 }
 
 function chartAddMultiplierMarker(direction, price) {
