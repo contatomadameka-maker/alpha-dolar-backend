@@ -4052,13 +4052,20 @@ body { overflow-x: hidden !important; }
                 // Compra executada → monitorar contrato
                 if (msg.msg_type === 'buy' && !msg.error) {
                     const id = msg.buy.contract_id;
-                    window._lastMultiplierBuy = msg.buy?.longcode?.includes('multiplier') || window._pendingMultiplier === false;
+                    const isMultBuy = msg.buy?.longcode?.toLowerCase().includes('multiplier');
                     pendingContracts[id] = { direction: msg.buy.longcode?.includes('higher') ? 'CALL' : 'PUT' };
                     // Subscribe ao contrato
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
                     riseBtn?.classList.remove('loading');
                     fallBtn?.classList.remove('loading');
-                    if (window._addLogLine) window._addLogLine(`${window._lastMultiplierBuy ? '✖ Multiplier' : '📱 Trade manual'} enviado — Contrato #${id}`, 'log-init');
+                    if (isMultBuy) {
+                        // Mostrar painel P&L
+                        const pnlPanel = document.getElementById('multPnlPanel');
+                        if (pnlPanel) pnlPanel.style.display = 'block';
+                        if (window._addLogLine) window._addLogLine(`✖ Multiplier aberto! Contrato #${id}`, 'log-init');
+                    } else {
+                        if (window._addLogLine) window._addLogLine(`📱 Trade manual enviado — Contrato #${id}`, 'log-init');
+                    }
                 }
 
                 // Erro na compra
