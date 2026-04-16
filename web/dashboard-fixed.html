@@ -1981,8 +1981,8 @@ body { overflow-x: hidden !important; }
                     </div>
                 </button>
             </div>
-            <!-- P&L MULTIPLIER EM TEMPO REAL -->
-            <div id="multPnlPanel" style="display:none;background:rgba(0,0,0,0.4);border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:14px;margin-bottom:8px;">
+            <!-- P&L MULTIPLIER EM TEMPO REAL - aparece abaixo do config -->
+            <div id="multPnlPanel" style="display:none;background:rgba(0,0,0,0.4);border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:14px;margin-bottom:8px;margin-top:8px;">
               <div style="font-size:11px;font-weight:700;color:#F5C842;letter-spacing:1px;margin-bottom:10px;">✖ POSIÇÃO ABERTA</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
                 <div style="text-align:center;">
@@ -9084,11 +9084,46 @@ function autoMultAnalyze() {
     `✖ Auto Mult: ${direction.toUpperCase()} | BB:${(pct*100).toFixed(0)}% RSI:${rsi.toFixed(0)}`, 'log-action'
   );
 
-  // Usar sempre o stake configurado (sem martingale)
-  const riseBtn = document.getElementById('riseBtn');
-  const fallBtn = document.getElementById('fallBtn');
-  if (direction === 'rise' && riseBtn) riseBtn.click();
-  else if (direction === 'fall' && fallBtn) fallBtn.click();
+  // Usar valores do painel Multiplier diretamente
+  const _multVal = parseInt(document.getElementById('multValue')?.value || 50);
+  const _multStake = parseFloat(document.getElementById('multStake')?.value || 10);
+  const _multSL = parseFloat(document.getElementById('multSL')?.value || 3);
+  const _multTP = parseFloat(document.getElementById('multTP')?.value || 10);
+  const _symbol = document.getElementById('manualMarket')?.value || 'R_100';
+  const _ct = direction === 'rise' ? 'MULTUP' : 'MULTDOWN';
+
+  // Salvar pending contract com valores do multiplier
+  window._pendingContract = {
+    direction, stake: _multStake,
+    duration: 1, durUnit: 't',
+    sl: _multSL, tp: _multTP, isMultiplier: true
+  };
+  window._pendingMultiplier = true;
+
+  // Mostrar painel P&L
+  const pnlPanel = document.getElementById('multPnlPanel');
+  if (pnlPanel) pnlPanel.style.display = 'block';
+  const multDirEl = document.getElementById('multDirection');
+  if (multDirEl) multDirEl.textContent = direction === 'rise' ? '▲ UP' : '▼ DOWN';
+
+  // Enviar proposal direto via WebSocket
+  if (window.manualWs && window.manualWs.readyState === 1) {
+    window.manualWs.send(JSON.stringify({
+      proposal: 1,
+      amount: _multStake,
+      basis: 'stake',
+      contract_type: _ct,
+      currency: 'USD',
+      symbol: _symbol,
+      multiplier: _multVal,
+      limit_order: { stop_loss: _multSL, take_profit: _multTP }
+    }));
+    if (window._addLogLine) window._addLogLine(
+      `✖ Auto Mult enviado: ${_ct} | $${_multStake} | ${_multVal}x | SL:$${_multSL} TP:$${_multTP}`, 'log-action'
+    );
+  } else {
+    if (window._addLogLine) window._addLogLine('❌ WebSocket não conectado!', 'log-warn');
+  }
 }
 
 function chartAddMultiplierMarker(direction, price) {
