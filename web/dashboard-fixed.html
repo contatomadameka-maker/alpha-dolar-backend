@@ -8933,6 +8933,12 @@ function chartAutoAnalyze() {
   }
 
   // Clica no botão
+  // Auto Gráfico usa sempre Rise/Fall — não Multiplier
+  const _savedType = document.getElementById('tradeTypeSelect')?.value;
+  if (_savedType === 'multiplier') {
+    if (document.getElementById('tradeTypeSelect'))
+      document.getElementById('tradeTypeSelect').value = 'rise_fall_equals';
+  }
   const btn = document.getElementById(direction === 'rise' ? 'riseBtn' : 'fallBtn');
   if (typeof isConnected !== 'undefined' && !isConnected) {
     if (typeof conectar === 'function') { conectar(); setTimeout(() => { if (btn) btn.click(); }, 2000); }
