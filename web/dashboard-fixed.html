@@ -4142,6 +4142,29 @@ body { overflow-x: hidden !important; }
                     }
                 }
 
+                // Atualizar P&L em tempo real
+                if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
+                    const poc = msg.proposal_open_contract;
+                    if (poc) {
+                        const pnl = parseFloat(poc.profit || 0);
+                        const entry = parseFloat(poc.entry_spot || poc.buy_price || 0);
+                        const current = parseFloat(poc.current_spot || 0);
+                        const pnlEl = document.getElementById('multPnlValue');
+                        const entryEl = document.getElementById('multEntryPrice');
+                        const currentEl = document.getElementById('multCurrentPrice');
+                        if (pnlEl) {
+                            pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2);
+                            pnlEl.style.color = pnl >= 0 ? '#22c55e' : '#ef4444';
+                        }
+                        if (entryEl) entryEl.textContent = entry.toFixed(4);
+                        if (currentEl) currentEl.textContent = current.toFixed(4);
+                        // Fechar painel se contrato fechou
+                        if (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost') {
+                            const pnlPanel = document.getElementById('multPnlPanel');
+                            if (pnlPanel) pnlPanel.style.display = 'none';
+                        }
+                    }
+                }
                 // Proposal do Multiplier → comprar SOMENTE se for multiplier pendente
                 if (msg.msg_type === 'proposal' && !msg.error && window._pendingMultiplier) {
                     window._pendingMultiplier = false;
@@ -4151,6 +4174,17 @@ body { overflow-x: hidden !important; }
                         if (window._addLogLine) {
                             window._addLogLine(`✖ Multiplier comprado! Preço: $${msg.proposal.ask_price}`, 'log-action');
                         }
+                    }
+                }
+                // Subscrever ao contrato multiplier para P&L em tempo real
+                if (msg.msg_type === 'buy' && !msg.error && msg.buy) {
+                    const cid = msg.buy.contract_id;
+                    if (cid && window._pendingMultiplier === false) {
+                        manualWs.send(JSON.stringify({
+                            proposal_open_contract: 1,
+                            contract_id: cid,
+                            subscribe: 1
+                        }));
                     }
                 }
                 // Saldo atualizado
@@ -4249,6 +4283,11 @@ body { overflow-x: hidden !important; }
                     const _lastP = _chart.lastP || 0;
                     chartAddMultiplierMarker(_dir, _lastP);
                 }
+                // Mostrar painel P&L
+                const pnlPanel = document.getElementById('multPnlPanel');
+                if (pnlPanel) pnlPanel.style.display = 'block';
+                const multDirEl = document.getElementById('multDirection');
+                if (multDirEl) multDirEl.textContent = ct === 'MULTUP' ? '▲ UP' : '▼ DOWN';
             } else {
                 manualWs.send(JSON.stringify({
                     buy: 1,
