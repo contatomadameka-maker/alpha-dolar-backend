@@ -9032,6 +9032,7 @@ function chartAddSignal(type, score) {
 window._autoMult = { running: false, interval: null, openContract: null };
 
 function autoMultToggle() {
+  console.log('autoMultToggle chamado!');
   const am = window._autoMult;
   const btn = document.getElementById('autoMultBtn');
   const lbl = document.getElementById('autoMultLabel');
