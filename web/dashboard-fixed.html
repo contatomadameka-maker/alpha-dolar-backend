@@ -1789,7 +1789,10 @@ body { overflow-x: hidden !important; }
         <aside class="right-panel">
             <div class="panel-header">
                 <h4>Modo manual</h4>
-                <button class="btn-agenda" id="btnAgendar" onclick="toggleAgendar()">Agendar</button>
+                <div style="display:flex;gap:6px;">
+                  <button id="btnMultMode" onclick="toggleMultMode()" style="background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.3);color:#F5C842;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">✖ MULT</button>
+                  <button class="btn-agenda" id="btnAgendar" onclick="toggleAgendar()">Agendar</button>
+                </div>
             </div>
             <div class="manual-profit"><h2 id="manualProfit">$0 (0%)</h2></div>
 
