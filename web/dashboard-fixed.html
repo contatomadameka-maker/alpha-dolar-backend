@@ -4265,7 +4265,8 @@ body { overflow-x: hidden !important; }
 
             const symbol   = marketSel.value;
             const duration = parseInt(durationInput.value) || 1;
-            const stake    = parseFloat(stakeInput.value) || 1;
+            const tradeTypeCheck = document.getElementById('tradeTypeSelect')?.value;
+            const stake = tradeTypeCheck === 'multiplier' ? (parseFloat(document.getElementById('multStake')?.value) || 10) : (parseFloat(stakeInput.value) || 1);
             const durUnit = {ticks:'t',seconds:'s',minutes:'m',hours:'h',days:'d'}[durationUnit.value] || 't';
             const tradeType = document.getElementById('tradeTypeSelect')?.value || 'rise_fall_equals';
             const ctMap = {
