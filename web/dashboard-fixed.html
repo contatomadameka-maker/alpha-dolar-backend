@@ -4320,7 +4320,7 @@ body { overflow-x: hidden !important; }
                 const multVal = parseInt(document.getElementById('multValue')?.value || 200);
                 const multSL = parseFloat(document.getElementById('multSL')?.value || 5);
                 const multTP = parseFloat(document.getElementById('multTP')?.value || 10);
-                const multStake = parseFloat(document.getElementById('multStake')?.value || stake);
+                const multStake = parseFloat(document.getElementById('multStake')?.value) || 10;
                 window._pendingMultiplier = true;
                 manualWs.send(JSON.stringify({
                     proposal: 1,
