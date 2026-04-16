@@ -4262,6 +4262,42 @@ body { overflow-x: hidden !important; }
                     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
                     localStorage.setItem('deriv_balance_' + tipo, saldo);
                 }
+                // Portfolio: detecta fechamento silencioso por SL/TP
+                if (msg.msg_type === 'portfolio' && !msg.error && window._autoMult?.openContract) {
+                    const contracts = msg.portfolio?.contracts || [];
+                    const openId = window._autoMult.openContract;
+                    if (openId && openId !== 'pending') {
+                        const ainda_aberto = contracts.some(c => String(c.contract_id) === String(openId));
+                        if (!ainda_aberto) {
+                            clearInterval(window._autoMult._pollInterval);
+                            clearTimeout(window._autoMult._timeout);
+                            window._autoMult.openContract = null;
+                            if (window._addLogLine) window._addLogLine('✖ Multiplier fechado (SL/TP detectado)', 'log-warn');
+                            if (manualWs && manualWs.readyState === 1) {
+                                manualWs.send(JSON.stringify({ profit_table: 1, contract_id: openId, limit: 1 }));
+                            }
+                        }
+                    }
+                }
+                // profit_table: resultado do Multiplier fechado por SL/TP
+                if (msg.msg_type === 'profit_table' && !msg.error) {
+                    const trades = msg.profit_table?.transactions || [];
+                    if (trades.length > 0) {
+                        const t = trades[0];
+                        const lucro = parseFloat(t.sell_price || 0) - parseFloat(t.buy_price || 0);
+                        const isWin = lucro >= 0;
+                        if (window._addLogLine) window._addLogLine(
+                            (isWin ? '▲ WIN' : '▼ LOSS') + ' Mult SL/TP: ' + (isWin?'+':'') + '$' + lucro.toFixed(2),
+                            isWin ? 'log-win' : 'log-lose'
+                        );
+                        const pnlEl = document.getElementById('multPnlValue');
+                        if (pnlEl) { pnlEl.textContent = (lucro>=0?'+':'')+'$'+lucro.toFixed(2); pnlEl.style.color = lucro>=0?'#22c55e':'#ef4444'; }
+                        if (!window._autoMult?.running) {
+                            const pnlPanel = document.getElementById('multPnlPanel');
+                            if (pnlPanel) setTimeout(() => pnlPanel.style.display = 'none', 3000);
+                        }
+                    }
+                }
             };
 
             manualWs.onerror = () => { isConnected = false; };
@@ -9054,7 +9090,11 @@ function autoMultToggle() {
   if (am.running) {
     am.running = false;
     clearInterval(am.interval);
+    clearInterval(am._pollInterval);
+    clearTimeout(am._timeout);
     am.interval = null;
+    am._pollInterval = null;
+    am.openContract = null;
     if (btn) { btn.style.background = 'linear-gradient(135deg,#92400e,#b45309)'; }
     if (lbl) lbl.textContent = '▶ Auto Multiplier';
     if (window._addLogLine) window._addLogLine('⏹ Auto Multiplier parado.', 'log-warn');
@@ -9128,10 +9168,17 @@ function autoMultAnalyze() {
   if (window._autoMult) {
     window._autoMult.openContract = 'pending';
     clearTimeout(window._autoMult._timeout);
+    clearInterval(window._autoMult._pollInterval);
     window._autoMult._timeout = setTimeout(() => {
       window._autoMult.openContract = null;
-      if(window._addLogLine) window._addLogLine('Timeout liberando contrato', 'log-warn');
-    }, 300000);
+      if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
+    }, 90000);
+    window._autoMult._pollInterval = setInterval(() => {
+      if (!window._autoMult || !window._autoMult.openContract || window._autoMult.openContract === 'pending') return;
+      if (typeof manualWs !== 'undefined' && manualWs && manualWs.readyState === 1) {
+        manualWs.send(JSON.stringify({ portfolio: 1 }));
+      }
+    }, 4000);
   }
 
   // Mostrar painel P&L
