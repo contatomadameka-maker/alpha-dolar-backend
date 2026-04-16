@@ -4142,6 +4142,9 @@ body { overflow-x: hidden !important; }
                 }
 
                 // Proposal do Multiplier → comprar SOMENTE se for multiplier pendente
+                if (msg.msg_type === 'proposal') {
+                    console.log('PROPOSAL recebido:', JSON.stringify(msg).substring(0,200), 'pendente:', window._pendingMultiplier);
+                }
                 if (msg.msg_type === 'proposal' && !msg.error && window._pendingMultiplier) {
                     window._pendingMultiplier = false;
                     const proposalId = msg.proposal?.id;
