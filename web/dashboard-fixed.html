@@ -4218,6 +4218,7 @@ body { overflow-x: hidden !important; }
                     }
                 }
                 // Proposal do Multiplier → comprar SOMENTE se for multiplier pendente
+                console.log('CHECK MULT HANDLER:', msg.msg_type, window._pendingMultiplier, msg.proposal?.contract_type);
                 if (msg.msg_type === 'proposal' && !msg.error && window._pendingMultiplier) {
                     window._pendingMultiplier = false;
                     const proposalId = msg.proposal?.id;
