@@ -4052,12 +4052,13 @@ body { overflow-x: hidden !important; }
                 // Compra executada → monitorar contrato
                 if (msg.msg_type === 'buy' && !msg.error) {
                     const id = msg.buy.contract_id;
+                    window._lastMultiplierBuy = msg.buy?.longcode?.includes('multiplier') || window._pendingMultiplier === false;
                     pendingContracts[id] = { direction: msg.buy.longcode?.includes('higher') ? 'CALL' : 'PUT' };
                     // Subscribe ao contrato
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
                     riseBtn?.classList.remove('loading');
                     fallBtn?.classList.remove('loading');
-                    if (window._addLogLine) window._addLogLine(`📱 Trade manual enviado — Contrato #${id}`, 'log-init');
+                    if (window._addLogLine) window._addLogLine(`${window._lastMultiplierBuy ? '✖ Multiplier' : '📱 Trade manual'} enviado — Contrato #${id}`, 'log-init');
                 }
 
                 // Erro na compra
