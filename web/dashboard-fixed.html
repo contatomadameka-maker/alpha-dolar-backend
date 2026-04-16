@@ -9120,7 +9120,14 @@ function autoMultAnalyze() {
     sl: _multSL, tp: _multTP, isMultiplier: true
   };
   window._pendingMultiplier = true;
-  if (window._autoMult) window._autoMult.openContract = 'pending';
+  if (window._autoMult) {
+    window._autoMult.openContract = 'pending';
+    clearTimeout(window._autoMult._timeout);
+    window._autoMult._timeout = setTimeout(() => {
+      window._autoMult.openContract = null;
+      if(window._addLogLine) window._addLogLine('Timeout liberando contrato', 'log-warn');
+    }, 300000);
+  }
 
   // Mostrar painel P&L
   const pnlPanel = document.getElementById('multPnlPanel');
