@@ -1789,7 +1789,10 @@ body { overflow-x: hidden !important; }
         <aside class="right-panel">
             <div class="panel-header">
                 <h4>Modo manual</h4>
-                <button class="btn-agenda" id="btnAgendar" onclick="toggleAgendar()">Agendar</button>
+                <div style="display:flex;gap:6px;">
+                  <button id="btnMultMode" onclick="toggleMultMode()" style="background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.3);color:#F5C842;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">✖ MULT</button>
+                  <button class="btn-agenda" id="btnAgendar" onclick="toggleAgendar()">Agendar</button>
+                </div>
             </div>
             <div class="manual-profit"><h2 id="manualProfit">$0 (0%)</h2></div>
 
@@ -5633,6 +5636,28 @@ function _criarProOverlay() {
 
 
 // Atualiza labels dos botões conforme tipo de contrato
+function toggleMultMode() {
+  const sel = document.getElementById('tradeTypeSelect');
+  const btn = document.getElementById('btnMultMode');
+  if (!sel) return;
+  if (sel.value === 'multiplier') {
+    // Voltar para Rise/Fall
+    sel.value = 'rise_fall_equals';
+    btn.style.background = 'rgba(245,200,66,0.1)';
+    btn.style.borderColor = 'rgba(245,200,66,0.3)';
+    btn.style.color = '#F5C842';
+    btn.textContent = '✖ MULT';
+  } else {
+    // Ativar Multiplier
+    sel.value = 'multiplier';
+    btn.style.background = 'rgba(245,200,66,0.3)';
+    btn.style.borderColor = '#F5C842';
+    btn.style.color = '#080C14';
+    btn.textContent = '✖ MULT ON';
+  }
+  atualizarBotoesManuais();
+}
+
 function atualizarBotoesManuais() {
   const sel = document.getElementById('tradeTypeSelect');
   const tipo = sel ? sel.value : '';
@@ -5753,6 +5778,28 @@ window.fecharAlphaIaPro=function(){
 };
 window._origAbrirAlphaIaPro = 
 // Atualiza labels dos botões conforme tipo de contrato
+function toggleMultMode() {
+  const sel = document.getElementById('tradeTypeSelect');
+  const btn = document.getElementById('btnMultMode');
+  if (!sel) return;
+  if (sel.value === 'multiplier') {
+    // Voltar para Rise/Fall
+    sel.value = 'rise_fall_equals';
+    btn.style.background = 'rgba(245,200,66,0.1)';
+    btn.style.borderColor = 'rgba(245,200,66,0.3)';
+    btn.style.color = '#F5C842';
+    btn.textContent = '✖ MULT';
+  } else {
+    // Ativar Multiplier
+    sel.value = 'multiplier';
+    btn.style.background = 'rgba(245,200,66,0.3)';
+    btn.style.borderColor = '#F5C842';
+    btn.style.color = '#080C14';
+    btn.textContent = '✖ MULT ON';
+  }
+  atualizarBotoesManuais();
+}
+
 function atualizarBotoesManuais() {
   const sel = document.getElementById('tradeTypeSelect');
   const tipo = sel ? sel.value : '';
