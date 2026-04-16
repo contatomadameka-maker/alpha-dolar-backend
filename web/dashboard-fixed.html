@@ -4047,7 +4047,8 @@ body { overflow-x: hidden !important; }
                             const pc = window._pendingContract || {};
                             chartAddContract(c.contract_id, pc.direction || 'rise',
                                 entryPrice, pc.stake || 1,
-                                pc.duration || 1, pc.durUnit || 't');
+                                pc.duration || 1, pc.durUnit || 't',
+                                pc.sl || null, pc.tp || null, pc.isMultiplier || false);
                             window._pendingContract = null;
                         }
                     }
@@ -4209,7 +4210,15 @@ body { overflow-x: hidden !important; }
             }
 
             // Registra contrato pendente para mostrar no gráfico
-            window._pendingContract = { direction, stake, duration, durUnit };
+            // Salvar dados do contrato pendente incluindo multiplier
+            if (tradeType === 'multiplier') {
+                const _mSL = parseFloat(document.getElementById('multSL')?.value || 5);
+                const _mTP = parseFloat(document.getElementById('multTP')?.value || 10);
+                const _mStake = parseFloat(document.getElementById('multStake')?.value || stake);
+                window._pendingContract = { direction, stake: _mStake, duration, durUnit, sl: _mSL, tp: _mTP, isMultiplier: true };
+            } else {
+                window._pendingContract = { direction, stake, duration, durUnit };
+            }
 
             // Multipliers precisam de proposal separado
             if (tradeType === 'multiplier') {
@@ -8967,11 +8976,15 @@ function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, t
 // ── CONTRATOS ABERTOS NO GRÁFICO ──
 _chart.openContracts = {};
 
-function chartAddContract(id, direction, entryPrice, stake, duration, durUnit) {
+function chartAddContract(id, direction, entryPrice, stake, duration, durUnit, sl, tp, isMultiplier) {
 
   _chart.openContracts[id] = {
     id, direction, entryPrice: parseFloat(entryPrice),
     stake: parseFloat(stake), duration, durUnit,
+    openTime: Date.now(), countdown: duration,
+    sl: sl ? parseFloat(sl) : null,
+    tp: tp ? parseFloat(tp) : null,
+    isMultiplier: !!isMultiplier
     openTime: Date.now(), countdown: duration
   };
   chartDraw();
@@ -9051,6 +9064,58 @@ function chartDrawContracts(toY, padR, canvas) {
     ctx.textAlign = 'right';
     ctx.fillStyle = '#fff';
     ctx.fillText(isRise ? '▲' : '▼', bx + bw - 4, by + 16);
+
+    // Linhas SL e TP para Multipliers
+    if (c.isMultiplier && c.entryPrice > 0) {
+      const prices = _chart.candles.slice(-60).flatMap(cv => [cv.h, cv.l]);
+      const minP = Math.min(...prices), maxP = Math.max(...prices);
+      const range = maxP - minP || 0.001;
+      const pctMove = c.stake / (c.stake * 100) * 0.01;
+
+      // SL line
+      if (c.sl) {
+        const slPrice = isRise
+          ? c.entryPrice * (1 - c.sl / (c.stake * 10))
+          : c.entryPrice * (1 + c.sl / (c.stake * 10));
+        if (slPrice >= minP && slPrice <= maxP) {
+          const ySL = toY(slPrice);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(0, ySL);
+          ctx.lineTo(W - padR, ySL);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#ef4444';
+          ctx.font = 'bold 9px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(`SL $${c.sl}`, W - padR + 2, ySL - 2);
+        }
+      }
+
+      // TP line
+      if (c.tp) {
+        const tpPrice = isRise
+          ? c.entryPrice * (1 + c.tp / (c.stake * 10))
+          : c.entryPrice * (1 - c.tp / (c.stake * 10));
+        if (tpPrice >= minP && tpPrice <= maxP) {
+          const yTP = toY(tpPrice);
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(0, yTP);
+          ctx.lineTo(W - padR, yTP);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#22c55e';
+          ctx.font = 'bold 9px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(`TP $${c.tp}`, W - padR + 2, yTP - 2);
+        }
+      }
+    }
   });
 }
 
