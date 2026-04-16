@@ -9113,6 +9113,7 @@ function autoMultAnalyze() {
   if (multDirEl) multDirEl.textContent = direction === 'rise' ? '▲ UP' : '▼ DOWN';
 
   // Enviar proposal direto via WebSocket
+  console.log('AutoMult WS state:', window._manualWs?.readyState, 'pendente:', window._pendingMultiplier);
   if (window._manualWs && window._manualWs.readyState === 1) {
     window._manualWs.send(JSON.stringify({
       proposal: 1,
