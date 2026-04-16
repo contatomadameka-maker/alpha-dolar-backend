@@ -3987,6 +3987,8 @@ body { overflow-x: hidden !important; }
 
         // ── Atualizar preços (price proposal) ──
         function atualizarPrecos() {
+            const _tt = document.getElementById('tradeTypeSelect')?.value;
+            if (_tt === 'multiplier') return;
             if (!isConnected || !manualWs) return;
             const symbol   = marketSel.value;
             const duration = parseInt(durationInput.value) || 1;
