@@ -1340,6 +1340,31 @@ def _autostart_robo_sinais():
 _autostart_thread = threading.Thread(target=_autostart_robo_sinais, daemon=True)
 _autostart_thread.start()
 
+
+@app.route('/api/mult-ia', methods=['POST'])
+def mult_ia():
+    import urllib.request, json as j
+    dados = request.get_json(silent=True) or {}
+    ANTHROPIC_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+    prompt = dados.get('prompt', '')
+    if not prompt:
+        return jsonify({'erro': 'prompt vazio'}), 400
+    payload = j.dumps({
+        "model": "claude-sonnet-4-20250514",
+        "max_tokens": 300,
+        "messages": [{"role": "user", "content": prompt}]
+    }).encode()
+    req = urllib.request.Request('https://api.anthropic.com/v1/messages', data=payload, method='POST')
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('x-api-key', ANTHROPIC_KEY)
+    req.add_header('anthropic-version', '2023-06-01')
+    try:
+        resp = urllib.request.urlopen(req, timeout=15)
+        return jsonify(j.loads(resp.read()))
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
