@@ -9289,7 +9289,8 @@ function chartDrawSignals(visCandles, padL, padR, padT, chartH, chartW, slotW, t
 
   _chart.signals.forEach(sig => {
     // Acha a vela mais próxima do sinal
-    const idx = visCandles.findIndex(c => Math.abs(c.ts - sig.t) < (_chart.tf || 1) * 60 * 1000 * 2);
+    let idx = visCandles.findIndex(c => Math.abs(c.ts - sig.t) < (_chart.tf || 1) * 60 * 1000 * 2);
+    if (idx === -1) idx = visCandles.length - 1; // usa última vela como fallback
     if (idx === -1) return;
 
     const x = padL + idx * slotW + slotW / 2;
