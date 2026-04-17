@@ -4067,7 +4067,7 @@ body { overflow-x: hidden !important; }
                             clearTimeout(window._autoMult._buyLockTimer);
                             window._autoMult._buyLockTimer = setTimeout(() => {
                                 if (window._autoMult) window._autoMult._buyLock = false;
-                            }, 3000);
+                            }, 500);
                         }
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
@@ -4271,15 +4271,30 @@ body { overflow-x: hidden !important; }
                     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
                     const saldoAnterior = parseFloat(localStorage.getItem('deriv_balance_' + tipo) || saldo);
                     localStorage.setItem('deriv_balance_' + tipo, saldo);
+                    // Debug saldo
+                    if (window._autoMult?.openContract && window._autoMult.openContract !== 'pending') {
+                        const _d = saldo - saldoAnterior;
+                        if (Math.abs(_d) > 0.001) {
+                            if (window._addLogLine) window._addLogLine(`💰 Saldo: ${saldoAnterior.toFixed(2)}→${saldo.toFixed(2)} diff:${_d.toFixed(2)} lock:${window._autoMult._buyLock}`, 'log-action');
+                        }
+                    }
                     // Detectar fechamento de Multiplier por mudança de saldo
                     if (window._autoMult && window._autoMult.openContract && window._autoMult.openContract !== 'pending' && !window._autoMult._buyLock) {
                         const diff = saldo - saldoAnterior;
-                        if (Math.abs(diff) > 0.01) {
+                        const _mStake = parseFloat(document.getElementById('multStake')?.value || 10);
+                        const _mSL = parseFloat(document.getElementById('multSL')?.value || 3);
+                        const _mTP = parseFloat(document.getElementById('multTP')?.value || 10);
+                        // WIN: diff >= TP | LOSS: diff positivo mas < stake (devolução SL) ou negativo
+                        const isResultado = diff >= _mTP * 0.8 || (diff > 0 && diff < _mStake);
+                        if (isResultado) {
+                            // Calcular lucro real: WIN = diff, LOSS = diff - stake (negativo)
+                            const lucroReal = diff >= _mTP * 0.8 ? diff : diff - _mStake;
                             clearInterval(window._autoMult._pollInterval);
                             clearTimeout(window._autoMult._timeout);
                             window._autoMult.openContract = null;
                             window._autoMult._cooldown = true;
-                            const isWin = diff > 0;
+                            const isWin = lucroReal > 0;
+                            const diff = lucroReal;
                             // Atualizar painel P&L
                             const pnlEl = document.getElementById('multPnlValue');
                             if (pnlEl) {
@@ -9190,8 +9205,8 @@ function autoMultAnalyze() {
 
   // Sinal baseado principalmente no BB
   let direction = null;
-  if (pct <= 0.20) direction = 'rise';        // Preço na banda inferior
-  else if (pct >= 0.80) direction = 'fall';   // Preço na banda superior
+  if (pct <= 0.40) direction = 'rise';        // Preço na banda inferior
+  else if (pct >= 0.60) direction = 'fall';   // Preço na banda superior
 
   if (!direction) return;
 
