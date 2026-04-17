@@ -4237,6 +4237,18 @@ body { overflow-x: hidden !important; }
                             if (window._addLogLine) {
                                 const finalPnl = parseFloat(poc.profit || 0);
                                 window._addLogLine(`${finalPnl>=0?'▲ WIN':'▼ LOSS'} Multiplier: ${finalPnl>=0?'+':''}$${finalPnl.toFixed(2)}`, finalPnl>=0?'log-win':'log-lose');
+                                manualPnl += finalPnl;
+                                const _pEl = document.getElementById('manualProfit');
+                                if (_pEl) {
+                                    const _s = parseFloat(localStorage.getItem('deriv_balance_'+(localStorage.getItem('deriv_conta_ativa')||'demo'))||0);
+                                    const _pct = _s > 0 ? (manualPnl/_s*100).toFixed(2) : 0;
+                                    _pEl.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+_pct+'%)';
+                                    _pEl.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
+                                }
+                                if (window._autoMult) {
+                                    clearTimeout(window._autoMult._timeout);
+                                    clearInterval(window._autoMult._pollInterval);
+                                }
                             }
                         }
                     }
@@ -9146,6 +9158,16 @@ function autoMultToggle() {
     if (window._addLogLine) window._addLogLine('⏹ Auto Multiplier parado.', 'log-warn');
   } else {
     am.running = true;
+    am.openContract = null;
+    am._cooldown = false;
+    am._buyLock = false;
+    const _goodMkts = ['1HZ10V','1HZ25V','R_10','R_25'];
+    const _mktSel = document.getElementById('manualMarket');
+    if (_mktSel && !_goodMkts.includes(_mktSel.value)) {
+        _mktSel.value = '1HZ10V';
+        _mktSel.dispatchEvent(new Event('change'));
+        if (window._addLogLine) window._addLogLine('📈 Mercado trocado para V10 (1s)', 'log-action');
+    }
     if (btn) { btn.style.background = 'linear-gradient(135deg,#15803d,#16a34a)'; }
     if (lbl) lbl.textContent = '⏹ Parar Auto Mult';
     if (window._addLogLine) window._addLogLine('▶ Auto Multiplier iniciado!', 'log-action');
@@ -9185,8 +9207,8 @@ function autoMultAnalyze() {
 
   // Sinal baseado principalmente no BB
   let direction = null;
-  if (pct <= 0.20) direction = 'rise';        // Preço na banda inferior
-  else if (pct >= 0.80) direction = 'fall';   // Preço na banda superior
+  if (pct <= 0.40) direction = 'rise';        // Preço na banda inferior
+  else if (pct >= 0.60) direction = 'fall';   // Preço na banda superior
 
   if (!direction) return;
 
@@ -9214,11 +9236,29 @@ function autoMultAnalyze() {
   window._pendingMultiplier = true;
   if (window._autoMult) {
     window._autoMult.openContract = 'pending';
+    const _t1 = localStorage.getItem('deriv_conta_ativa') || 'demo';
+    window._autoMult._saldoAntes = parseFloat(localStorage.getItem('deriv_balance_'+_t1)||0);
     clearTimeout(window._autoMult._timeout);
     clearInterval(window._autoMult._pollInterval);
     window._autoMult._timeout = setTimeout(() => {
+      const _t2 = localStorage.getItem('deriv_conta_ativa') || 'demo';
+      const _sNow = parseFloat(localStorage.getItem('deriv_balance_'+_t2)||0);
+      const _sBefore = window._autoMult._saldoAntes || _sNow;
+      const _lucro = _sNow - _sBefore;
       window._autoMult.openContract = null;
-      if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
+      if (Math.abs(_lucro) > 0.01) {
+        const _isW = _lucro > 0;
+        if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucro>=0?'+':'')+'$'+_lucro.toFixed(2), _isW?'log-win':'log-lose');
+        manualPnl += _lucro;
+        const _pEl2 = document.getElementById('manualProfit');
+        if (_pEl2) {
+          const _pct2 = _sNow > 0 ? (manualPnl/_sNow*100).toFixed(2) : 0;
+          _pEl2.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+_pct2+'%)';
+          _pEl2.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
+        }
+      } else {
+        if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado', 'log-warn');
+      }
     }, 90000);
     window._autoMult._pollInterval = setInterval(() => {
       if (!window._autoMult || !window._autoMult.openContract || window._autoMult.openContract === 'pending') return;
