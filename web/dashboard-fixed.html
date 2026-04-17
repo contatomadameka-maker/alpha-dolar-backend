@@ -9179,16 +9179,11 @@ async function analisarMultIA() {
   const mercado = document.getElementById('manualMarket')?.value || 'V10';
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/mult-ia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `Analise este momento do mercado para um contrato Multiplier na Deriv e dê uma sugestão CURTA de entrada.
-
+        prompt: `Analise este momento do mercado para um contrato Multiplier na Deriv e dê uma sugestão CURTA de entrada.
 Mercado: ${mercado}
 BB%: ${bbPct}% (0%=banda inferior, 100%=banda superior)
 RSI: ${rsi}
@@ -9200,7 +9195,6 @@ Banda inferior: ${lower.toFixed(4)}
 
 Responda APENAS neste formato JSON (sem markdown):
 {"direcao":"UP ou DOWN","forca":0-100,"resumo":"frase curta de 1 linha","indicadores":{"bb":"✅ ou ⚠️ ou ❌","rsi":"✅ ou ⚠️ ou ❌","ema":"✅ ou ⚠️ ou ❌"}}`
-        }]
       })
     });
 
