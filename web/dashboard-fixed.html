@@ -9244,12 +9244,12 @@ function autoMultAnalyze() {
       const _t2 = localStorage.getItem('deriv_conta_ativa') || 'demo';
       const _sNow = parseFloat(localStorage.getItem('deriv_balance_'+_t2)||0);
       const _sBefore = window._autoMult._saldoAntes || _sNow;
-      const _lucro = _sNow - _sBefore;
+      const _lucroReal = _sNow - _sBefore;
       window._autoMult.openContract = null;
-      if (Math.abs(_lucro) > 0.01) {
-        const _isW = _lucro > 0;
-        if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucro>=0?'+':'')+'$'+_lucro.toFixed(2), _isW?'log-win':'log-lose');
-        manualPnl += _lucro;
+      if (Math.abs(_lucroReal) > 0.01) {
+        const _isW = _lucroReal > 0;
+        if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucroReal>=0?'+':'')+'$'+_lucroReal.toFixed(2), _isW?'log-win':'log-lose');
+        manualPnl += _lucroReal;
         const _pEl2 = document.getElementById('manualProfit');
         if (_pEl2) {
           const _pct2 = _sNow > 0 ? (manualPnl/_sNow*100).toFixed(2) : 0;
@@ -10331,7 +10331,7 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
     const confirmar = confirm(
         nomeExibicao + '\n\n' +
         'Você ainda não tem acesso.\n\n' +
-        '🎁 Quer ativar 1 TRIAL GRÁTIS de 3 dias (demo e conta real)?\n\n' +
+        '🎁 Quer ativar 1 TRIAL GRÁTIS de 30 dias (demo e conta real)?\n\n' +
         'Clique OK para ativar o trial\nou Cancelar para adquirir o plano completo.'
     );
 
@@ -10346,7 +10346,7 @@ window.ativarTrial = async function(produto, nomeExibicao, callbackAoLiberar) {
         const d = await r.json();
 
         if (d.status === 'ok') {
-            alert('✅ Trial de 3 dias ativado!\nDisponível em DEMO e conta REAL.\nBom teste!');
+            alert('✅ Trial de 30 dias ativado!\nDisponível em DEMO e conta REAL.\nBom teste!');
             if (callbackAoLiberar) callbackAoLiberar();
             window.verificarTrialDemo(produto);
         } else if (d.erro && d.erro.includes('Trial ja utilizado')) {

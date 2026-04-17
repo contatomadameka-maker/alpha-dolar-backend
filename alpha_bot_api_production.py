@@ -1681,7 +1681,7 @@ def ativar_trial():
         return jsonify({'erro': 'Trial ja utilizado para este produto'}), 403
 
     # Ativa trial 24h
-    expiracao = (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()
+    expiracao = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
     insert = req.post(
         f"{SUPABASE_URL}/rest/v1/produtos_liberados",
         headers=HEADERS,
