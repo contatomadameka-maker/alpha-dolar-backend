@@ -4063,6 +4063,7 @@ body { overflow-x: hidden !important; }
                     if (isMultBuy || window._autoMult?.openContract === 'pending') {
                         if (window._autoMult) {
                             window._autoMult.openContract = id;
+                            window._autoMult._saldoAntesDaCompra = parseFloat(localStorage.getItem('deriv_balance_' + (localStorage.getItem('deriv_conta_ativa')||'demo')) || 0);
                             window._autoMult._buyLock = true;
                             clearTimeout(window._autoMult._buyLockTimer);
                             window._autoMult._buyLockTimer = setTimeout(() => {
@@ -9238,7 +9239,18 @@ function autoMultAnalyze() {
     clearInterval(window._autoMult._pollInterval);
     window._autoMult._timeout = setTimeout(() => {
       window._autoMult.openContract = null;
-      if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
+      window._autoMult._cooldown = true;
+      setTimeout(() => { if(window._autoMult) window._autoMult._cooldown = false; }, 2000);
+      const _tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
+      const _saldoAtual = parseFloat(localStorage.getItem('deriv_balance_' + _tipo) || 0);
+      const _saldoAntes = window._autoMult._saldoAntesDaCompra || _saldoAtual;
+      const _lucro = _saldoAtual - _saldoAntes;
+      if (Math.abs(_lucro) > 0.01) {
+        const _isWin = _lucro > 0;
+        if (window._addLogLine) window._addLogLine((_isWin?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucro>=0?'+':'')+'$'+_lucro.toFixed(2), _isWin?'log-win':'log-lose');
+      } else {
+        if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
+      }
     }, 90000);
     window._autoMult._pollInterval = setInterval(() => {
       if (!window._autoMult || !window._autoMult.openContract || window._autoMult.openContract === 'pending') return;
