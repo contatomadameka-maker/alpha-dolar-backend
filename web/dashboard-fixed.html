@@ -9221,6 +9221,9 @@ function autoMultAnalyze() {
       if (Math.abs(_diffSaldo) > 0.01 || Math.abs(_lucroReal) > 0.01) {
         const _isW = _lucroReal > 0;
         if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucroReal>=0?'+':'')+'$'+_lucroReal.toFixed(2), _isW?'log-win':'log-lose');
+        // Aguardar devolução da Deriv antes do próximo trade
+        window._autoMult._cooldown = true;
+        setTimeout(() => { if(window._autoMult) window._autoMult._cooldown = false; }, _isW ? 1000 : 5000);
         manualPnl += _lucroReal;
         const _pEl2 = document.getElementById('manualProfit');
         if (_pEl2) {
