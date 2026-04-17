@@ -4217,7 +4217,9 @@ body { overflow-x: hidden !important; }
                         if (entryEl) entryEl.textContent = entry.toFixed(4);
                         if (currentEl) currentEl.textContent = current.toFixed(4);
                         // Atualizar status mas não fechar painel se Auto Mult ativo
-                        if (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost') {
+                        // Só registrar WIN/LOSS se for contrato Multiplier
+                        const _isMultContract = poc.contract_type && poc.contract_type.includes('MULT');
+                        if ((_isMultContract) && (poc.status === 'sold' || poc.status === 'won' || poc.status === 'lost')) {
                             // Liberar para próximo contrato
                             if (window._autoMult) window._autoMult.openContract = null;
                             if (_chart.openContracts && poc.contract_id) {
@@ -4283,41 +4285,7 @@ body { overflow-x: hidden !important; }
                     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
                     const saldoAnterior = parseFloat(localStorage.getItem('deriv_balance_' + tipo) || saldo);
                     localStorage.setItem('deriv_balance_' + tipo, saldo);
-                    // Detectar fechamento de Multiplier por mudança de saldo
-                    if (window._autoMult && window._autoMult.openContract && window._autoMult.openContract !== 'pending' && !window._autoMult._buyLock) {
-                        const diff = saldo - saldoAnterior;
-                        if (Math.abs(diff) > 0.01) {
-                            clearInterval(window._autoMult._pollInterval);
-                            clearTimeout(window._autoMult._timeout);
-                            window._autoMult.openContract = null;
-                            window._autoMult._cooldown = true;
-                            const isWin = diff > 0;
-                            // Atualizar painel P&L
-                            const pnlEl = document.getElementById('multPnlValue');
-                            if (pnlEl) {
-                                pnlEl.textContent = (diff>=0?'+':'')+'$'+diff.toFixed(2);
-                                pnlEl.style.color = diff >= 0 ? '#22c55e' : '#ef4444';
-                            }
-                            // Atualizar modal topo
-                            const profitEl = document.getElementById('manualProfit');
-                            if (profitEl) {
-                                const cur = parseFloat(profitEl.textContent.replace(/[^0-9.-]/g,'')) || 0;
-                                const novo = cur + diff;
-                                profitEl.textContent = (novo>=0?'+':'')+'$'+novo.toFixed(2);
-                                profitEl.style.color = novo >= 0 ? '#4caf50' : '#f44336';
-                            }
-                            if (window._addLogLine) window._addLogLine(
-                                (isWin ? '▲ WIN' : '▼ LOSS') + ' Multiplier: ' + (diff>=0?'+':'') + '$' + diff.toFixed(2),
-                                isWin ? 'log-win' : 'log-lose'
-                            );
-                            if (!window._autoMult.running) {
-                                const pnlPanel = document.getElementById('multPnlPanel');
-                                if (pnlPanel) setTimeout(() => pnlPanel.style.display = 'none', 3000);
-                            }
-                            // Cooldown 2s antes do próximo trade
-                            setTimeout(() => { window._autoMult._cooldown = false; }, 2000);
-                        }
-                    }
+
                 }
                 // Portfolio: detecta fechamento silencioso por SL/TP
                 if (msg.msg_type === 'portfolio' && !msg.error && window._autoMult?.openContract) {
