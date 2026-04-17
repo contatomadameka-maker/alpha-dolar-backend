@@ -1909,6 +1909,30 @@ body { overflow-x: hidden !important; }
                 <span id="autoMultLabel">▶ Iniciar Auto Multiplier</span>
               </button>
             </div>
+
+            <!-- P&L MULTIPLIER EM TEMPO REAL -->
+            <div id="multPnlPanel" style="display:none;background:rgba(0,0,0,0.4);border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:14px;margin-bottom:8px;margin-top:8px;">
+              <div style="font-size:11px;font-weight:700;color:#F5C842;letter-spacing:1px;margin-bottom:10px;">✖ POSIÇÃO ABERTA</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">P&L ATUAL</div>
+                  <div id="multPnlValue" style="font-size:22px;font-weight:800;color:#22c55e;">$0.00</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">DIREÇÃO</div>
+                  <div id="multDirection" style="font-size:16px;font-weight:700;color:#F5C842;">—</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ENTRADA</div>
+                  <div id="multEntryPrice" style="font-size:13px;font-weight:700;color:#fff;">—</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ATUAL</div>
+                  <div id="multCurrentPrice" style="font-size:13px;font-weight:700;color:#fff;">—</div>
+                </div>
+              </div>
+              <button onclick="chartSellAll()" style="width:100%;padding:10px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-weight:700;font-size:13px;cursor:pointer;">⏹ Fechar Posição</button>
+            </div>
             <div class="form-group">
                 <label>Duração</label>
                 <div class="duration-controls">
@@ -1974,29 +1998,7 @@ body { overflow-x: hidden !important; }
                     </div>
                 </button>
             </div>
-            <!-- P&L MULTIPLIER EM TEMPO REAL - aparece abaixo do config -->
-            <div id="multPnlPanel" style="display:none;background:rgba(0,0,0,0.4);border:1px solid rgba(245,200,66,0.3);border-radius:12px;padding:14px;margin-bottom:8px;margin-top:8px;">
-              <div style="font-size:11px;font-weight:700;color:#F5C842;letter-spacing:1px;margin-bottom:10px;">✖ POSIÇÃO ABERTA</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-                <div style="text-align:center;">
-                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">P&L ATUAL</div>
-                  <div id="multPnlValue" style="font-size:22px;font-weight:800;color:#22c55e;">$0.00</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">DIREÇÃO</div>
-                  <div id="multDirection" style="font-size:16px;font-weight:700;color:#F5C842;">—</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ENTRADA</div>
-                  <div id="multEntryPrice" style="font-size:13px;font-weight:700;color:#fff;">—</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px;color:#64748b;margin-bottom:4px;">ATUAL</div>
-                  <div id="multCurrentPrice" style="font-size:13px;font-weight:700;color:#fff;">—</div>
-                </div>
-              </div>
-              <button onclick="chartSellAll()" style="width:100%;padding:10px;background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;font-weight:700;font-size:13px;cursor:pointer;">⏹ Fechar Posição</button>
-            </div>
+
 
             <div style="margin-top:8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:8px;">
               <div style="font-size:10px;color:#64748b;margin-bottom:6px;font-weight:600;">AUTO GRÁFICO</div>
@@ -4065,7 +4067,7 @@ body { overflow-x: hidden !important; }
                             clearTimeout(window._autoMult._buyLockTimer);
                             window._autoMult._buyLockTimer = setTimeout(() => {
                                 if (window._autoMult) window._autoMult._buyLock = false;
-                            }, 5000);
+                            }, 3000);
                         }
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
