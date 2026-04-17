@@ -4062,7 +4062,7 @@ body { overflow-x: hidden !important; }
                 // Compra executada → monitorar contrato
                 if (msg.msg_type === 'buy' && !msg.error) {
                     const id = msg.buy.contract_id;
-                    const isMultBuy = msg.buy?.longcode?.toLowerCase().includes('multiplier');
+                    const isMultBuy = msg.buy?.longcode?.toLowerCase().includes('multiplier') || msg.buy?.contract_type?.includes('MULT') || window._pendingContract?.isMultiplier === true || window._autoMult?.openContract === 'pending';
                     pendingContracts[id] = { direction: msg.buy.longcode?.includes('higher') ? 'CALL' : 'PUT' };
                     // Subscribe ao contrato
                     manualWs.send(JSON.stringify({ proposal_open_contract: 1, contract_id: id, subscribe: 1 }));
@@ -4076,6 +4076,30 @@ body { overflow-x: hidden !important; }
                             window._autoMult._buyLockTimer = setTimeout(() => {
                                 if (window._autoMult) window._autoMult._buyLock = false;
                             }, 3000);
+                            // Salvar saldo antes para calcular resultado no timeout
+                            const _tM = localStorage.getItem('deriv_conta_ativa') || 'demo';
+                            window._autoMult._saldoAntes = parseFloat(localStorage.getItem('deriv_balance_'+_tM)||0);
+                            clearTimeout(window._autoMult._timeout);
+                            window._autoMult._timeout = setTimeout(() => {
+                                const _t2 = localStorage.getItem('deriv_conta_ativa') || 'demo';
+                                const _sNow = parseFloat(localStorage.getItem('deriv_balance_'+_t2)||0);
+                                const _sBefore = window._autoMult._saldoAntes || _sNow;
+                                const _diff = _sNow - _sBefore;
+                                const _slVal = parseFloat(document.getElementById('multSL')?.value || 3);
+                                const _lucro = _diff > 0 ? _diff : -_slVal;
+                                window._autoMult.openContract = null;
+                                if (Math.abs(_diff) > 0.01) {
+                                    const _isW = _lucro > 0;
+                                    if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucro>=0?'+':'')+'$'+_lucro.toFixed(2), _isW?'log-win':'log-lose');
+                                    manualPnl += _lucro;
+                                    const _pEl = document.getElementById('manualProfit');
+                                    if (_pEl) {
+                                        const _pct = _sNow > 0 ? (manualPnl/_sNow*100).toFixed(2) : 0;
+                                        _pEl.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+_pct+'%)';
+                                        _pEl.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
+                                    }
+                                }
+                            }, 90000);
                         }
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
@@ -4279,6 +4303,11 @@ body { overflow-x: hidden !important; }
                 if (msg.msg_type === 'buy' && !msg.error && msg.buy) {
                     const cid = msg.buy.contract_id;
                     if (cid && window._pendingMultiplier === false) {
+                        // Associar ao _autoMult se ainda está como 'pending'
+                        if (window._autoMult && window._autoMult.openContract === 'pending') {
+                            window._autoMult.openContract = cid;
+                            if (window._addLogLine) window._addLogLine(`⏳ Aguardando contrato #${cid} fechar...`, 'log-action');
+                        }
                         manualWs.send(JSON.stringify({
                             proposal_open_contract: 1,
                             contract_id: cid,
@@ -9202,7 +9231,10 @@ Responda APENAS neste formato JSON (sem markdown):
     const text = data.content?.[0]?.text || '';
 
     let parsed;
-    try { parsed = JSON.parse(text); } catch { parsed = null; }
+    try {
+      const clean = text.replace(/```json/g,'').replace(/```/g,'').trim();
+      parsed = JSON.parse(clean);
+    } catch { parsed = null; }
 
     if (parsed) {
       const cor = parsed.direcao === 'UP' ? '#22c55e' : '#ef4444';
@@ -9256,6 +9288,9 @@ function autoMultToggle() {
     am._pollInterval = null;
     am.openContract = null;
     am._cooldown = false;
+    am._buyLock = false;
+    am._pendingBuy = false;
+    window._pendingMultiplier = false;
     if (btn) { btn.style.background = 'linear-gradient(135deg,#92400e,#b45309)'; }
     if (lbl) lbl.textContent = '▶ Auto Multiplier';
     if (window._addLogLine) window._addLogLine('⏹ Auto Multiplier parado.', 'log-warn');
@@ -9264,6 +9299,8 @@ function autoMultToggle() {
     am.openContract = null;
     am._cooldown = false;
     am._buyLock = false;
+    am._pendingBuy = false;
+    window._pendingMultiplier = false;
     const _goodMkts = ['1HZ10V','1HZ25V','R_10','R_25'];
     const _mktSel = document.getElementById('manualMarket');
     if (_mktSel && !_goodMkts.includes(_mktSel.value)) {
@@ -9385,8 +9422,9 @@ function autoMultAnalyze() {
   if (multDirEl) multDirEl.textContent = direction === 'rise' ? '▲ UP' : '▼ DOWN';
 
   // Enviar proposal direto via WebSocket
-  if (window._manualWs && window._manualWs.readyState === 1) {
-    window._manualWs.send(JSON.stringify({
+  const _ws = window.manualWs || window._manualWs;
+  if (_ws && _ws.readyState === 1) {
+    _ws.send(JSON.stringify({
       proposal: 1,
       amount: _multStake,
       basis: 'stake',
