@@ -4063,12 +4063,11 @@ body { overflow-x: hidden !important; }
                     if (isMultBuy || window._autoMult?.openContract === 'pending') {
                         if (window._autoMult) {
                             window._autoMult.openContract = id;
-                            window._autoMult._saldoAntesDaCompra = parseFloat(localStorage.getItem('deriv_balance_' + (localStorage.getItem('deriv_conta_ativa')||'demo')) || 0);
                             window._autoMult._buyLock = true;
                             clearTimeout(window._autoMult._buyLockTimer);
                             window._autoMult._buyLockTimer = setTimeout(() => {
                                 if (window._autoMult) window._autoMult._buyLock = false;
-                            }, 500);
+                            }, 3000);
                         }
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
@@ -4272,44 +4271,28 @@ body { overflow-x: hidden !important; }
                     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
                     const saldoAnterior = parseFloat(localStorage.getItem('deriv_balance_' + tipo) || saldo);
                     localStorage.setItem('deriv_balance_' + tipo, saldo);
-                    // Debug saldo
-                    if (window._autoMult?.openContract && window._autoMult.openContract !== 'pending') {
-                        const _d = saldo - saldoAnterior;
-                        if (Math.abs(_d) > 0.001) {
-                            if (window._addLogLine) window._addLogLine(`💰 Saldo: ${saldoAnterior.toFixed(2)}→${saldo.toFixed(2)} diff:${_d.toFixed(2)} lock:${window._autoMult._buyLock}`, 'log-action');
-                        }
-                    }
                     // Detectar fechamento de Multiplier por mudança de saldo
                     if (window._autoMult && window._autoMult.openContract && window._autoMult.openContract !== 'pending' && !window._autoMult._buyLock) {
                         const diff = saldo - saldoAnterior;
-                        const _mStake = parseFloat(document.getElementById('multStake')?.value || 10);
-                        const _mSL = parseFloat(document.getElementById('multSL')?.value || 3);
-                        const _mTP = parseFloat(document.getElementById('multTP')?.value || 10);
-                        // WIN: diff >= TP | LOSS: diff positivo mas < stake (devolução SL) ou negativo
-                        const isResultado = diff >= _mTP * 0.8 || (diff > 0 && diff < _mStake);
-                        if (isResultado) {
-                            // Calcular lucro real: WIN = diff, LOSS = diff - stake (negativo)
-                            const lucroReal = diff >= _mTP * 0.8 ? diff : diff - _mStake;
+                        if (Math.abs(diff) > 0.01) {
                             clearInterval(window._autoMult._pollInterval);
                             clearTimeout(window._autoMult._timeout);
                             window._autoMult.openContract = null;
                             window._autoMult._cooldown = true;
-                            const isWin = lucroReal > 0;
-                            const diff = lucroReal;
+                            const isWin = diff > 0;
                             // Atualizar painel P&L
                             const pnlEl = document.getElementById('multPnlValue');
                             if (pnlEl) {
                                 pnlEl.textContent = (diff>=0?'+':'')+'$'+diff.toFixed(2);
                                 pnlEl.style.color = diff >= 0 ? '#22c55e' : '#ef4444';
                             }
-                            // Atualizar P&L acumulado
-                            manualPnl += diff;
+                            // Atualizar modal topo
                             const profitEl = document.getElementById('manualProfit');
                             if (profitEl) {
-                                const saldoBase = saldo - manualPnl;
-                                const pct = saldoBase > 0 ? (manualPnl / saldoBase * 100).toFixed(2) : 0;
-                                profitEl.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+pct+'%)';
-                                profitEl.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
+                                const cur = parseFloat(profitEl.textContent.replace(/[^0-9.-]/g,'')) || 0;
+                                const novo = cur + diff;
+                                profitEl.textContent = (novo>=0?'+':'')+'$'+novo.toFixed(2);
+                                profitEl.style.color = novo >= 0 ? '#4caf50' : '#f44336';
                             }
                             if (window._addLogLine) window._addLogLine(
                                 (isWin ? '▲ WIN' : '▼ LOSS') + ' Multiplier: ' + (diff>=0?'+':'') + '$' + diff.toFixed(2),
@@ -4527,10 +4510,6 @@ body { overflow-x: hidden !important; }
             if (_origSwitch) _origSwitch(type);
             setTimeout(conectar, 2000);
         };
-        // Expor globalmente
-        window._conectarManualWs = conectar;
-        window._getIsConnected = function() { return isConnected; };
-        window._getManualWs = function() { return manualWs; };
 
     })();
     </script>
@@ -9206,8 +9185,8 @@ function autoMultAnalyze() {
 
   // Sinal baseado principalmente no BB
   let direction = null;
-  if (pct <= 0.40) direction = 'rise';        // Preço na banda inferior
-  else if (pct >= 0.60) direction = 'fall';   // Preço na banda superior
+  if (pct <= 0.20) direction = 'rise';        // Preço na banda inferior
+  else if (pct >= 0.80) direction = 'fall';   // Preço na banda superior
 
   if (!direction) return;
 
@@ -9239,18 +9218,7 @@ function autoMultAnalyze() {
     clearInterval(window._autoMult._pollInterval);
     window._autoMult._timeout = setTimeout(() => {
       window._autoMult.openContract = null;
-      window._autoMult._cooldown = true;
-      setTimeout(() => { if(window._autoMult) window._autoMult._cooldown = false; }, 2000);
-      const _tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
-      const _saldoAtual = parseFloat(localStorage.getItem('deriv_balance_' + _tipo) || 0);
-      const _saldoAntes = window._autoMult._saldoAntesDaCompra || _saldoAtual;
-      const _lucro = _saldoAtual - _saldoAntes;
-      if (Math.abs(_lucro) > 0.01) {
-        const _isWin = _lucro > 0;
-        if (window._addLogLine) window._addLogLine((_isWin?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucro>=0?'+':'')+'$'+_lucro.toFixed(2), _isWin?'log-win':'log-lose');
-      } else {
-        if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
-      }
+      if(window._addLogLine) window._addLogLine('⚠️ Timeout: contrato liberado forçado', 'log-warn');
     }, 90000);
     window._autoMult._pollInterval = setInterval(() => {
       if (!window._autoMult || !window._autoMult.openContract || window._autoMult.openContract === 'pending') return;
