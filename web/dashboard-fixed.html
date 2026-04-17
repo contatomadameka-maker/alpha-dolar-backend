@@ -4236,9 +4236,9 @@ body { overflow-x: hidden !important; }
                 if (msg.msg_type === 'proposal_open_contract' && !msg.error) {
                     const poc = msg.proposal_open_contract;
                     if (poc) {
-                        // Mostrar painel P&L sempre que receber atualização
+                        // Mostrar painel P&L somente se contrato ainda aberto
                         const pnlPanelEl = document.getElementById('multPnlPanel');
-                        if (pnlPanelEl && poc.contract_type && poc.contract_type.includes('MULT')) {
+                        if (pnlPanelEl && poc.contract_type && poc.contract_type.includes('MULT') && window._autoMult?.openContract) {
                             pnlPanelEl.style.display = 'block';
                         }
                         const pnl = parseFloat(poc.profit || 0);
