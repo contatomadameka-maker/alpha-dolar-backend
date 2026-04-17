@@ -3946,7 +3946,7 @@ body { overflow-x: hidden !important; }
         const fallReturn    = document.getElementById('fallReturn');
 
         // ── Estado ──
-        let manualWs    = null;
+        let manualWs    = null; window.manualWs = null;
         window._manualWs = null; // referência global
         let manualToken = null;
         let reqId       = 1;
@@ -4013,7 +4013,7 @@ body { overflow-x: hidden !important; }
 
             if (manualWs) { try { manualWs.close(); } catch {} manualWs = null; }
 
-            manualWs = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+            manualWs = window.manualWs = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
             window._manualWs = manualWs;
 
             manualWs.onopen = () => {
@@ -4059,7 +4059,14 @@ body { overflow-x: hidden !important; }
                     riseBtn?.classList.remove('loading');
                     fallBtn?.classList.remove('loading');
                     if (isMultBuy || window._autoMult?.openContract === 'pending') {
-                        if (window._autoMult) window._autoMult.openContract = id;
+                        if (window._autoMult) {
+                            window._autoMult.openContract = id;
+                            window._autoMult._buyLock = true;
+                            clearTimeout(window._autoMult._buyLockTimer);
+                            window._autoMult._buyLockTimer = setTimeout(() => {
+                                if (window._autoMult) window._autoMult._buyLock = false;
+                            }, 5000);
+                        }
                         // Mostrar painel P&L
                         const pnlPanel = document.getElementById('multPnlPanel');
                         if (pnlPanel) pnlPanel.style.display = 'block';
@@ -4217,7 +4224,7 @@ body { overflow-x: hidden !important; }
                             const isAutoMult = window._autoMult && window._autoMult.running;
                             if (!isAutoMult) {
                                 const pnlPanel = document.getElementById('multPnlPanel');
-                                if (pnlPanel) pnlPanel.style.display = 'none';
+                                if (pnlPanel) setTimeout(() => pnlPanel.style.display = 'none', 4000);
                             }
                             const pnlEl = document.getElementById('multPnlValue');
                             if (pnlEl) {
@@ -4260,7 +4267,43 @@ body { overflow-x: hidden !important; }
                     const saldo = parseFloat(msg.balance.balance);
                     if (typeof atualizarSaldoNaTela === 'function') atualizarSaldoNaTela(saldo);
                     const tipo = localStorage.getItem('deriv_conta_ativa') || 'demo';
+                    const saldoAnterior = parseFloat(localStorage.getItem('deriv_balance_' + tipo) || saldo);
                     localStorage.setItem('deriv_balance_' + tipo, saldo);
+                    // Detectar fechamento de Multiplier por mudança de saldo
+                    if (window._autoMult && window._autoMult.openContract && window._autoMult.openContract !== 'pending' && !window._autoMult._buyLock) {
+                        const diff = saldo - saldoAnterior;
+                        if (Math.abs(diff) > 0.01) {
+                            clearInterval(window._autoMult._pollInterval);
+                            clearTimeout(window._autoMult._timeout);
+                            window._autoMult.openContract = null;
+                            window._autoMult._cooldown = true;
+                            const isWin = diff > 0;
+                            // Atualizar painel P&L
+                            const pnlEl = document.getElementById('multPnlValue');
+                            if (pnlEl) {
+                                pnlEl.textContent = (diff>=0?'+':'')+'$'+diff.toFixed(2);
+                                pnlEl.style.color = diff >= 0 ? '#22c55e' : '#ef4444';
+                            }
+                            // Atualizar modal topo
+                            const profitEl = document.getElementById('manualProfit');
+                            if (profitEl) {
+                                const cur = parseFloat(profitEl.textContent.replace(/[^0-9.-]/g,'')) || 0;
+                                const novo = cur + diff;
+                                profitEl.textContent = (novo>=0?'+':'')+'$'+novo.toFixed(2);
+                                profitEl.style.color = novo >= 0 ? '#4caf50' : '#f44336';
+                            }
+                            if (window._addLogLine) window._addLogLine(
+                                (isWin ? '▲ WIN' : '▼ LOSS') + ' Multiplier: ' + (diff>=0?'+':'') + '$' + diff.toFixed(2),
+                                isWin ? 'log-win' : 'log-lose'
+                            );
+                            if (!window._autoMult.running) {
+                                const pnlPanel = document.getElementById('multPnlPanel');
+                                if (pnlPanel) setTimeout(() => pnlPanel.style.display = 'none', 3000);
+                            }
+                            // Cooldown 2s antes do próximo trade
+                            setTimeout(() => { window._autoMult._cooldown = false; }, 2000);
+                        }
+                    }
                 }
                 // Portfolio: detecta fechamento silencioso por SL/TP
                 if (msg.msg_type === 'portfolio' && !msg.error && window._autoMult?.openContract) {
@@ -9081,7 +9124,7 @@ function chartAddSignal(type, score) {
 }
 
 // ── AUTO MULTIPLIER ──
-window._autoMult = { running: false, interval: null, openContract: null };
+window._autoMult = { running: false, interval: null, openContract: null, _cooldown: false };
 
 function autoMultToggle() {
   const am = window._autoMult;
@@ -9095,6 +9138,7 @@ function autoMultToggle() {
     am.interval = null;
     am._pollInterval = null;
     am.openContract = null;
+    am._cooldown = false;
     if (btn) { btn.style.background = 'linear-gradient(135deg,#92400e,#b45309)'; }
     if (lbl) lbl.textContent = '▶ Auto Multiplier';
     if (window._addLogLine) window._addLogLine('⏹ Auto Multiplier parado.', 'log-warn');
@@ -9112,6 +9156,7 @@ function autoMultAnalyze() {
   const am = window._autoMult;
   if (!am.running) return;
   if (window._autoMult.openContract) { if(window._addLogLine) window._addLogLine('Aguardando contrato fechar...', 'log-action'); return; }
+  if (window._autoMult._cooldown) { return; } // cooldown pós-fechamento
   if(window._addLogLine) window._addLogLine('Analisando mercado...', 'log-action');
   if (window._autoMult.openContract) return; // Tem contrato aberto
   const candles = _chart.candles.slice(-60);
@@ -9154,7 +9199,7 @@ function autoMultAnalyze() {
   const _multTP = parseFloat(document.getElementById('multTP')?.value || 10);
   // Multipliers só funcionam em mercados específicos
   const _marketSel = document.getElementById('manualMarket')?.value || 'R_10';
-  const _multMarkets = ['R_10','R_25','1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V'];
+  const _multMarkets = ['R_10','R_25','R_50','R_75','R_100','1HZ10V','1HZ25V','1HZ50V','1HZ75V','1HZ100V','JD10','JD25','JD50','JD75','JD100'];
   const _symbol = _multMarkets.includes(_marketSel) ? _marketSel : '1HZ10V';
   const _ct = direction === 'rise' ? 'MULTUP' : 'MULTDOWN';
 
