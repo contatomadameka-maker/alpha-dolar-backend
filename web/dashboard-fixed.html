@@ -9212,9 +9212,13 @@ function autoMultAnalyze() {
       const _t2 = localStorage.getItem('deriv_conta_ativa') || 'demo';
       const _sNow = parseFloat(localStorage.getItem('deriv_balance_'+_t2)||0);
       const _sBefore = window._autoMult._saldoAntes || _sNow;
-      const _lucroReal = _sNow - _sBefore;
+      const _diffSaldo = _sNow - _sBefore;
+      const _slVal = parseFloat(document.getElementById('multSL')?.value || 3);
+      // WIN: saldo subiu (recebeu stake + lucro)
+      // LOSS: saldo caiu $10 (stake) e não voltou = perdeu o SL
+      const _lucroReal = _diffSaldo > 0 ? _diffSaldo : -_slVal;
       window._autoMult.openContract = null;
-      if (Math.abs(_lucroReal) > 0.01) {
+      if (Math.abs(_diffSaldo) > 0.01 || Math.abs(_lucroReal) > 0.01) {
         const _isW = _lucroReal > 0;
         if (window._addLogLine) window._addLogLine((_isW?'▲ WIN':'▼ LOSS')+' Multiplier: '+(_lucroReal>=0?'+':'')+'$'+_lucroReal.toFixed(2), _isW?'log-win':'log-lose');
         manualPnl += _lucroReal;
