@@ -4286,13 +4286,14 @@ body { overflow-x: hidden !important; }
                                 pnlEl.textContent = (diff>=0?'+':'')+'$'+diff.toFixed(2);
                                 pnlEl.style.color = diff >= 0 ? '#22c55e' : '#ef4444';
                             }
-                            // Atualizar modal topo
+                            // Atualizar P&L acumulado
+                            manualPnl += diff;
                             const profitEl = document.getElementById('manualProfit');
                             if (profitEl) {
-                                const cur = parseFloat(profitEl.textContent.replace(/[^0-9.-]/g,'')) || 0;
-                                const novo = cur + diff;
-                                profitEl.textContent = (novo>=0?'+':'')+'$'+novo.toFixed(2);
-                                profitEl.style.color = novo >= 0 ? '#4caf50' : '#f44336';
+                                const saldoBase = saldo - manualPnl;
+                                const pct = saldoBase > 0 ? (manualPnl / saldoBase * 100).toFixed(2) : 0;
+                                profitEl.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+pct+'%)';
+                                profitEl.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
                             }
                             if (window._addLogLine) window._addLogLine(
                                 (isWin ? '▲ WIN' : '▼ LOSS') + ' Multiplier: ' + (diff>=0?'+':'') + '$' + diff.toFixed(2),
@@ -4510,6 +4511,10 @@ body { overflow-x: hidden !important; }
             if (_origSwitch) _origSwitch(type);
             setTimeout(conectar, 2000);
         };
+        // Expor globalmente
+        window._conectarManualWs = conectar;
+        window._getIsConnected = function() { return isConnected; };
+        window._getManualWs = function() { return manualWs; };
 
     })();
     </script>
