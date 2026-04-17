@@ -4098,6 +4098,11 @@ body { overflow-x: hidden !important; }
                                         _pEl.textContent = (manualPnl>=0?'+':'')+'$'+manualPnl.toFixed(2)+' ('+_pct+'%)';
                                         _pEl.style.color = manualPnl >= 0 ? '#4caf50' : '#f44336';
                                     }
+                                    // Fechar painel após 3s
+                                    setTimeout(() => {
+                                        const _pp = document.getElementById('multPnlPanel');
+                                        if (_pp) _pp.style.display = 'none';
+                                    }, 3000);
                                 }
                             }, 30000);
                         }
