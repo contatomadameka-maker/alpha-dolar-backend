@@ -512,6 +512,9 @@ def start_bot():
                         get_user_state(deriv_id, bot_type)['mart_max']  = _info.get('max_steps', _max)
                 except: pass
                 perda_acum = getattr(bot, 'perda_acumulada', 0)
+                if won and hasattr(bot, 'perda_acumulada'):
+                    bot.perda_acumulada = 0.0
+                    perda_acum = 0.0
 
                 if won:
                     get_user_state(deriv_id, bot_type)['_perda_desde_ultimo_ganho'] = 0.0
@@ -532,7 +535,14 @@ def start_bot():
                         try: bot.stop()
                         except: pass
 
-                next_stake = bot._calcular_stake_recuperacao() if perda_acum > 0 and hasattr(bot, '_calcular_stake_recuperacao') else BotConfig.STAKE_INICIAL
+                # Calcular próximo stake corretamente
+                _stake_ini = get_user_state(deriv_id, bot_type).get('_stake_inicial', BotConfig.STAKE_INICIAL)
+                if won or perda_acum <= 0:
+                    next_stake = _stake_ini
+                elif hasattr(bot, '_calcular_stake_recuperacao'):
+                    next_stake = bot._calcular_stake_recuperacao()
+                else:
+                    next_stake = _stake_ini
 
                 trade = {
                     'id': int(time.time() * 1000), 'direction': direction,
