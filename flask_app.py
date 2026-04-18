@@ -608,7 +608,7 @@ class DerivBot:
     async def wait_contract_result(self, contract_id, stake, timeout=30):
         """Aguarda o resultado real do contrato na Deriv"""
         if not contract_id:
-            return random.random() < 0.65, stake * 0.95
+            return False, -stake  # sem contract_id = erro, conta como loss
         try:
             await self.ws.send(json.dumps({
                 'proposal_open_contract': 1,
@@ -625,7 +625,7 @@ class DerivBot:
                     return won, profit
         except Exception as e:
             print(f"⚠️ Erro ao aguardar contrato: {e}")
-        return random.random() < 0.65, stake * 0.95
+        return False, 0.0  # timeout sem resultado = não registra lucro/perda
 
     def start(self):
         if self.running: return False
@@ -909,7 +909,10 @@ def mult_ia():
     import urllib.request, json as j
     dados = request.get_json(silent=True) or {}
     
-    ANTHROPIC_KEY = 'sk-ant-api03-seu-token-aqui'  # substituir
+    try:
+        ANTHROPIC_KEY = open('/home/dirlei/.anthkey').read().strip()
+    except:
+        ANTHROPIC_KEY = ''
     
     prompt = dados.get('prompt', '')
     if not prompt:
