@@ -409,7 +409,13 @@ def start_bot():
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
             BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
             BotConfig.STAKE_INICIAL = float(config.get('stake') or config.get('stake_inicial') or BotConfig.STAKE_INICIAL)
+            # Salvar no estado do usuário para não conflitar entre usuários
+            if deriv_id and bot_type:
+                get_user_state(deriv_id, bot_type)['_stake_inicial'] = BotConfig.STAKE_INICIAL
             BotConfig.LUCRO_ALVO    = float(config.get('target') or config.get('lucro_alvo') or BotConfig.LUCRO_ALVO)
+            if deriv_id and bot_type:
+                get_user_state(deriv_id, bot_type)['lucro_alvo'] = BotConfig.LUCRO_ALVO
+                get_user_state(deriv_id, bot_type)['_lucro_sessao'] = 0.0
             BotConfig.LIMITE_PERDA  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
 
             try:
@@ -544,6 +550,18 @@ def start_bot():
                 else:
                     next_stake = _stake_ini
 
+                # Verificar lucro alvo
+                _lucro_sessao = get_user_state(deriv_id, bot_type).get('_lucro_sessao', 0.0)
+                _lucro_sessao = round(_lucro_sessao + profit, 2)
+                get_user_state(deriv_id, bot_type)['_lucro_sessao'] = _lucro_sessao
+                _target = get_user_state(deriv_id, bot_type).get('lucro_alvo', BotConfig.LUCRO_ALVO)
+                if _lucro_sessao >= _target and get_user_state(deriv_id, bot_type).get('running'):
+                    get_user_state(deriv_id, bot_type)['stop_reason']  = 'take_profit'
+                    get_user_state(deriv_id, bot_type)['stop_message'] = f'META ATINGIDA! Lucro: +${_lucro_sessao:.2f}'
+                    get_user_state(deriv_id, bot_type)['running']      = False
+                    if hasattr(bot, 'stop'):
+                        try: bot.stop()
+                        except: pass
                 trade = {
                     'id': int(time.time() * 1000), 'direction': direction,
                     'result': 'win' if won else 'loss', 'profit': round(profit, 2),
