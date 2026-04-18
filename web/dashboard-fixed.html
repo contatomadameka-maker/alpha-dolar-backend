@@ -4216,10 +4216,13 @@ body { overflow-x: hidden !important; }
                         }
 
                         if (window.registrarTrade) {
+                            // Recuperar tipo do contrato do pendingContracts se não vier no evento
+                            const _ctTipo = c.contract_type || pendingContracts[c.contract_id]?.contract_type || 
+                                (c.longcode?.includes('higher') ? 'CALL' : c.longcode?.includes('lower') ? 'PUT' : 'CALL/PUT');
                             window.registrarTrade({
-                                tipo: c.contract_type || 'CALL/PUT',
+                                tipo: _ctTipo,
                                 mercado: c.underlying || marketSel.value,
-                                valor: parseFloat(c.buy_price) || parseFloat(stakeInput.value),
+                                valor: parseFloat(c.buy_price) || parseFloat(c.purchase_price) || parseFloat(stakeInput.value),
                                 duracao: `${durationInput.value} tick(s)`,
                                 resultado: isWin ? 'WIN' : 'LOSS',
                                 lucro: lucro,
