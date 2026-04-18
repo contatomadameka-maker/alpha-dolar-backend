@@ -366,6 +366,8 @@ def start_bot():
             print("🤖 Iniciando BOT PYTHON REAL...")
 
             BotConfig.DEFAULT_SYMBOL = symbol
+            if deriv_id and bot_type:
+                get_user_state(deriv_id, bot_type)['_symbol'] = symbol
             BotConfig.STAKE_INICIAL  = stake_inicial
             BotConfig.LUCRO_ALVO     = lucro_alvo
             BotConfig.LIMITE_PERDA   = limite_perda
@@ -633,7 +635,8 @@ def start_bot():
                     direction  = contract_data.get('contract_type', 'CALL/PUT')
                     stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
                     exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
-                    on_trade_completed(direction, won_, profit, stake_used, BotConfig.DEFAULT_SYMBOL, exit_tick)
+                    _sym = get_user_state(deriv_id, bot_type).get('_symbol', BotConfig.DEFAULT_SYMBOL)
+                    on_trade_completed(direction, won_, profit, stake_used, _sym, exit_tick)
                     bot.waiting_contract    = False
                     bot.current_contract_id = None
                     bot._ultimo_trade_time  = time.time()
