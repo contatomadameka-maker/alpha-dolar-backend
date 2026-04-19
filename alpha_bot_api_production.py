@@ -827,7 +827,7 @@ def get_bot_stats(bot_type):
         'bot_running': is_running, 'waiting_signal': waiting_signal,
         'mart_step': mart_step, 'mart_max': mart_max,
          'strategy_name': get_user_state(deriv_id, bot_type).get('strategy_name', ''),
-        'saldo_atual': stats.get('balance', 0), 'lucro_liquido': stats.get('saldo_liquido', 0),
+        'saldo_atual': stats.get('balance', 0), 'lucro_liquido': get_user_state(deriv_id, bot_type).get('_lucro_sessao', stats.get('saldo_liquido', 0)),
         'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
         'perda_dc': get_user_state(deriv_id, bot_type).get('_perda_desde_ultimo_ganho', 0),
