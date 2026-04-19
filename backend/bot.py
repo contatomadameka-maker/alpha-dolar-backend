@@ -339,7 +339,7 @@ class AlphaDolar:
             self.api.set_contract_callback(self.on_contract_update)
             self.api.set_balance_callback(self.on_balance_update)
 
-            self.api._reconnect()
+            self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
 
             self.is_running = True
             self.api._bot_ref = self
@@ -371,7 +371,7 @@ class AlphaDolar:
                 if sem_tick > TICK_TIMEOUT:
                     self.log(f"⚠️ WATCHDOG: sem tick {sem_tick:.0f}s — reconectando WebSocket!", "WARNING")
                     try:
-                        self.api._reconnect()
+                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
                         self._ultimo_tick_time  = agora
                         self._ultimo_sinal_time = agora
                     except Exception as e_tick:
@@ -390,7 +390,7 @@ class AlphaDolar:
                         while len(self.tick_history) < 30:
                             self.tick_history.append(ultimo)
                     elif len(self.tick_history) == 0:
-                        self.api._reconnect()
+                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
                         self._ultimo_sinal_time = agora
                         self._sem_sinal_streak  = 0
                         continue
