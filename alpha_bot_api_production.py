@@ -1395,6 +1395,103 @@ def mult_ia():
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
 
+@app.route('/api/ctx-ia', methods=['POST'])
+def ctx_ia():
+    import urllib.request, json as j
+    dados = request.get_json(silent=True) or {}
+    ANTHROPIC_KEY = os.environ.get('ANTHROPIC_API_KEY', '')
+
+    # Dados do mercado enviados pelo frontend
+    mercado     = dados.get('mercado', 'V100')
+    tipo        = dados.get('tipo', 'Rise/Fall')
+    bb_pct      = dados.get('bb_pct', 50)
+    rsi         = dados.get('rsi', 50)
+    ema_trend   = dados.get('ema_trend', 'NEUTRO')
+    last3       = dados.get('last3', [])
+    preco_atual = dados.get('preco_atual', 0)
+    banda_sup   = dados.get('banda_sup', 0)
+    banda_inf   = dados.get('banda_inf', 0)
+    historico   = dados.get('historico', [])  # ultimos trades da sessao
+    modo        = dados.get('modo', 'balanceado')
+
+    # Montar historico resumido
+    hist_txt = ''
+    if historico:
+        ultimos = historico[-5:]
+        hist_txt = 'Historico recente: ' + ' | '.join(
+            [f"{t.get('dir','?')} {t.get('resultado','?')} score:{t.get('score','?')}%" for t in ultimos]
+        )
+
+    system_prompt = """Voce e um trader especialista analisando mercados sinteticos da Deriv.
+Seu trabalho e analisar os indicadores tecnicos e decidir se vale a pena entrar em um trade agora.
+Seja objetivo, direto e pense como um trader experiente.
+Considere o historico recente da sessao para ajustar sua confianca.
+Responda SEMPRE em JSON valido, sem markdown, sem explicacoes fora do JSON."""
+
+    user_prompt = f"""Analise este momento do mercado sintetico da Deriv:
+
+Mercado: {mercado}
+Tipo de contrato: {tipo}
+Preco atual: {preco_atual}
+Bollinger Bands %: {bb_pct}% (0%=banda inferior, 100%=banda superior)
+Banda superior: {banda_sup} | Banda inferior: {banda_inf}
+RSI 14: {rsi}
+Tendencia EMA 9/21: {ema_trend}
+Ultimas 3 velas: {' '.join(last3)}
+Modo operacao: {modo}
+{hist_txt}
+
+Responda APENAS neste formato JSON:
+{{
+  "direcao": "UP ou DOWN",
+  "score": 0-100,
+  "entrar": true ou false,
+  "resumo": "frase curta explicando a decisao",
+  "raciocinio": "1-2 frases detalhando o motivo como um trader experiente falaria",
+  "indicadores": {{
+    "bb": "ok ou atencao ou ruim",
+    "rsi": "ok ou atencao ou ruim",
+    "ema": "ok ou atencao ou ruim",
+    "velas": "ok ou atencao ou ruim"
+  }},
+  "voz": "frase curta para narrar em voz alta (maximo 15 palavras)"
+}}"""
+
+    payload = j.dumps({
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 400,
+        "system": system_prompt,
+        "messages": [{"role": "user", "content": user_prompt}]
+    }).encode()
+
+    req = urllib.request.Request(
+        'https://api.anthropic.com/v1/messages',
+        data=payload, method='POST'
+    )
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('x-api-key', ANTHROPIC_KEY)
+    req.add_header('anthropic-version', '2023-06-01')
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=20)
+        data = j.loads(resp.read())
+        # Extrair texto e parsear JSON
+        text = data.get('content', [{}])[0].get('text', '')
+        clean = text.replace('```json','').replace('```','').strip()
+        parsed = j.loads(clean)
+        return jsonify({'ok': True, 'resultado': parsed})
+    except j.JSONDecodeError:
+        return jsonify({'ok': True, 'resultado': {
+            'direcao': 'UP', 'score': 50, 'entrar': False,
+            'resumo': 'Erro ao parsear resposta da IA',
+            'raciocinio': 'Tente novamente.',
+            'indicadores': {'bb':'atencao','rsi':'atencao','ema':'atencao','velas':'atencao'},
+            'voz': 'Aguardando sinal.'
+        }})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
 
 if __name__ == '__main__':
     print("\n" + "="*70)
