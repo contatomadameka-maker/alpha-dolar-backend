@@ -338,6 +338,7 @@ class IABot:
                 self.virt_contador = 0  # reset, entra real agora
 
         # Entra real
+        self.waiting_contract = True
         self.log(f"🎯 SINAL REAL | conf={conf:.0%} | {desc} | stake=${self.stake_atual:.2f}", "TRADE")
         self._executar_trade()
 
