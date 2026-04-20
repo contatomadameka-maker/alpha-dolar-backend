@@ -45,6 +45,8 @@ PRODUTOS_MAP = {
     "AI Signals"       : "ai-signals",
     "Alpha IA Pro"     : "ia-pro",
     "Alpha Shield"     : "alpha-shield",
+    "Alpha IA Contextual": "ia-contextual",
+    "Alpha Ia Contextual": "ia-contextual",
 }
 
 # Duração em dias por tipo de plano (None = sem expiração / vitalício)
@@ -69,6 +71,7 @@ EMOJI_PRODUTO = {
     "ai-signals"     : "📊",
     "ia-pro"         : "✨",
     "alpha-shield"   : "🛡️",
+    "ia-contextual"  : "🧠",
 }
 
 
@@ -140,7 +143,17 @@ def register_cakto_webhook(app, supabase_client):
         email       = (cliente.get("email") or dados.get("email") or dados.get("buyer_email", "")).strip().lower()
         nome        = (cliente.get("name") or cliente.get("nome") or dados.get("nome", "")).strip()
         produto_raw = (dados.get("product", {}).get("name") or dados.get("produto", {}).get("nome") or dados.get("product_name") or dados.get("nome_produto", "")).strip()
-        tipo_plano  = (dados.get("plan", {}).get("type") or dados.get("plano", {}).get("tipo") or dados.get("recurrence") or "unico").strip().lower()
+        _tipo_raw = (dados.get("plan", {}).get("type") or dados.get("plano", {}).get("tipo") or dados.get("recurrence") or dados.get("plan_type") or dados.get("subscription_type") or "unico").strip().lower()
+        # Normalizar termos da Cakto para nosso padrão
+        _tipo_map = {
+            "monthly": "mensal", "month": "mensal", "mensal": "mensal",
+            "quarterly": "trimestral", "trimestral": "trimestral",
+            "semiannual": "semestral", "semestral": "semestral",
+            "annual": "anual", "yearly": "anual", "anual": "anual",
+            "once": "unico", "one_time": "unico", "unico": "unico",
+            "lifetime": "vitalicio", "vitalicio": "vitalicio",
+        }
+        tipo_plano = _tipo_map.get(_tipo_raw, _tipo_raw)
         valor       = dados.get("amount") or dados.get("valor") or dados.get("price", 0)
 
         # 5. VALIDAR EMAIL E PRODUTO
