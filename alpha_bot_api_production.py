@@ -31,7 +31,7 @@ if project_path not in sys.path:
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
-app = Flask(__name__, static_folder='web', static_url_path='')
+app = Flask(__name__, static_folder=None)
 DERIV_ID_BLACKLIST = {"VRTC10166481"}
 IP_BLACKLIST = {"187.20.29.230"}
 CORS(app)
