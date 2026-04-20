@@ -249,6 +249,11 @@ def data_files(filename):
 @app.route('/<path:path>')
 def serve_static(path):
     try:
+        import os as _os
+        # Tentar primeiro na pasta web/
+        web_path = _os.path.join(BASE_DIR, 'web', path)
+        if _os.path.exists(web_path):
+            return send_from_directory(_os.path.join(BASE_DIR, 'web'), path)
         return send_from_directory(BASE_DIR, path)
     except:
         return jsonify({'error': 'Not found'}), 404
