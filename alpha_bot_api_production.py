@@ -260,6 +260,12 @@ def data_files(filename):
 def serve_static(path):
     try:
         import os as _os
+        # Rotas com handlers próprios não passam por aqui
+        if path in ('admin.html', 'admin'):
+            from flask import make_response
+            resp = make_response(send_from_directory(_os.path.join(BASE_DIR, 'web'), 'admin.html'))
+            resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            return resp
         # Tentar primeiro na pasta web/
         web_path = _os.path.join(BASE_DIR, 'web', path)
         if _os.path.exists(web_path):
