@@ -215,6 +215,10 @@ def root():
 def home():
     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'index.html')
 
+@app.route('/admin.html')
+def admin_page():
+    return send_from_directory(os.path.join(BASE_DIR, 'web'), 'admin.html')
+
 # /dashboard e /dashboard-fixed ambos servem o mesmo arquivo
 @app.route('/dashboard')
 @app.route('/dashboard-fixed')
