@@ -217,7 +217,12 @@ def home():
 
 @app.route('/admin.html')
 def admin_page():
-    return send_from_directory(os.path.join(BASE_DIR, 'web'), 'admin.html')
+    from flask import make_response
+    resp = make_response(send_from_directory(os.path.join(BASE_DIR, 'web'), 'admin.html'))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 # /dashboard e /dashboard-fixed ambos servem o mesmo arquivo
 @app.route('/dashboard')
