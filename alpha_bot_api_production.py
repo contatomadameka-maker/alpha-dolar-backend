@@ -213,7 +213,7 @@ def root():
 
 @app.route('/home')
 def home():
-    return send_from_directory(BASE_DIR, 'index.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'web'), 'index.html')
 
 # /dashboard e /dashboard-fixed ambos servem o mesmo arquivo
 @app.route('/dashboard')
