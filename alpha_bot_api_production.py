@@ -216,6 +216,7 @@ def home():
     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'index.html')
 
 @app.route('/admin.html')
+@app.route('/admin')
 def admin_page():
     from flask import make_response
     resp = make_response(send_from_directory(os.path.join(BASE_DIR, 'web'), 'admin.html'))
