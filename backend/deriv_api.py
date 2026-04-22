@@ -90,7 +90,7 @@ class DerivAPI:
             )
             self.ws_thread = threading.Thread(
                 target=lambda: self.ws.run_forever(
-                    ping_interval=20, ping_timeout=30, skip_utf8_validation=True
+                    ping_interval=60, ping_timeout=30, skip_utf8_validation=True
                 ), daemon=True
             )
             self.ws_thread.start()
