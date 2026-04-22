@@ -48,8 +48,8 @@ class DerivAPI:
             print("🔗 Conectando à Deriv API...")
             self.websocket = await websockets.connect(
                 self.endpoint,
-                ping_interval=30,
-                ping_timeout=10
+                ping_interval=20,
+                ping_timeout=30
             )
             self.connected = True
             print("✅ Conectado!")
