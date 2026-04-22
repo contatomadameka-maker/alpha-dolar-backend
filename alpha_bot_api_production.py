@@ -401,6 +401,11 @@ def start_bot():
                 'error': f'Token não recebido para conta {account_type}. Faça login novamente.'
             }), 400
 
+        # Bloqueia cripto em conta demo
+        SIMBOLOS_REAL_ONLY = ['cryBTCUSD','cryETHUSD']
+        if symbol in SIMBOLOS_REAL_ONLY and account_type == 'demo':
+            return jsonify({'success': False, 'error': f'⚠️ {symbol} não está disponível em conta DEMO. Use conta REAL.'}), 400
+
         # Verifica se bot está suspenso
         try:
             bot_name_req = data.get('bot_name', bot_type)
