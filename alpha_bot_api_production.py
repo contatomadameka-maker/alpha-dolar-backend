@@ -379,8 +379,10 @@ def start_bot():
         # Garante que o estado do usuário existe
         get_user_state(deriv_id, bot_type)
 
-        if get_user_state(deriv_id, bot_type).get('running', False):
-            return jsonify({'success': False, 'error': f'Bot {bot_type} já está rodando'}), 400
+        # Verifica se QUALQUER bot do usuario esta rodando
+        _bots_ativos = [bt for bt in ['ia','ia_simples','manual','ia-contextual'] if get_user_state(deriv_id, bt).get('running', False)]
+        if _bots_ativos:
+            return jsonify({'success': False, 'error': f'Pare o bot ativo ({_bots_ativos[0]}) antes de iniciar outro'}), 400
 
         # ==================== BOT REAL ====================
         if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples']:
