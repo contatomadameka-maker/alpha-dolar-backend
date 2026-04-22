@@ -729,8 +729,11 @@ def start_bot():
                         BotConfig.LIMITE_PERDA   = _user_stop
                     bot.start()
                 except Exception as e:
+                    import traceback
                     print(f"❌ Erro thread bot: {e}")
-                    _tb.print_exc()
+                    traceback.print_exc()
+                    get_user_state(deriv_id, bot_type)['stop_reason'] = 'crash'
+                    get_user_state(deriv_id, bot_type)['stop_message'] = str(e)
                 finally:
                     get_user_state(deriv_id, bot_type)['running'] = False
 
