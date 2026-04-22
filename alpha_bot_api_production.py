@@ -95,6 +95,7 @@ STRATEGY_MAP = {
 }
 
 SYMBOL_MAP = {
+    # Volatility Indices
     'Volatility 10 Index':       'R_10',
     'Volatility 25 Index':       'R_25',
     'Volatility 50 Index':       'R_50',
@@ -114,14 +115,46 @@ SYMBOL_MAP = {
     'Jump 50 Index':             'JD50',
     'Jump 75 Index':             'JD75',
     'Jump 100 Index':            'JD100',
+    # Forex
+    'EUR/USD':   'frxEURUSD',
+    'GBP/USD':   'frxGBPUSD',
+    'USD/JPY':   'frxUSDJPY',
+    'AUD/USD':   'frxAUDUSD',
+    'USD/CAD':   'frxUSDCAD',
+    'EUR/GBP':   'frxEURGBP',
+    # Crypto
+    'Bitcoin':   'cryBTCUSD',
+    'Ethereum':  'cryETHUSD',
+    # Commodities
+    'Ouro':      'frxXAUUSD',
+    'Prata':     'frxXAGUSD',
+    'Petroleo WTI': 'frxXBRUSD',
+    # Passthrough já resolvidos
     'R_10': 'R_10', 'R_25': 'R_25', 'R_50': 'R_50',
     'R_75': 'R_75', 'R_100': 'R_100',
     '1HZ10V': '1HZ10V', '1HZ25V': '1HZ25V', '1HZ50V': '1HZ50V',
     '1HZ75V': '1HZ75V', '1HZ100V': '1HZ100V',
+    'frxEURUSD': 'frxEURUSD', 'frxGBPUSD': 'frxGBPUSD',
+    'frxUSDJPY': 'frxUSDJPY', 'frxAUDUSD': 'frxAUDUSD',
+    'frxUSDCAD': 'frxUSDCAD', 'frxEURGBP': 'frxEURGBP',
+    'cryBTCUSD': 'cryBTCUSD', 'cryETHUSD': 'cryETHUSD',
+    'frxXAUUSD': 'frxXAUUSD', 'frxXAGUSD': 'frxXAGUSD',
+    'frxXBRUSD': 'frxXBRUSD',
+}
+
+# Stake mínimo por símbolo
+STAKE_MINIMO = {
+    'frxEURUSD': 0.50, 'frxGBPUSD': 0.50, 'frxUSDJPY': 0.50,
+    'frxAUDUSD': 0.50, 'frxUSDCAD': 0.50, 'frxEURGBP': 0.50,
+    'cryBTCUSD': 1.00, 'cryETHUSD': 1.00,
+    'frxXAUUSD': 1.00, 'frxXAGUSD': 1.00, 'frxXBRUSD': 1.00,
 }
 
 def resolve_symbol(s):
     return SYMBOL_MAP.get(s, s or 'R_100')
+
+def get_stake_minimo(symbol):
+    return STAKE_MINIMO.get(symbol, 0.35)
 
 # ==================== ESTADO GLOBAL ====================
 # Estado agora gerenciado pelo state_manager (Redis + fallback memória)
@@ -350,6 +383,7 @@ def start_bot():
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake') or config.get('stake_inicial') or 0.35)
+        stake_inicial = max(stake_inicial, get_stake_minimo(symbol))  # garante mínimo por símbolo
         lucro_alvo    = float(config.get('target') or config.get('lucro_alvo') or 2.0)
         limite_perda  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
 
@@ -434,6 +468,7 @@ def start_bot():
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
             BotConfig.MAX_CONSECUTIVE_LOSSES = max_losses
             BotConfig.STAKE_INICIAL = float(config.get('stake') or config.get('stake_inicial') or BotConfig.STAKE_INICIAL)
+            BotConfig.STAKE_INICIAL = max(BotConfig.STAKE_INICIAL, get_stake_minimo(symbol))  # garante mínimo por símbolo
             # Salvar no estado do usuário para não conflitar entre usuários
             if deriv_id and bot_type:
                 get_user_state(deriv_id, bot_type)['_stake_inicial'] = BotConfig.STAKE_INICIAL
