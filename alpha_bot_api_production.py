@@ -724,8 +724,7 @@ def start_bot():
                     if hasattr(bot, 'stop_loss') and bot.stop_loss:
                         bot.stop_loss.limite_perda = _user_stop
                         bot.stop_loss.lucro_alvo   = _user_target
-                    if hasattr(bot, 'strategy') and bot.strategy:
-                        bot.strategy.symbol = _user_symbol
+                    # symbol é configurado via BotConfig apenas — estratégia não tem atributo symbol
                     get_user_state(deriv_id, bot_type)['_stake_inicial'] = _user_stake
                     get_user_state(deriv_id, bot_type)['_limite_perda']  = _user_stop
                     get_user_state(deriv_id, bot_type)['lucro_alvo']     = _user_target
