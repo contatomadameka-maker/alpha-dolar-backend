@@ -693,15 +693,13 @@ def start_bot():
             def patched_contract_update(contract_data):
                 status = contract_data.get('status')
                 if status in ['won', 'lost']:
-                    # Só chama aqui se o bot NÃO tem _on_trade_completed próprio (evita duplicação com ia_bot)
-                    if not getattr(bot, '_on_trade_completed', None):
-                        profit     = float(contract_data.get('profit', 0))
-                        won_       = status == 'won'
-                        direction  = contract_data.get('contract_type', 'CALL/PUT')
-                        stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
-                        exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
-                        _sym = get_user_state(deriv_id, bot_type).get('_symbol', BotConfig.DEFAULT_SYMBOL)
-                        on_trade_completed(direction, won_, profit, stake_used, _sym, exit_tick)
+                    profit     = float(contract_data.get('profit', 0))
+                    won_       = status == 'won'
+                    direction  = contract_data.get('contract_type', 'CALL/PUT')
+                    stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
+                    exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
+                    _sym = get_user_state(deriv_id, bot_type).get('_symbol', BotConfig.DEFAULT_SYMBOL)
+                    on_trade_completed(direction, won_, profit, stake_used, _sym, exit_tick)
                     bot.waiting_contract    = False
                     bot.current_contract_id = None
                     bot._ultimo_trade_time  = time.time()
