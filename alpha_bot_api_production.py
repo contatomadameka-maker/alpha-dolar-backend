@@ -717,16 +717,19 @@ def start_bot():
 
             def run_bot():
                 try:
-                    # Configurar BotConfig com valores específicos deste usuário
-                    # antes de iniciar — dentro da thread para evitar conflito
-                    import threading
-                    _lock = getattr(run_bot, '_lock', threading.Lock())
-                    with _lock:
-                        BotConfig.API_TOKEN      = _user_token
-                        BotConfig.DEFAULT_SYMBOL = _user_symbol
-                        BotConfig.STAKE_INICIAL  = _user_stake
-                        BotConfig.LUCRO_ALVO     = _user_target
-                        BotConfig.LIMITE_PERDA   = _user_stop
+                    if hasattr(bot, 'api') and hasattr(bot.api, 'api_token'):
+                        bot.api.api_token = _user_token
+                    if hasattr(bot, 'current_stake'):
+                        bot.current_stake = _user_stake
+                    if hasattr(bot, 'stop_loss') and bot.stop_loss:
+                        bot.stop_loss.limite_perda = _user_stop
+                        bot.stop_loss.lucro_alvo   = _user_target
+                    if hasattr(bot, 'strategy') and bot.strategy:
+                        bot.strategy.symbol = _user_symbol
+                    get_user_state(deriv_id, bot_type)['_stake_inicial'] = _user_stake
+                    get_user_state(deriv_id, bot_type)['_limite_perda']  = _user_stop
+                    get_user_state(deriv_id, bot_type)['lucro_alvo']     = _user_target
+                    get_user_state(deriv_id, bot_type)['_symbol']        = _user_symbol
                     bot.start()
                 except Exception as e:
                     import traceback
