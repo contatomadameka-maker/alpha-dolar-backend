@@ -100,8 +100,8 @@ class AlphaBotBalanced(BaseStrategy):
             return False, None, 0.0
 
         try:
-            recent_10 = self.ticks_history[-10:]
-            recent_20 = self.ticks_history[-20:]
+            recent_10 = [t['quote'] for t in list(self.ticks_history)[-10:]]
+            recent_20 = [t['quote'] for t in list(self.ticks_history)[-20:]]
 
             current_price = recent_10[-1]
             ma_10 = statistics.mean(recent_10)
