@@ -69,10 +69,10 @@ class DerivAPI:
             try:
                 if self.is_connected:
                     self._send({"ping": 1})
-                    if time.time() - self.last_message_time > 30:
-                        self.log("⚠️ Sem mensagens há 30s, reconectando...", "WARNING")
+                    if time.time() - self.last_message_time > 90:
+                        self.log("⚠️ Sem mensagens há 90s, reconectando...", "WARNING")
                         self._reconnect()
-                time.sleep(5)
+                time.sleep(30)
             except:
                 pass
 
