@@ -76,7 +76,7 @@ def listar_operacoes(bot_name=None):
         'Authorization': f'Bearer {SUPABASE_KEY}',
         'Content-Type': 'application/json'
     }
-    url = f"{SUPABASE_URL}/rest/v1/operacoes?order=criado_em.desc&limit=500"
+    url = f"{SUPABASE_URL}/rest/v1/operacoes?order=criado_em.desc&limit=5000"
     if bot_name:
         url += f"&bot_name=eq.{bot_name}"
     try:
