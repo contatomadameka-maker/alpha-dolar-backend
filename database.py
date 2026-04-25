@@ -74,7 +74,8 @@ def listar_operacoes(bot_name=None):
     headers = {
         'apikey': SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Prefer': 'count=exact'
     }
     url = f"{SUPABASE_URL}/rest/v1/operacoes?order=criado_em.desc&limit=5000"
     if bot_name:
