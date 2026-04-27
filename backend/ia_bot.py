@@ -534,10 +534,10 @@ class IABot:
             if agora - self._ultimo_tick_time > TICK_TIMEOUT:
                 self.log("⚠️ WATCHDOG: sem ticks — reconectando...", "WARNING")
                 try:
-                    self.api.subscribe_ticks(self.symbol)
-                    self._ultimo_tick_time = agora
+                    self.api._reconnect()
+                    self._ultimo_tick_time = time.time()
                 except Exception as e:
-                    self.log(f"Erro re-subscrever: {e}", "ERROR")
+                    self.log(f"Erro reconexão: {e}", "ERROR")
 
         return True
 
