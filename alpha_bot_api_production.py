@@ -1015,7 +1015,7 @@ def _verificar_resultado_sinal(mercado, tipo, ticks_espera=5):
     try:
         token = os.environ.get('DERIV_SIGNAL_TOKEN', '')
         ws = websocket.WebSocketApp(
-            'wss://ws.derivws.com/websockets/v3?app_id=128988',
+            'wss://ws.derivws.com/websockets/v3?app_id=1089',
             on_message=on_msg, on_error=on_error, on_close=on_close
         )
         def on_open(ws):
@@ -1931,7 +1931,7 @@ def get_markup_stats():
     import threading
 
     token = os.environ.get('DERIV_ADMIN_TOKEN', '')
-    app_id = os.environ.get('DERIV_APP_ID', '128988')
+    app_id = os.environ.get('DERIV_APP_ID', '1089')
 
     if not token:
         return jsonify({'erro': 'DERIV_ADMIN_TOKEN não configurado'}), 500
@@ -2210,7 +2210,7 @@ def _buscar_markup_deriv():
     from datetime import datetime
 
     token  = os.environ.get('DERIV_ADMIN_TOKEN', '')
-    app_id = os.environ.get('DERIV_APP_ID', '128988')
+    app_id = os.environ.get('DERIV_APP_ID', '1089')
     if not token:
         return {'markup_usd': 0, 'markup_transactions_count': 0}
 
