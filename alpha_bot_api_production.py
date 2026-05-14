@@ -1591,6 +1591,38 @@ def oauth_accounts():
         except: body = str(body)
         return jsonify({'success': False, 'error': str(e), 'detail': body}), 500
 
+@app.route('/api/oauth/ws-url', methods=['POST'])
+def oauth_ws_url():
+    try:
+        import urllib.request as urlreq
+        import json as _json
+        data = request.json
+        access_token = data.get('access_token','')
+        client_id = data.get('client_id','')
+        account_id = data.get('account_id','')
+
+        req = urlreq.Request(
+            f'https://api.derivws.com/trading/v1/options/accounts/{account_id}/otp',
+            method='POST',
+            headers={
+                'Authorization': 'Bearer ' + access_token,
+                'Deriv-App-ID': client_id,
+                'Content-Type': 'application/json'
+            }
+        )
+        with urlreq.urlopen(req) as r:
+            otp_data = _json.loads(r.read())
+
+        return jsonify({'success': True, 'otp_data': otp_data})
+    except Exception as e:
+        body = b''
+        if hasattr(e, 'read'):
+            try: body = e.read()
+            except: pass
+        try: body = body.decode()
+        except: body = str(body)
+        return jsonify({'success': False, 'error': str(e), 'detail': body}), 500
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
