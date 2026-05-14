@@ -1566,6 +1566,7 @@ def oauth_accounts():
     try:
         import urllib.request as urlreq
         import urllib.error as urlerr
+        import json as _json
         data = request.json
         access_token = data.get('access_token','')
         client_id = data.get('client_id','')
@@ -1580,7 +1581,7 @@ def oauth_accounts():
             }
         )
         with urlreq.urlopen(req) as r:
-            accounts_data = json.loads(r.read())
+            accounts_data = _json.loads(r.read())
 
         return jsonify({'success': True, 'accounts_data': accounts_data})
     except Exception as e:
