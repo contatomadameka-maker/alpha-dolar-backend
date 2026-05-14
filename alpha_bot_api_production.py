@@ -1588,20 +1588,20 @@ def oauth_userinfo():
 
         access_token = token_data.get('access_token','')
 
-        # Decodifica JWT para extrair dados do usuário (sem chamada externa)
-        import base64
-        try:
-            parts = access_token.split('.')
-            if len(parts) >= 2:
-                payload = parts[1]
-                payload += '=' * (4 - len(payload) % 4)
-                user_info = json.loads(base64.urlsafe_b64decode(payload))
-            else:
-                user_info = {}
-        except:
-            user_info = {}
+        # Busca contas via nova API REST da Deriv
+        import urllib.request as urlreq
+        req2 = urlreq.Request(
+            'https://api.derivws.com/trading/v1/options/accounts',
+            headers={
+                'Authorization': 'Bearer ' + access_token,
+                'Deriv-App-ID': client_id,
+                'Content-Type': 'application/json'
+            }
+        )
+        with urlreq.urlopen(req2) as r:
+            accounts_data = json.loads(r.read())
 
-        return jsonify({'success': True, 'token_data': token_data, 'user_info': user_info})
+        return jsonify({'success': True, 'token_data': token_data, 'accounts_data': accounts_data})
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         return jsonify({'success': False, 'error': f'HTTP Error {e.code}: {e.reason}', 'detail': body}), 500
