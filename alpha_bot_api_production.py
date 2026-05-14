@@ -1561,36 +1561,16 @@ Responda APENAS neste formato JSON:
 
 
 
-@app.route('/api/oauth/userinfo', methods=['POST'])
-def oauth_userinfo():
+@app.route('/api/oauth/accounts', methods=['POST'])
+def oauth_accounts():
     try:
         data = request.json
         access_token = data.get('access_token','')
         client_id = data.get('client_id','')
-        code_verifier = data.get('code_verifier','')
-        code = data.get('code','')
-        redirect_uri = data.get('redirect_uri','')
-
-        # Troca code por token
-        import urllib.request, urllib.parse
-        token_params = urllib.parse.urlencode({
-            'grant_type': 'authorization_code',
-            'client_id': client_id,
-            'code': code,
-            'code_verifier': code_verifier,
-            'redirect_uri': redirect_uri
-        }).encode()
-        req = urllib.request.Request('https://auth.deriv.com/oauth2/token',
-            data=token_params,
-            headers={'Content-Type':'application/x-www-form-urlencoded'})
-        with urllib.request.urlopen(req) as r:
-            token_data = json.loads(r.read())
-
-        access_token = token_data.get('access_token','')
 
         # Busca contas via nova API REST da Deriv
         import urllib.request as urlreq
-        req2 = urlreq.Request(
+        req = urlreq.Request(
             'https://api.derivws.com/trading/v1/options/accounts',
             headers={
                 'Authorization': 'Bearer ' + access_token,
@@ -1598,10 +1578,10 @@ def oauth_userinfo():
                 'Content-Type': 'application/json'
             }
         )
-        with urlreq.urlopen(req2) as r:
+        with urlreq.urlopen(req) as r:
             accounts_data = json.loads(r.read())
 
-        return jsonify({'success': True, 'token_data': token_data, 'accounts_data': accounts_data})
+        return jsonify({'success': True, 'accounts_data': accounts_data})
     except urllib.error.HTTPError as e:
         body = e.read().decode()
         return jsonify({'success': False, 'error': f'HTTP Error {e.code}: {e.reason}', 'detail': body}), 500
