@@ -1588,11 +1588,18 @@ def oauth_userinfo():
 
         access_token = token_data.get('access_token','')
 
-        # Busca userinfo
-        req2 = urllib.request.Request('https://auth.deriv.com/oauth2/userinfo',
-            headers={'Authorization': 'Bearer ' + access_token})
-        with urllib.request.urlopen(req2) as r:
-            user_info = json.loads(r.read())
+        # Decodifica JWT para extrair dados do usuário (sem chamada externa)
+        import base64
+        try:
+            parts = access_token.split('.')
+            if len(parts) >= 2:
+                payload = parts[1]
+                payload += '=' * (4 - len(payload) % 4)
+                user_info = json.loads(base64.urlsafe_b64decode(payload))
+            else:
+                user_info = {}
+        except:
+            user_info = {}
 
         return jsonify({'success': True, 'token_data': token_data, 'user_info': user_info})
     except urllib.error.HTTPError as e:
