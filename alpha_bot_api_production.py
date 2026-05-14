@@ -1624,6 +1624,20 @@ def oauth_ws_url():
         except: body = str(body)
         return jsonify({'success': False, 'error': str(e), 'detail': body}), 500
 
+@app.route('/api/cliente/email', methods=['GET'])
+def get_cliente_email():
+    try:
+        deriv_id = request.args.get('deriv_id','')
+        if not deriv_id:
+            return jsonify({'email': ''})
+        from backend.database import get_supabase
+        sb = get_supabase()
+        r = sb.table('clientes').select('email').eq('deriv_id', deriv_id).execute()
+        email = r.data[0].get('email','') if r.data else ''
+        return jsonify({'email': email})
+    except Exception as e:
+        return jsonify({'email': '', 'error': str(e)})
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
