@@ -77,9 +77,61 @@ class DerivAPI:
                 pass
 
     # ─── CONEXÃO ────────────────────────────────────────────────────────────
+    def _get_otp_ws_url(self):
+        """Busca URL WebSocket via OTP para tokens OAuth (ory_at_)"""
+        try:
+            import urllib.request as urlreq
+            import urllib.parse
+            import json as _json
+            # Primeiro busca account_id via accounts endpoint
+            req1 = urlreq.Request(
+                'https://api.derivws.com/trading/v1/options/accounts',
+                headers={
+                    'Authorization': 'Bearer ' + self.api_token,
+                    'Deriv-App-ID': '33f9DeQy4SiZbVTCWu7Bo',
+                    'Content-Type': 'application/json'
+                }
+            )
+            with urlreq.urlopen(req1, timeout=10) as r:
+                accounts_data = _json.loads(r.read())
+            accounts = accounts_data.get('data', [])
+            if not accounts:
+                return None
+            account_id = accounts[0].get('account_id','')
+            # Busca OTP para esse account
+            req2 = urlreq.Request(
+                f'https://api.derivws.com/trading/v1/options/accounts/{account_id}/otp',
+                method='POST',
+                headers={
+                    'Authorization': 'Bearer ' + self.api_token,
+                    'Deriv-App-ID': '33f9DeQy4SiZbVTCWu7Bo',
+                    'Content-Type': 'application/json'
+                }
+            )
+            with urlreq.urlopen(req2, timeout=10) as r:
+                otp_data = _json.loads(r.read())
+            ws_url = otp_data.get('data', {}).get('url')
+            self.log(f"OTP WebSocket URL obtida: {ws_url[:50] if ws_url else 'FALHOU'}", "INFO")
+            return ws_url
+        except Exception as e:
+            self.log(f"Erro ao buscar OTP: {e}", "ERROR")
+            return None
+
     def connect(self):
         try:
-            url = f"wss://ws.binaryws.com/websockets/v3?app_id={self.app_id}"
+            # Verifica se é token OAuth novo
+            if self.api_token and self.api_token.startswith('ory_at_'):
+                otp_url = self._get_otp_ws_url()
+                if otp_url:
+                    url = otp_url
+                    self._using_otp = True
+                else:
+                    self.log("OTP falhou, tentando WebSocket padrão", "WARN")
+                    url = f"wss://ws.derivws.com/websockets/v3?app_id={self.app_id}"
+                    self._using_otp = False
+            else:
+                url = f"wss://ws.binaryws.com/websockets/v3?app_id={self.app_id}"
+                self._using_otp = False
             self.log("Conectando à Deriv API...", "INFO")
             self.ws = websocket.WebSocketApp(
                 url,
@@ -167,6 +219,16 @@ class DerivAPI:
             self.log("Não conectado!", "ERROR")
             return False
         try:
+            # Se usando OTP, já está autenticado — só pede balance
+            if getattr(self, '_using_otp', False):
+                self.log("OTP WebSocket — pulando authorize, pedindo balance...", "INFO")
+                self._send({"balance": 1, "subscribe": 1})
+                start = time.time()
+                while self.balance == 0.0 and (time.time() - start) < 15:
+                    time.sleep(0.1)
+                self.is_authorized = True
+                self.log(f"✅ Conectado via OTP! Saldo: ${self.balance:.2f} {self.currency}", "SUCCESS")
+                return True
             self.log("Autorizando...", "INFO")
             self._send({"authorize": self.api_token})
             start = time.time()
