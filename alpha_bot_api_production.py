@@ -1561,6 +1561,43 @@ Responda APENAS neste formato JSON:
 
 
 
+@app.route('/api/oauth/userinfo', methods=['POST'])
+def oauth_userinfo():
+    try:
+        data = request.json
+        access_token = data.get('access_token','')
+        client_id = data.get('client_id','')
+        code_verifier = data.get('code_verifier','')
+        code = data.get('code','')
+        redirect_uri = data.get('redirect_uri','')
+
+        # Troca code por token
+        import urllib.request, urllib.parse
+        token_params = urllib.parse.urlencode({
+            'grant_type': 'authorization_code',
+            'client_id': client_id,
+            'code': code,
+            'code_verifier': code_verifier,
+            'redirect_uri': redirect_uri
+        }).encode()
+        req = urllib.request.Request('https://auth.deriv.com/oauth2/token',
+            data=token_params,
+            headers={'Content-Type':'application/x-www-form-urlencoded'})
+        with urllib.request.urlopen(req) as r:
+            token_data = json.loads(r.read())
+
+        access_token = token_data.get('access_token','')
+
+        # Busca userinfo
+        req2 = urllib.request.Request('https://auth.deriv.com/oauth2/userinfo',
+            headers={'Authorization': 'Bearer ' + access_token})
+        with urllib.request.urlopen(req2) as r:
+            user_info = json.loads(r.read())
+
+        return jsonify({'success': True, 'token_data': token_data, 'user_info': user_info})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
