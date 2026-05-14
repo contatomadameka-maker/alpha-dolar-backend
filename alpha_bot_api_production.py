@@ -1595,6 +1595,9 @@ def oauth_userinfo():
             user_info = json.loads(r.read())
 
         return jsonify({'success': True, 'token_data': token_data, 'user_info': user_info})
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        return jsonify({'success': False, 'error': f'HTTP Error {e.code}: {e.reason}', 'detail': body}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
