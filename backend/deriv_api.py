@@ -244,6 +244,7 @@ class DerivAPI:
 
     def subscribe_ticks(self, symbol):
         self._subscribed_symbol = symbol
+        # Novo OAuth usa ticks_history diferente, mas ticks funciona igual
         self._send({"ticks": symbol, "subscribe": 1})
         self.log(f"Inscrito em ticks de {symbol}", "INFO")
 
@@ -251,6 +252,8 @@ class DerivAPI:
         self._send({"balance": 1, "subscribe": 1})
 
     def get_proposal(self, contract_type, symbol, amount, duration, duration_unit="t", barrier=None):
+        # Novo OAuth usa underlying_symbol, legado usa symbol
+        symbol_key = "underlying_symbol" if getattr(self, '_using_otp', False) else "symbol"
         proposal = {
             "proposal": 1,
             "amount": amount,
@@ -259,7 +262,7 @@ class DerivAPI:
             "currency": self.currency,
             "duration": duration,
             "duration_unit": duration_unit,
-            "symbol": symbol
+            symbol_key: symbol
         }
         if barrier is not None:
             proposal["barrier"] = str(barrier)
