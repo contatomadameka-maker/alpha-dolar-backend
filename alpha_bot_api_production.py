@@ -161,6 +161,7 @@ def get_stake_minimo(symbol):
 bots_state = {}  # mantido para compatibilidade
 
 try:
+    from backend.database import verificar_usuario, registrar_ou_atualizar_usuario, atualizar_plano_usuario
     from backend.state_manager import (
         get_user_state as _sm_get,
         update_user_state as _sm_update,
