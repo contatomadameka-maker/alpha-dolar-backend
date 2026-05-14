@@ -1564,12 +1564,13 @@ Responda APENAS neste formato JSON:
 @app.route('/api/oauth/accounts', methods=['POST'])
 def oauth_accounts():
     try:
+        import urllib.request as urlreq
+        import urllib.error as urlerr
         data = request.json
         access_token = data.get('access_token','')
         client_id = data.get('client_id','')
 
         # Busca contas via nova API REST da Deriv
-        import urllib.request as urlreq
         req = urlreq.Request(
             'https://api.derivws.com/trading/v1/options/accounts',
             headers={
@@ -1582,11 +1583,12 @@ def oauth_accounts():
             accounts_data = json.loads(r.read())
 
         return jsonify({'success': True, 'accounts_data': accounts_data})
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        return jsonify({'success': False, 'error': f'HTTP Error {e.code}: {e.reason}', 'detail': body}), 500
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        body = getattr(e, 'read', lambda: b'')()
+        if callable(body): body = body()
+        try: body = body.decode()
+        except: body = str(body)
+        return jsonify({'success': False, 'error': str(e), 'detail': body}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*70)
