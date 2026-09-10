@@ -698,24 +698,31 @@ def start_bot():
                 is_fake_event = (contract_data.get('_timeout') or contract_data.get('_reconnect') or
                                   contract_data.get('_buy_error') or contract_data.get('_proposal_error'))
                 if status in ['won', 'lost'] and not is_fake_event:
+                    # Limpa PRIMEIRO os controles de contrato (dos dois lados), antes de
+                    # chamar on_trade_completed -- se essa funcao lancar excecao no meio
+                    # (ex: falha de rede no Supabase/Telegram), a limpeza ja aconteceu e
+                    # o watchdog de 30s do deriv_api.py nao dispara um timeout falso depois.
+                    bot.waiting_contract    = False
+                    bot.current_contract_id = None
+                    bot._ultimo_trade_time  = time.time()
+                    if hasattr(bot, 'api') and hasattr(bot.api, '_clear_contract'):
+                        try:
+                            bot.api._clear_contract()
+                        except Exception:
+                            pass
+
                     profit     = float(contract_data.get('profit', 0))
                     won_       = status == 'won'
                     direction  = contract_data.get('contract_type', 'CALL/PUT')
                     stake_used = getattr(bot, '_ultimo_stake_usado', BotConfig.STAKE_INICIAL)
                     exit_tick  = contract_data.get('exit_tick_value') or contract_data.get('exit_tick')
                     _sym = get_user_state(deriv_id, bot_type).get('_symbol', BotConfig.DEFAULT_SYMBOL)
-                    on_trade_completed(direction, won_, profit, stake_used, _sym, exit_tick)
-                    bot.waiting_contract    = False
-                    bot.current_contract_id = None
-                    bot._ultimo_trade_time  = time.time()
-                    # Limpa tambem o controle interno do DerivAPI (bot.api.current_contract_id),
-                    # senao o watchdog de 30s do deriv_api.py dispara um "timeout" falso
-                    # sobre um contrato que ja foi resolvido, travando o bot desnecessariamente.
-                    if hasattr(bot, 'api') and hasattr(bot.api, '_clear_contract'):
-                        try:
-                            bot.api._clear_contract()
-                        except Exception:
-                            pass
+                    try:
+                        on_trade_completed(direction, won_, profit, stake_used, _sym, exit_tick)
+                    except Exception as e_otc:
+                        import traceback as _tb2
+                        print(f"❌ Erro em on_trade_completed: {e_otc}")
+                        _tb2.print_exc()
                 original_contract_update(contract_data)
 
             # Patch no método do objeto — sobrevive ao bot.start() que chama set_contract_callback(self.on_contract_update)
