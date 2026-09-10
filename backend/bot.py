@@ -168,11 +168,14 @@ class AlphaDolar:
         # fixo assumido (0.88) que estava causando perda sistematica --
         # o payout real costuma ser menor que 88%, entao o stake calculado
         # nunca cobria de fato a perda acumulada + lucro minimo.
-        payout_real = getattr(self.api, 'last_payout_ratio', None)
-        if payout_real and payout_real > 0:
-            # Pequena margem de seguranca (usa 98% do payout real) para nunca
+        payout_total = getattr(self.api, 'last_payout_ratio', None)  # ex: 1.81 = retorna 1.81x o stake
+        if payout_total and payout_total > 1.0:
+            # payout_total inclui o stake devolvido -- o LUCRO percentual real
+            # e (payout_total - 1). Ex: payout_total=1.81 => lucro de 81% sobre o stake.
+            lucro_percentual = payout_total - 1.0
+            # Pequena margem de seguranca (usa 98% do lucro real) para nunca
             # superestimar o retorno e ficar de novo no vermelho por arredondamento.
-            payout_rate = payout_real * 0.98
+            payout_rate = lucro_percentual * 0.98
         else:
             payout_rate = self.PAYOUT_RATE  # fallback se ainda nao houver proposta
 
