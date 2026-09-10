@@ -76,15 +76,13 @@ class AlphaBot1(BaseStrategy):
 
     def should_enter(self, tick_data):
         """Decide se deve entrar em trade"""
-        if not self.is_ready():
-            print(f"🔍 DEBUG should_enter: NAO PRONTO, ticks={len(self.ticks_history)}/10")
-            return False, None, 0.0
+        # Atualiza o historico ANTES de checar se esta pronto -- senao o
+        # historico fica preso em zero para sempre (nunca acumula ticks).
         self.update_tick(tick_data)
+        if not self.is_ready():
+            return False, None, 0.0
         trend   = self.calculate_trend(self.lookback_period)
         pattern = self.detect_pattern("consecutive")
-        print(f"🔍 DEBUG should_enter: ticks={len(self.ticks_history)} trend={trend} "
-              f"up={pattern.get('consecutive_ups',0)} down={pattern.get('consecutive_downs',0)} "
-              f"lookback={self.lookback_period} min_consec={self.min_consecutive} conf_min={self.confidence_threshold}")
         if trend == "UP":
             consecutive = pattern.get("consecutive_ups", 0)
             if consecutive >= self.min_consecutive:
