@@ -183,12 +183,16 @@ class DerivAPI:
 
             time.sleep(2)
             # Encerra threads antigas antes de reconectar
-            if self.ws_thread and self.ws_thread.is_alive():
+            # Uma thread nunca pode dar join() nela mesma -- se _reconnect()
+            # foi chamado de dentro do proprio ws_thread (via on_close),
+            # pula o join dele para nao travar a reconexao.
+            current = threading.current_thread()
+            if self.ws_thread and self.ws_thread.is_alive() and self.ws_thread is not current:
                 self.ws_thread.join(timeout=3)
-                self.ws_thread = None
-            if self.keep_alive_thread and self.keep_alive_thread.is_alive():
+            self.ws_thread = None
+            if self.keep_alive_thread and self.keep_alive_thread.is_alive() and self.keep_alive_thread is not current:
                 self.keep_alive_thread.join(timeout=3)
-                self.keep_alive_thread = None
+            self.keep_alive_thread = None
             if self.connect():
                 if self.authorize():
                     self.log("✅ Reconexão bem-sucedida!", "SUCCESS")
