@@ -195,6 +195,15 @@ class AlphaDolar:
         self.stop()
 
     def executar_trade(self, direction, signal_data=None):
+        # Trava atomica: impede que dois disparos simultaneos (ex: watchdog
+        # forcando trade + sinal organico do tick, em threads diferentes)
+        # executem trades ao mesmo tempo usando o mesmo estado de perda_acumulada.
+        with self._trade_lock:
+            if self.waiting_contract:
+                self.log("⚠️ Trade ja em andamento, ignorando chamada duplicada", "WARNING")
+                return
+            self.waiting_contract = True
+
         if self.martingale and self.perda_acumulada > 0:
             stake = self._calcular_stake_recuperacao()
             print(f"🔍 DEBUG stake: branch=RECUPERACAO perda_acum={self.perda_acumulada:.2f} "
@@ -219,6 +228,9 @@ class AlphaDolar:
                 self.perda_acumulada = 0.0
                 if self.martingale:
                     self.martingale.reset()
+            # Libera o lock -- senao o bot fica travado achando que aguarda
+            # um contrato que nunca chegou a ser comprado.
+            self.waiting_contract = False
             return
 
         if signal_data and signal_data.get('parameters'):
