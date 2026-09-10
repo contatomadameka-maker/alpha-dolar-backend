@@ -14,16 +14,36 @@ REDIS_URL = os.environ.get('REDIS_URL', '')
 _local_instances = {}  # {deriv_id: {bot_type: bot_instance}}
 _local_lock = threading.Lock()
 
+# Conexao Redis reutilizada (pool) -- criar uma conexao nova a cada chamada
+# era o gargalo real: cada get_user_state/update_user_state fazia um novo
+# handshake TCP+TLS+PING, e o on_trade_completed faz ~15-20 dessas chamadas
+# em sequencia, acumulando dezenas de segundos de latencia por trade.
+_redis_client = None
+_redis_lock = threading.Lock()
+
 def _get_redis():
-    """Retorna conexão Redis ou None se não disponível"""
+    """Retorna conexao Redis reutilizada (pool), criando uma so vez"""
+    global _redis_client
     if not REDIS_URL:
         return None
-    try:
-        r = redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=2)
-        r.ping()
-        return r
-    except:
-        return None
+    with _redis_lock:
+        if _redis_client is not None:
+            try:
+                _redis_client.ping()
+                return _redis_client
+            except Exception:
+                _redis_client = None
+        try:
+            _redis_client = redis.from_url(
+                REDIS_URL, decode_responses=True,
+                socket_timeout=2, socket_connect_timeout=2,
+                health_check_interval=30
+            )
+            _redis_client.ping()
+            return _redis_client
+        except Exception:
+            _redis_client = None
+            return None
 
 def _state_key(deriv_id, bot_type):
     return f"bot_state:{deriv_id}:{bot_type}"
