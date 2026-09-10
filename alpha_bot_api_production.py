@@ -708,6 +708,14 @@ def start_bot():
                     bot.waiting_contract    = False
                     bot.current_contract_id = None
                     bot._ultimo_trade_time  = time.time()
+                    # Limpa tambem o controle interno do DerivAPI (bot.api.current_contract_id),
+                    # senao o watchdog de 30s do deriv_api.py dispara um "timeout" falso
+                    # sobre um contrato que ja foi resolvido, travando o bot desnecessariamente.
+                    if hasattr(bot, 'api') and hasattr(bot.api, '_clear_contract'):
+                        try:
+                            bot.api._clear_contract()
+                        except Exception:
+                            pass
                 original_contract_update(contract_data)
 
             # Patch no método do objeto — sobrevive ao bot.start() que chama set_contract_callback(self.on_contract_update)
