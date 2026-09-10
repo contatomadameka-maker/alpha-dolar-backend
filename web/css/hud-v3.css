@@ -1,0 +1,331 @@
+/* ══ ALPHA DOLAR 2.0 — HUD V3 OVERRIDE ══ */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --gold: #FFB600;
+  --green: #00FFB2;
+  --red: #FF3B5C;
+  --bg: #04080F;
+  --panel: rgba(6,12,22,0.97);
+  --border: rgba(255,182,0,0.13);
+  --border2: rgba(255,255,255,0.06);
+  --text: #BDD0E0;
+  --text-dim: #3A5268;
+}
+
+html, body {
+  background: var(--bg) !important;
+  background-color: var(--bg) !important;
+}
+
+body::before {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image: linear-gradient(rgba(255,182,0,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,182,0,0.025) 1px,transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ── TOPBAR ── */
+header.topbar {
+  background: rgba(4,8,15,0.99) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+header.topbar::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg,transparent,var(--gold) 30%,var(--green) 70%,transparent);
+  opacity: 0.5;
+}
+.topbar .logo svg text { fill: #BDD0E0 !important; }
+
+/* DEMO/REAL buttons */
+.type-btn {
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 8px !important;
+  letter-spacing: 2px !important;
+  color: #3A5268 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.type-btn.active {
+  background: linear-gradient(135deg,rgba(255,182,0,0.2),rgba(255,182,0,0.04)) !important;
+  color: var(--gold) !important;
+}
+
+/* Balance */
+.account-balance, #topBalance {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--green) !important;
+  text-shadow: 0 0 10px rgba(0,255,178,0.35) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+
+/* Connection dot */
+#connectionStatus {
+  background: var(--green) !important;
+  box-shadow: 0 0 8px var(--green) !important;
+}
+
+/* ── NAVBAR ── */
+#homeNavBar {
+  background: rgba(4,8,15,0.96) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+}
+
+/* ── MAIN LAYOUT ── */
+.main-layout {
+  background: var(--bg) !important;
+}
+
+/* ── LEFT PANEL ── */
+.left-panel {
+  background: var(--panel) !important;
+  border-right: 1px solid var(--border) !important;
+}
+.panel-header {
+  background: rgba(0,0,0,0.3) !important;
+  border-bottom: 1px solid var(--border2) !important;
+}
+.panel-header h4 {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 9px !important;
+  letter-spacing: 3px !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+}
+
+/* Session profit */
+.session-profit {
+  background: rgba(0,0,0,0.3) !important;
+  border-bottom: 1px solid var(--border2) !important;
+}
+#sessionProfit {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--green) !important;
+  text-shadow: 0 0 10px rgba(0,255,178,0.3) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+/* Custom selects */
+.custom-select {
+  background: rgba(0,0,0,0.4) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 0 !important;
+  color: var(--text) !important;
+  clip-path: polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px)) !important;
+}
+.custom-select:hover { border-color: var(--border) !important; }
+.custom-select .select-content span { color: var(--text) !important; }
+
+/* Inputs */
+.input-wrapper {
+  background: rgba(0,0,0,0.5) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 0 !important;
+}
+.input-wrapper input {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--text) !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.input-wrapper input:focus { outline: none !important; }
+.currency { color: var(--text-dim) !important; }
+
+/* Stop loss */
+.stop-loss-label span { color: var(--text-dim) !important; font-size: 11px !important; }
+#stopLoss { color: var(--red) !important; font-family: 'Orbitron', sans-serif !important; font-weight: 700 !important; }
+
+/* Risk button */
+.risk-button {
+  background: rgba(0,255,178,0.03) !important;
+  border: 1px solid rgba(0,255,178,0.1) !important;
+  border-radius: 0 !important;
+}
+.risk-info h6 { color: var(--green) !important; }
+.risk-level { color: var(--text-dim) !important; }
+.risk-desc { color: var(--text-dim) !important; }
+
+/* Start button */
+.start-button {
+  background: linear-gradient(135deg,#005A35,var(--green)) !important;
+  color: #000 !important;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: 3px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  clip-path: polygon(10px 0%,100% 0%,calc(100% - 10px) 100%,0% 100%) !important;
+  box-shadow: 0 4px 18px rgba(0,255,178,0.22) !important;
+}
+.start-button:hover { box-shadow: 0 4px 28px rgba(0,255,178,0.4) !important; }
+
+/* Form labels */
+.form-group label { 
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 8px !important;
+  letter-spacing: 2px !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+}
+.hint { color: var(--text-dim) !important; font-family: 'Share Tech Mono', monospace !important; font-size: 8px !important; }
+.input-hint { color: var(--text-dim) !important; font-family: 'Share Tech Mono', monospace !important; font-size: 8px !important; }
+
+/* ── CENTER ── */
+.center-panel, .center-panel main {
+  background: var(--bg) !important;
+}
+.center-tabs {
+  background: rgba(4,8,15,0.98) !important;
+  border-bottom: 1px solid var(--border2) !important;
+}
+.center-tab {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 9px !important;
+  letter-spacing: 2px !important;
+  color: var(--text-dim) !important;
+  background: transparent !important;
+  border-bottom: 2px solid transparent !important;
+  border-top: none !important; border-left: none !important; border-right: none !important;
+}
+.center-tab.active { color: var(--gold) !important; border-bottom-color: var(--gold) !important; }
+
+/* Chart */
+.chart-container { background: var(--bg) !important; }
+
+/* ── RIGHT PANEL ── */
+.right-panel {
+  background: var(--panel) !important;
+  border-left: 1px solid var(--border) !important;
+}
+.right-panel .panel-header {
+  background: rgba(4,8,15,0.98) !important;
+  border-bottom: 1px solid var(--border2) !important;
+}
+.right-panel .panel-header h4 {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 9px !important;
+  letter-spacing: 2px !important;
+  color: var(--text-dim) !important;
+}
+
+/* Manual profit */
+#manualProfit {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--green) !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 10px rgba(0,255,178,0.3) !important;
+}
+
+/* Manual select */
+.manual-select {
+  background: rgba(0,0,0,0.4) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 0 !important;
+  color: var(--text) !important;
+}
+
+/* Rise/Fall buttons */
+.rise-btn {
+  background: linear-gradient(135deg,rgba(0,255,178,0.12),rgba(0,255,178,0.04)) !important;
+  border: 1px solid rgba(0,255,178,0.25) !important;
+  border-radius: 0 !important;
+  clip-path: polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%) !important;
+}
+.fall-btn {
+  background: linear-gradient(135deg,rgba(255,59,92,0.12),rgba(255,59,92,0.04)) !important;
+  border: 1px solid rgba(255,59,92,0.25) !important;
+  border-radius: 0 !important;
+  clip-path: polygon(8px 0%,100% 0%,calc(100% - 8px) 100%,0% 100%) !important;
+}
+#risePayout { color: var(--green) !important; font-family: 'Orbitron', sans-serif !important; font-size: 18px !important; font-weight: 900 !important; }
+#fallPayout { color: var(--red) !important; font-family: 'Orbitron', sans-serif !important; font-size: 18px !important; font-weight: 900 !important; }
+.btn-content span { color: var(--text) !important; }
+.btn-content small { color: var(--text-dim) !important; font-family: 'Share Tech Mono', monospace !important; }
+
+/* Duration/stake controls */
+.duration-controls, .stake-controls {
+  background: rgba(0,0,0,0.4) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 0 !important;
+}
+.btn-minus, .btn-plus {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+}
+.btn-minus:hover, .btn-plus:hover { color: var(--gold) !important; }
+.duration-controls input, .stake-controls input {
+  font-family: 'Orbitron', sans-serif !important;
+  color: var(--text) !important;
+  font-weight: 700 !important;
+  background: transparent !important;
+  border: none !important;
+}
+.duration-unit {
+  background: rgba(0,0,0,0.3) !important;
+  border: none !important;
+  color: var(--text-dim) !important;
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 9px !important;
+}
+
+/* Stats */
+.stat-label { color: var(--text-dim) !important; font-family: 'Share Tech Mono', monospace !important; font-size: 9px !important; }
+.stat-value { color: var(--text) !important; font-family: 'Orbitron', sans-serif !important; font-weight: 700 !important; }
+
+/* Mode switch toggle */
+.switch .slider { background: rgba(0,255,178,0.15) !important; border: 1px solid rgba(0,255,178,0.3) !important; }
+.switch input:checked + .slider { background: var(--green) !important; }
+.mode-label { color: var(--green) !important; font-family: 'Share Tech Mono', monospace !important; font-size: 9px !important; letter-spacing: 2px !important; }
+
+/* Cards gerais */
+.card, [class*="card"] {
+  background: rgba(0,0,0,0.3) !important;
+  border-color: var(--border2) !important;
+  border-radius: 0 !important;
+}
+
+/* Modais */
+.modal-overlay { backdrop-filter: blur(4px) !important; background: rgba(0,0,0,0.7) !important; }
+.modal-container {
+  background: rgba(5,10,18,0.99) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+}
+.modal-header {
+  background: rgba(0,0,0,0.4) !important;
+  border-bottom: 1px solid var(--border2) !important;
+}
+.modal-header h3 {
+  font-family: 'Share Tech Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 3px !important;
+  color: var(--text-dim) !important;
+  text-transform: uppercase !important;
+}
+.modal-close { color: var(--text-dim) !important; background: transparent !important; border: 1px solid var(--border2) !important; }
+
+/* Toasts */
+.toast { background: rgba(5,10,18,0.97) !important; border: 1px solid var(--border) !important; border-radius: 0 !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Scan line */
+body::after {
+  content:''; position:fixed; left:0; right:0; height:1px; z-index:9999; pointer-events:none;
+  background: linear-gradient(90deg,transparent,rgba(0,255,178,0.18),transparent);
+  animation: v3scan 7s linear infinite;
+}
+@keyframes v3scan {
+  from{top:-1px;opacity:0} 6%{opacity:1} 94%{opacity:1} to{top:100%;opacity:0}
+}

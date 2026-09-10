@@ -146,7 +146,7 @@ var T = {
     'Ver V\u00eddeos & Tutoriais': 'Watch Videos & Tutorials',
     'Guia Visual de D\u00edgitos': 'Visual Digits Guide',
     'Como Depositar e Sacar': 'How to Deposit and Withdraw',
-    'MODO IA ALPHA': 'ALPHA AI MODE',
+    'MODO IA ALPHA ANALYSIS': 'ALPHA AI ANALYSIS MODE',
     'TIPO DE CONTRATO': 'CONTRACT TYPE',
     'STAKE INICIAL': 'INITIAL STAKE',
     'PERDAS VIRTUAIS': 'VIRTUAL LOSSES',
