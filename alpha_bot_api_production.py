@@ -266,6 +266,11 @@ def admin_page():
 def dashboard():
      return send_from_directory(os.path.join(BASE_DIR, 'web'), 'dashboard-fixed.html')
 
+@app.route('/dashboard-v3')
+@app.route('/dashboard-v3.html')
+def dashboard_v3():
+     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'dashboard-v3.html')
+
 @app.route('/landing')
 def landing():
     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'landing.html')
