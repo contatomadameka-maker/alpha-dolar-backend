@@ -32,6 +32,7 @@ class DerivAPI:
         self.ws_thread        = None
         self.keep_alive_thread = None
         self.last_message_time = time.time()
+        self._reconnect_lock = threading.Lock()
 
         # ✅ Controle de timeout de contrato (evita bot travar)
         self.current_contract_id  = None
@@ -161,6 +162,10 @@ class DerivAPI:
             return False
 
     def _reconnect(self):
+        # Evita reconexoes simultaneas: se ja tem uma em andamento, ignora esta chamada
+        if not self._reconnect_lock.acquire(blocking=False):
+            self.log("Reconexao ja em andamento, ignorando chamada duplicada", "WARNING")
+            return
         try:
             self.log("🔄 Reconectando...", "INFO")
             if self.ws:
@@ -200,6 +205,8 @@ class DerivAPI:
                         self.subscribe_ticks(self._subscribed_symbol)
         except Exception as e:
             self.log(f"Erro na reconexão: {e}", "ERROR")
+        finally:
+            self._reconnect_lock.release()
 
     def disconnect(self):
         self.should_reconnect = False
