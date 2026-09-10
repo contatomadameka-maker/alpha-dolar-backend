@@ -15,11 +15,23 @@ class AlphaBot1(BaseStrategy):
     - Entra em PUT se tendência de baixa
     - Usa confirmação de padrão consecutivo
     """
-    def __init__(self, trading_mode=None, risk_mode=None, lookback_period=5, min_consecutive=2, confidence_threshold=0.6):
+    def __init__(self, trading_mode=None, risk_mode=None, lookback_period=None, min_consecutive=None, confidence_threshold=None):
         super().__init__(name="Alpha Bot 1")
-        self.lookback_period      = lookback_period
-        self.min_consecutive      = min_consecutive
-        self.confidence_threshold = confidence_threshold
+
+        # Perfis por modo de negociacao (nomes reais enviados pelo frontend)
+        perfis = {
+            'fast':       {'lookback_period': 3, 'min_consecutive': 1, 'confidence_threshold': 0.30},
+            'faster':     {'lookback_period': 3, 'min_consecutive': 1, 'confidence_threshold': 0.30},
+            'balanced':   {'lookback_period': 4, 'min_consecutive': 2, 'confidence_threshold': 0.45},
+            'precise':    {'lookback_period': 5, 'min_consecutive': 2, 'confidence_threshold': 0.60},
+            'slow':       {'lookback_period': 6, 'min_consecutive': 3, 'confidence_threshold': 0.70},
+        }
+        perfil = perfis.get(trading_mode, perfis['balanced'])
+
+        self.lookback_period      = lookback_period if lookback_period is not None else perfil['lookback_period']
+        self.min_consecutive      = min_consecutive if min_consecutive is not None else perfil['min_consecutive']
+        self.confidence_threshold = confidence_threshold if confidence_threshold is not None else perfil['confidence_threshold']
+        print(f"⚙️ Modo: {trading_mode or 'balanced'} | lookback={self.lookback_period} min_consec={self.min_consecutive} conf_min={self.confidence_threshold}")
 
         # ── Sistema de Martingale ──
         rm = risk_mode or {}
