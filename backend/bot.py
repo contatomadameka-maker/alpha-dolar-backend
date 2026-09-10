@@ -11,6 +11,7 @@ FIX 03/03: barrier passado corretamente para estratégias digit (DIGITOVER/DIGIT
 """
 import time
 import sys
+import threading
 from datetime import datetime
 
 try:
@@ -50,6 +51,7 @@ class AlphaDolar:
         self.current_stake = BotConfig.STAKE_INICIAL
         self.waiting_contract = False
         self.current_contract_id = None
+        self._trade_lock = threading.Lock()
 
         self.perda_acumulada = 0.0
         self.PAYOUT_RATE = 0.88  # retorno médio Deriv (88%)
@@ -162,7 +164,19 @@ class AlphaDolar:
         if self.perda_acumulada <= 0:
             return round(BotConfig.STAKE_INICIAL, 2)
 
-        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / self.PAYOUT_RATE
+        # Usa o payout REAL da ultima proposta da Deriv, em vez de um valor
+        # fixo assumido (0.88) que estava causando perda sistematica --
+        # o payout real costuma ser menor que 88%, entao o stake calculado
+        # nunca cobria de fato a perda acumulada + lucro minimo.
+        payout_real = getattr(self.api, 'last_payout_ratio', None)
+        if payout_real and payout_real > 0:
+            # Pequena margem de seguranca (usa 98% do payout real) para nunca
+            # superestimar o retorno e ficar de novo no vermelho por arredondamento.
+            payout_rate = payout_real * 0.98
+        else:
+            payout_rate = self.PAYOUT_RATE  # fallback se ainda nao houver proposta
+
+        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / payout_rate
         stake = round(stake_ideal, 2)
         stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
 

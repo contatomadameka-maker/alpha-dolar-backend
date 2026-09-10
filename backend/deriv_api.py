@@ -18,6 +18,7 @@ class DerivAPI:
         self.api_token  = api_token or BotConfig.API_TOKEN
         self.app_id     = BotConfig.APP_ID
         self.ws         = None
+        self.last_payout_ratio = None  # payout real / ask_price da ultima proposta
         self.is_connected  = False
         self.is_authorized = False
         self.account_info  = {}
@@ -342,6 +343,11 @@ class DerivAPI:
                     proposal    = data.get("proposal", {})
                     proposal_id = proposal.get("id")
                     price       = proposal.get("ask_price")
+                    payout      = proposal.get("payout")
+                    # Calcula a proporcao real de retorno (payout real da Deriv,
+                    # em vez de assumir um valor fixo tipo 88% que pode estar errado)
+                    if payout and price and float(price) > 0:
+                        self.last_payout_ratio = float(payout) / float(price)
                     self.log(f"Proposta recebida: ID {proposal_id}", "INFO")
                     if proposal_id and price:
                         self.log(f"🛒 Comprando automaticamente por ${price}", "TRADE")
