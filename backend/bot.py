@@ -194,12 +194,20 @@ class AlphaDolar:
     def executar_trade(self, direction, signal_data=None):
         if self.martingale and self.perda_acumulada > 0:
             stake = self._calcular_stake_recuperacao()
+            print(f"🔍 DEBUG stake: branch=RECUPERACAO perda_acum={self.perda_acumulada:.2f} "
+                  f"payout_real={getattr(self.api, 'last_payout_ratio', None)} stake={stake}")
         elif hasattr(self.strategy, 'get_stake'):
             stake = self.strategy.get_stake()
+            print(f"🔍 DEBUG stake: branch=STRATEGY_GET_STAKE stake={stake} "
+                  f"strategy_stake_atual={getattr(self.strategy, 'stake_atual', None)} "
+                  f"strategy_martingale_step={getattr(self.strategy, 'martingale_step', None)}")
         elif self.martingale:
             stake = self.martingale.stake_atual
+            print(f"🔍 DEBUG stake: branch=BOT_MARTINGALE stake={stake} "
+                  f"step_atual={self.martingale.step_atual}")
         else:
             stake = self.current_stake
+            print(f"🔍 DEBUG stake: branch=CURRENT_STAKE stake={stake}")
 
         if self.api.balance < stake:
             self.log(f"Saldo insuficiente! Necessário: ${stake:.2f} | Disponível: ${self.api.balance:.2f}", "ERROR")
