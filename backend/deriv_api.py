@@ -14,8 +14,9 @@ except ImportError:
     from config import BotConfig
 
 class DerivAPI:
-    def __init__(self, api_token=None):
+    def __init__(self, api_token=None, account_id=None):
         self.api_token  = api_token or BotConfig.API_TOKEN
+        self.account_id = account_id  # account_id explicito (ex: ROT90926782) - evita pegar a conta errada no OTP
         self.app_id     = BotConfig.APP_ID
         self.ws         = None
         self.last_payout_ratio = None  # payout real / ask_price da ultima proposta
@@ -99,7 +100,12 @@ class DerivAPI:
             accounts = accounts_data.get('data', [])
             if not accounts:
                 return None
-            account_id = accounts[0].get('account_id','')
+            if self.account_id:
+                conta_escolhida = next((a for a in accounts if a.get('account_id') == self.account_id), accounts[0])
+            else:
+                conta_escolhida = accounts[0]
+            account_id = conta_escolhida.get('account_id','')
+            self.log(f"Conta selecionada para OTP: {account_id} (pedido: {self.account_id})", "INFO")
             # Busca OTP para esse account
             req2 = urlreq.Request(
                 f'https://api.derivws.com/trading/v1/options/accounts/{account_id}/otp',
