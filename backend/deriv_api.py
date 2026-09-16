@@ -240,10 +240,19 @@ class DerivAPI:
             # Se usando OTP, já está autenticado — só pede balance
             if getattr(self, '_using_otp', False):
                 self.log("OTP WebSocket — pulando authorize, pedindo balance...", "INFO")
+                # Usa uma bandeira separada para saber se o saldo e fresco, em
+                # vez de zerar self.balance direto - numa reconexao ele pode
+                # ja ter um valor antigo (de antes da queda), e outras partes
+                # do codigo (status, logs, calculo de stake) leem self.balance
+                # a qualquer momento esperando sempre um numero, nunca None.
+                self._balance_fresco = False
                 self._send({"balance": 1, "subscribe": 1})
                 start = time.time()
-                while self.balance == 0.0 and (time.time() - start) < 15:
+                while not self._balance_fresco and (time.time() - start) < 15:
                     time.sleep(0.1)
+                if not self._balance_fresco:
+                    self.log("⚠️ Timeout esperando saldo fresco apos reconexao - nao autoriza", "ERROR")
+                    return False
                 self.is_authorized = True
                 self.log(f"✅ Conectado via OTP! Saldo: ${self.balance:.2f} {self.currency}", "SUCCESS")
                 return True
@@ -335,6 +344,7 @@ class DerivAPI:
 
             elif msg_type == "balance":
                 self.balance = float(data.get("balance", {}).get("balance", 0))
+                self._balance_fresco = True
                 if self.on_balance_callback:
                     self.on_balance_callback(self.balance)
 
