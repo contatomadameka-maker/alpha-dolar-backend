@@ -547,6 +547,11 @@ def start_bot():
                         _markup_usd = round(float(_payout_bruto) * 0.03, 4)
                         print(f"💾 Salvando operação: cliente={_cliente_id} bot={_bot_name} won={won} profit={profit} markup={_markup_usd}")
                         _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake, _markup_usd)
+                        try:
+                            from database import distribuir_comissao
+                            distribuir_comissao(_cliente_id, _bot_name, _markup_usd)
+                        except Exception as e_dist:
+                            print(f"Erro ao distribuir comissao de rede: {e_dist}")
                 except Exception as e:
                     print(f"Erro ao salvar op: {e}")
                 trades_ate_agora = get_user_state(deriv_id, bot_type)['trades']

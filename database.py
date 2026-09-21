@@ -155,3 +155,91 @@ def limpar_estado_bot(bot_type):
     headers = {'apikey': key, 'Authorization': f'Bearer {key}'}
     r = req.delete(f"{url}/rest/v1/bot_estado?bot_type=eq.{bot_type}", headers=headers)
     return r.status_code in [200, 204]
+
+
+# ─── SISTEMA DE INDICAÇÃO / REDE DE AFILIADOS (modelo A — cliente final) ─────
+# Não confundir com via_afiliado/bot_afiliado, que é o modelo B (parceiro de
+# template pagando revenue share pra Alpha Dolar). Os dois nunca se misturam.
+
+import random as _random
+import string as _string
+
+NIVEIS_PCT_REDE = [0.15, 0.08, 0.04, 0.02, 0.01]  # nivel 1 a 5
+
+
+def _gerar_ref_code():
+    return ''.join(_random.choices(_string.ascii_lowercase + _string.digits, k=8))
+
+
+def resolver_referral(deriv_id, bot_name, ref_code_recebido=None):
+    """
+    Chamar em todo login/acesso, depois de salvar_cliente.
+    Idempotente: só age na primeira vez que falta cada campo, nunca sobrescreve depois.
+    """
+    url = f"{SUPABASE_URL}/rest/v1/clientes"
+    try:
+        r = requests.get(
+            f"{url}?deriv_id=eq.{deriv_id}&select=ref_code,ref_promoter_id,via_afiliado",
+            headers=HEADERS
+        )
+        if r.status_code != 200 or not r.json():
+            return
+        cliente = r.json()[0]
+        patch = {}
+
+        if not cliente.get('ref_code'):
+            patch['ref_code'] = _gerar_ref_code()
+
+        # So vincula patrocinador se: ainda nao tem um E nao e cliente do modelo B
+        if not cliente.get('ref_promoter_id') and ref_code_recebido and not cliente.get('via_afiliado'):
+            pr = requests.get(
+                f"{url}?ref_code=eq.{ref_code_recebido}&select=deriv_id,bot_name",
+                headers=HEADERS
+            )
+            if pr.status_code == 200 and pr.json():
+                promotor = pr.json()[0]
+                if promotor.get('bot_name') == bot_name and promotor['deriv_id'] != deriv_id:
+                    patch['ref_promoter_id'] = promotor['deriv_id']
+
+        if patch:
+            requests.patch(f"{url}?deriv_id=eq.{deriv_id}", json=patch, headers=HEADERS)
+    except Exception as e:
+        print(f"Erro em resolver_referral: {e}")
+
+
+def distribuir_comissao(cliente_id, bot_name, markup_usd):
+    """
+    Chamar logo apos salvar_operacao, quando markup_usd > 0.
+    Sobe a cadeia de patrocinadores gravando um lancamento por nivel.
+    """
+    if not markup_usd or markup_usd <= 0:
+        return
+    url = f"{SUPABASE_URL}/rest/v1/clientes"
+    try:
+        # Trava modelo B: cliente vindo de parceiro de template nao gera rede de indicacao
+        r0 = requests.get(f"{url}?deriv_id=eq.{cliente_id}&select=via_afiliado", headers=HEADERS)
+        if r0.status_code == 200 and r0.json() and r0.json()[0].get('via_afiliado'):
+            return
+
+        atual = cliente_id
+        for nivel, pct in enumerate(NIVEIS_PCT_REDE, start=1):
+            r = requests.get(f"{url}?deriv_id=eq.{atual}&select=ref_promoter_id", headers=HEADERS)
+            if r.status_code != 200 or not r.json():
+                break
+            promotor = r.json()[0].get('ref_promoter_id')
+            if not promotor:
+                break
+            valor = round(float(markup_usd) * pct, 4)
+            requests.post(f"{SUPABASE_URL}/rest/v1/comissoes_rede", headers=HEADERS, json={
+                'bot_name': bot_name,
+                'beneficiario_id': promotor,
+                'origem_cliente_id': cliente_id,
+                'nivel': nivel,
+                'markup_origem_usd': float(markup_usd),
+                'percentual_aplicado': pct,
+                'valor_usd': valor,
+                'status': 'pendente',
+            })
+            atual = promotor
+    except Exception as e:
+        print(f"Erro em distribuir_comissao: {e}")
