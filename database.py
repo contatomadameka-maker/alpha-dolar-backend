@@ -43,7 +43,7 @@ def listar_clientes():
         return r.json()
     return []
 
-def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
+def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake, markup_usd=0.0):
     import requests as req
     import os
     SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -59,7 +59,8 @@ def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
         'tipo': direcao,
         'stake': float(stake),
         'resultado': 'win' if ganhou else 'loss',
-        'lucro': float(lucro)
+        'lucro': float(lucro),
+        'markup_usd': float(markup_usd)
     }
     try:
         req.post(f"{SUPABASE_URL}/rest/v1/operacoes", json=payload, headers=headers)

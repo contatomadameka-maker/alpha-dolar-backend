@@ -543,8 +543,10 @@ def start_bot():
                     if get_user_state(deriv_id, bot_type).get('account_type', 'demo') == 'real':
                         _cliente_id = deriv_id
                         _bot_name = get_user_state(deriv_id, bot_type).get('bot_name', bot_type)
-                        print(f"💾 Salvando operação: cliente={_cliente_id} bot={_bot_name} won={won} profit={profit}")
-                        _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake)
+                        _payout_bruto = getattr(getattr(bot, 'api', None), 'last_payout_value', 0) or 0
+                        _markup_usd = round(float(_payout_bruto) * 0.03, 4)
+                        print(f"💾 Salvando operação: cliente={_cliente_id} bot={_bot_name} won={won} profit={profit} markup={_markup_usd}")
+                        _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake, _markup_usd)
                 except Exception as e:
                     print(f"Erro ao salvar op: {e}")
                 trades_ate_agora = get_user_state(deriv_id, bot_type)['trades']

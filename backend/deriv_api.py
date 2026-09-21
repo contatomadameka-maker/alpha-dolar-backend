@@ -364,6 +364,7 @@ class DerivAPI:
                     # em vez de assumir um valor fixo tipo 88% que pode estar errado)
                     if payout and price and float(price) > 0:
                         self.last_payout_ratio = float(payout) / float(price)
+                        self.last_payout_value = float(payout)
                     self.log(f"Proposta recebida: ID {proposal_id}", "INFO")
                     if proposal_id and price:
                         self.log(f"🛒 Comprando automaticamente por ${price}", "TRADE")
