@@ -1691,6 +1691,15 @@ def salvar_cliente_route():
     data = request.json
     try:
         ok = _salvar(data)
+        try:
+            from database import resolver_referral
+            _deriv_id = data.get('deriv_id')
+            _bot_name = data.get('bot_name', 'default')
+            _ref_recebido = data.get('ref_code')
+            if _deriv_id:
+                resolver_referral(_deriv_id, _bot_name, _ref_recebido)
+        except Exception as e_ref:
+            print('Erro resolver_referral:', e_ref)
         return jsonify({'ok': ok})
     except Exception as e:
         return jsonify({'ok': False, 'erro': str(e)}), 500
