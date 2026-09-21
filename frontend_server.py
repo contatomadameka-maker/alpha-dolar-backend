@@ -224,6 +224,16 @@ def salvar_cliente():
         req.add_header('Authorization', 'Bearer ' + SUPA_KEY)
         req.add_header('Prefer', 'resolution=merge-duplicates,return=minimal')
         urllib.request.urlopen(req, timeout=5)
+
+        _ref_recebido = data.get('ref_code')
+        _deriv_id     = data.get('deriv_id')
+        _bot_name     = data.get('bot_name', 'default')
+        if _deriv_id:
+            try:
+                from database import resolver_referral
+                resolver_referral(_deriv_id, _bot_name, _ref_recebido)
+            except Exception as e_ref:
+                print('Erro resolver_referral:', e_ref)
     except Exception as e:
         print('Supabase erro:', e)
     return jsonify({'ok': True})
