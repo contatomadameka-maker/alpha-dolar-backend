@@ -30,6 +30,10 @@ def index():
 def admin():
     return send_from_directory(WEB_FOLDER, 'admin.html')
 
+@app.route('/afiliados')
+def pagina_afiliados():
+    return send_from_directory(WEB_FOLDER, 'afiliados.html')
+
 @app.route('/login')
 def login():
     return send_from_directory(WEB_FOLDER, 'login.html')
