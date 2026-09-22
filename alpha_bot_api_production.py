@@ -2461,3 +2461,20 @@ def rede_saque_route():
         return jsonify(resultado)
     except Exception as e:
         return jsonify({'ok': False, 'erro': str(e)}), 500
+
+
+@app.route('/api/rede/meu-link', methods=['GET'])
+def rede_meu_link_route():
+    deriv_id = request.args.get('deriv_id')
+    bot_name = request.args.get('bot_name', 'default')
+    if not deriv_id:
+        return jsonify({'erro': 'deriv_id obrigatorio'}), 400
+    try:
+        from database import resolver_referral, SUPABASE_URL, HEADERS
+        import requests as req
+        resolver_referral(deriv_id, bot_name, None)
+        r = req.get(f"{SUPABASE_URL}/rest/v1/clientes?deriv_id=eq.{deriv_id}&select=ref_code", headers=HEADERS)
+        codigo = r.json()[0].get('ref_code') if r.status_code == 200 and r.json() else None
+        return jsonify({'ref_code': codigo})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
