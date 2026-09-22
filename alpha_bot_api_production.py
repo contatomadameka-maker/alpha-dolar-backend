@@ -2478,3 +2478,8 @@ def rede_meu_link_route():
         return jsonify({'ref_code': codigo})
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/afiliados')
+def pagina_afiliados():
+    return send_from_directory(os.path.join(BASE_DIR, 'web'), 'afiliados.html')
