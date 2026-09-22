@@ -243,3 +243,37 @@ def distribuir_comissao(cliente_id, bot_name, markup_usd):
             atual = promotor
     except Exception as e:
         print(f"Erro em distribuir_comissao: {e}")
+
+
+def resumo_rede(deriv_id, bot_name=None):
+    """Soma as comissoes de rede de um beneficiario -- usado na tela Desempenho."""
+    url = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
+    filtro = f"?beneficiario_id=eq.{deriv_id}"
+    if bot_name:
+        filtro += f"&bot_name=eq.{bot_name}"
+    try:
+        r = requests.get(f"{url}{filtro}&select=valor_usd,nivel,status,criado_em", headers=HEADERS)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em resumo_rede: {e}")
+        rows = []
+
+    total = round(sum(float(x.get('valor_usd', 0)) for x in rows), 4)
+    pendente = round(sum(float(x.get('valor_usd', 0)) for x in rows if x.get('status') == 'pendente'), 4)
+    disponivel = round(sum(float(x.get('valor_usd', 0)) for x in rows if x.get('status') == 'disponivel'), 4)
+
+    # Rede ativa direta: quantos tem esse deriv_id como patrocinador
+    url_c = f"{SUPABASE_URL}/rest/v1/clientes"
+    try:
+        rc = requests.get(f"{url_c}?ref_promoter_id=eq.{deriv_id}&select=deriv_id", headers=HEADERS)
+        diretos = len(rc.json()) if rc.status_code == 200 else 0
+    except Exception:
+        diretos = 0
+
+    return {
+        'comissao_total': total,
+        'comissao_pendente': pendente,
+        'comissao_disponivel': disponivel,
+        'total_lancamentos': len(rows),
+        'parceiros_diretos': diretos,
+    }

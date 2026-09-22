@@ -2400,3 +2400,17 @@ def get_admin_status():
         cleanup_old_states()
     except: pass
     return jsonify({'status':'ok','memoria_mb':mem_mb,'bots_rodando':bots_rodando,'users_em_memoria':users})
+
+
+@app.route('/api/rede/resumo', methods=['GET'])
+def rede_resumo_route():
+    deriv_id = request.args.get('deriv_id')
+    bot_name = request.args.get('bot_name')
+    if not deriv_id:
+        return jsonify({'erro': 'deriv_id obrigatorio'}), 400
+    try:
+        from database import resumo_rede
+        dados = resumo_rede(deriv_id, bot_name)
+        return jsonify(dados)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
