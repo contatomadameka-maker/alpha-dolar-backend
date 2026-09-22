@@ -2414,3 +2414,16 @@ def rede_resumo_route():
         return jsonify(dados)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/api/rede/arvore', methods=['GET'])
+def rede_arvore_route():
+    deriv_id = request.args.get('deriv_id')
+    if not deriv_id:
+        return jsonify({'erro': 'deriv_id obrigatorio'}), 400
+    try:
+        from database import arvore_rede
+        dados = arvore_rede(deriv_id)
+        return jsonify({'rede': dados, 'total': len(dados)})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500

@@ -277,3 +277,57 @@ def resumo_rede(deriv_id, bot_name=None):
         'total_lancamentos': len(rows),
         'parceiros_diretos': diretos,
     }
+
+
+def arvore_rede(deriv_id, max_nivel=5):
+    """Sobe a arvore de indicados, nivel por nivel -- usado na tela Rede."""
+    url_c = f"{SUPABASE_URL}/rest/v1/clientes"
+    url_com = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
+    resultado = []
+    nivel_atual = [deriv_id]
+    vistos = {deriv_id}
+
+    for nivel in range(1, max_nivel + 1):
+        if not nivel_atual:
+            break
+        ids_str = ','.join(f'"{i}"' for i in nivel_atual)
+        try:
+            r = requests.get(
+                f"{url_c}?ref_promoter_id=in.({ids_str})&select=deriv_id,nome,ultimo_acesso",
+                headers=HEADERS
+            )
+            filhos = r.json() if r.status_code == 200 else []
+        except Exception as e:
+            print(f"Erro em arvore_rede (nivel {nivel}): {e}")
+            filhos = []
+
+        novos_ids = []
+        for f in filhos:
+            fid = f.get('deriv_id')
+            if not fid or fid in vistos:
+                continue
+            vistos.add(fid)
+            novos_ids.append(fid)
+
+            comissao = 0.0
+            try:
+                rc = requests.get(
+                    f"{url_com}?beneficiario_id=eq.{deriv_id}&origem_cliente_id=eq.{fid}&select=valor_usd",
+                    headers=HEADERS
+                )
+                if rc.status_code == 200:
+                    comissao = round(sum(float(v.get('valor_usd', 0)) for v in rc.json()), 4)
+            except Exception as e:
+                print(f"Erro ao somar comissao de {fid}: {e}")
+
+            resultado.append({
+                'deriv_id': fid,
+                'nome': f.get('nome') or '',
+                'nivel': nivel,
+                'comissao_gerada': comissao,
+                'ultimo_acesso': f.get('ultimo_acesso'),
+            })
+
+        nivel_atual = novos_ids
+
+    return resultado
