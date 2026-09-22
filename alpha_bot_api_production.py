@@ -2495,3 +2495,17 @@ def rede_ranking_route():
         return jsonify(dados)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/api/rede/timeline', methods=['GET'])
+def rede_timeline_route():
+    deriv_id = request.args.get('deriv_id')
+    bot_name = request.args.get('bot_name')
+    if not deriv_id:
+        return jsonify({'erro': 'deriv_id obrigatorio'}), 400
+    try:
+        from database import timeline_rede
+        dados = timeline_rede(deriv_id, bot_name)
+        return jsonify({'eventos': dados})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500

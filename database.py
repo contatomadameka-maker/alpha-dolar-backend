@@ -270,12 +270,43 @@ def resumo_rede(deriv_id, bot_name=None):
     except Exception:
         diretos = 0
 
+    from datetime import datetime, timedelta, timezone
+    agora = datetime.now(timezone.utc)
+    inicio_semana_atual = agora - timedelta(days=7)
+    inicio_semana_anterior = agora - timedelta(days=14)
+
+    def _parse(dt_str):
+        try:
+            return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+        except Exception:
+            return None
+
+    semana_atual = 0.0
+    semana_anterior = 0.0
+    for x in rows:
+        dt = _parse(x.get('criado_em', ''))
+        if not dt:
+            continue
+        v = float(x.get('valor_usd', 0))
+        if dt >= inicio_semana_atual:
+            semana_atual += v
+        elif dt >= inicio_semana_anterior:
+            semana_anterior += v
+
+    if semana_anterior > 0:
+        tendencia_pct = round(((semana_atual - semana_anterior) / semana_anterior) * 100, 1)
+    elif semana_atual > 0:
+        tendencia_pct = 100.0
+    else:
+        tendencia_pct = 0.0
+
     return {
         'comissao_total': total,
         'comissao_pendente': pendente,
         'comissao_disponivel': disponivel,
         'total_lancamentos': len(rows),
         'parceiros_diretos': diretos,
+        'tendencia_pct': tendencia_pct,
     }
 
 
@@ -458,3 +489,43 @@ def ranking_rede(bot_name, limite=10):
     ]
 
     return {'top_ganhadores': top_ganhadores, 'top_indicadores': top_indicadores}
+
+
+def timeline_rede(deriv_id, bot_name=None, limite=8):
+    """Ultimos eventos de comissao, com nome de quem gerou -- usado na linha do tempo."""
+    url_com = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
+    filtro = f"?beneficiario_id=eq.{deriv_id}"
+    if bot_name:
+        filtro += f"&bot_name=eq.{bot_name}"
+    try:
+        r = requests.get(
+            f"{url_com}{filtro}&order=criado_em.desc&limit={limite}&select=valor_usd,origem_cliente_id,nivel,criado_em",
+            headers=HEADERS
+        )
+        eventos = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em timeline_rede: {e}")
+        eventos = []
+
+    origem_ids = list({e.get('origem_cliente_id') for e in eventos if e.get('origem_cliente_id')})
+    nomes = {}
+    if origem_ids:
+        url_c = f"{SUPABASE_URL}/rest/v1/clientes"
+        ids_str = ','.join(f'"{i}"' for i in origem_ids)
+        try:
+            rn = requests.get(f"{url_c}?deriv_id=in.({ids_str})&select=deriv_id,nome", headers=HEADERS)
+            for c in (rn.json() if rn.status_code == 200 else []):
+                nomes[c['deriv_id']] = c.get('nome') or ''
+        except Exception as e:
+            print(f"Erro em timeline_rede (nomes): {e}")
+
+    resultado = []
+    for e in eventos:
+        oid = e.get('origem_cliente_id')
+        resultado.append({
+            'nome': nomes.get(oid, '') or (oid or 'Cliente'),
+            'valor': round(float(e.get('valor_usd', 0)), 4),
+            'nivel': e.get('nivel'),
+            'criado_em': e.get('criado_em'),
+        })
+    return resultado
