@@ -357,7 +357,7 @@ def arvore_rede(deriv_id, max_nivel=5):
         ids_str = ','.join(f'"{i}"' for i in nivel_atual)
         try:
             r = requests.get(
-                f"{url_c}?ref_promoter_id=in.({ids_str})&select=deriv_id,nome,ultimo_acesso",
+                f"{url_c}?ref_promoter_id=in.({ids_str})&select=deriv_id,nome,ultimo_acesso,ref_promoter_id",
                 headers=HEADERS
             )
             filhos = r.json() if r.status_code == 200 else []
@@ -390,6 +390,7 @@ def arvore_rede(deriv_id, max_nivel=5):
                 'nivel': nivel,
                 'comissao_gerada': comissao,
                 'ultimo_acesso': f.get('ultimo_acesso'),
+                'promoter_id': f.get('ref_promoter_id'),
             })
 
         nivel_atual = novos_ids
