@@ -2483,3 +2483,15 @@ def rede_meu_link_route():
 @app.route('/afiliados')
 def pagina_afiliados():
     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'afiliados.html')
+
+
+@app.route('/api/rede/ranking', methods=['GET'])
+def rede_ranking_route():
+    bot_name = request.args.get('bot_name', 'default')
+    limite = int(request.args.get('limite', 10))
+    try:
+        from database import ranking_rede
+        dados = ranking_rede(bot_name, limite)
+        return jsonify(dados)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500

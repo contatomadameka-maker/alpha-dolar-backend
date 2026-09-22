@@ -464,3 +464,61 @@ def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo):
         return {'ok': False, 'erro': f'status {r.status_code}'}
     except Exception as e:
         return {'ok': False, 'erro': str(e)}
+
+
+def ranking_rede(bot_name, limite=10):
+    """Ranking geral (nao filtrado por indicacao pessoal) -- top ganhadores e top indicadores."""
+    url_com = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
+    url_cli = f"{SUPABASE_URL}/rest/v1/clientes"
+
+    try:
+        r = requests.get(f"{url_com}?bot_name=eq.{bot_name}&select=beneficiario_id,valor_usd", headers=HEADERS)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em ranking_rede (comissoes): {e}")
+        rows = []
+
+    por_pessoa = {}
+    for row in rows:
+        bid = row.get('beneficiario_id')
+        if not bid:
+            continue
+        por_pessoa[bid] = por_pessoa.get(bid, 0) + float(row.get('valor_usd', 0))
+
+    top_ganhadores_ids = sorted(por_pessoa, key=por_pessoa.get, reverse=True)[:limite]
+
+    try:
+        rc = requests.get(f"{url_cli}?ref_promoter_id=not.is.null&bot_name=eq.{bot_name}&select=ref_promoter_id", headers=HEADERS)
+        promotores = rc.json() if rc.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em ranking_rede (indicadores): {e}")
+        promotores = []
+
+    contagem = {}
+    for p in promotores:
+        pid = p.get('ref_promoter_id')
+        if pid:
+            contagem[pid] = contagem.get(pid, 0) + 1
+    top_indicadores_ids = sorted(contagem, key=contagem.get, reverse=True)[:limite]
+
+    ids_relevantes = list(set(top_ganhadores_ids) | set(top_indicadores_ids))
+    nomes = {}
+    if ids_relevantes:
+        ids_str = ','.join(f'"{i}"' for i in ids_relevantes)
+        try:
+            rn = requests.get(f"{url_cli}?deriv_id=in.({ids_str})&select=deriv_id,nome", headers=HEADERS)
+            for c in (rn.json() if rn.status_code == 200 else []):
+                nomes[c['deriv_id']] = c.get('nome') or ''
+        except Exception as e:
+            print(f"Erro em ranking_rede (nomes): {e}")
+
+    top_ganhadores = [
+        {'deriv_id': i, 'nome': nomes.get(i, ''), 'valor': round(por_pessoa[i], 4)}
+        for i in top_ganhadores_ids
+    ]
+    top_indicadores = [
+        {'deriv_id': i, 'nome': nomes.get(i, ''), 'total_indicados': contagem[i]}
+        for i in top_indicadores_ids
+    ]
+
+    return {'top_ganhadores': top_ganhadores, 'top_indicadores': top_indicadores}
