@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alpha Circuito</title>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18",
+    "react-dom": "https://esm.sh/react-dom@18",
+    "react-dom/client": "https://esm.sh/react-dom@18/client"
+  }
+}
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reactflow@11.11.4/dist/style.css">
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#12151f; --panel-2:#161a26;
+    --border:rgba(255,255,255,0.08); --border-soft:rgba(255,255,255,0.05);
+    --accent:#6366f1; --accent-soft:rgba(99,102,241,0.12); --accent-txt:#a5b4fc;
+    --green:#34d399; --amber:#fbbf24; --red:#f87171;
+    --text:#e5e7eb; --text-dim:#8b8fa3; --text-faint:#5b6172;
+    --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);}
+  a{color:inherit;text-decoration:none;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);border:1px solid rgba(99,102,241,0.35);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent-txt);font-size:14px;}
+  .brand-name{font-size:16px;font-weight:600;}
+  .brand-sub{font-size:11px;color:var(--text-faint);letter-spacing:.4px;}
+
+  /* Hero link */
+  .hero-link{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap;}
+  .hero-link-left{flex:1;min-width:260px;}
+  .hero-link-title{font-size:13px;font-weight:600;margin-bottom:4px;}
+  .hero-link-sub{font-size:12px;color:var(--text-faint);}
+  .hero-link-box{display:flex;align-items:center;gap:8px;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:8px 8px 8px 14px;min-width:320px;}
+  .hero-link-box input{background:transparent;border:none;color:var(--text-dim);font-size:12.5px;width:100%;font-family:var(--font);}
+  .hero-link-box input:focus{outline:none;}
+  .copybtn{background:var(--accent);color:#fff;border:none;border-radius:7px;padding:8px 14px;font-size:12.5px;cursor:pointer;font-weight:600;white-space:nowrap;}
+  .copybtn:hover{background:#5457e0;}
+
+  .tabs{display:flex;gap:6px;margin-bottom:24px;border-bottom:1px solid var(--border-soft);}
+  .tab{padding:10px 4px;margin-right:22px;font-size:14px;color:var(--text-faint);cursor:pointer;border-bottom:2px solid transparent;font-weight:500;}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;}
+  @media(max-width:900px){.grid4,.grid5{grid-template-columns:repeat(2,1fr);}.grid3{grid-template-columns:1fr;}}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;}
+  .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--bar,transparent);}
+  .card.bar-indigo{--bar:#6366f1;} .card.bar-green{--bar:#34d399;} .card.bar-amber{--bar:#fbbf24;} .card.bar-muted{--bar:rgba(255,255,255,0.12);}
+
+  .stat-label{font-size:11px;color:var(--text-faint);letter-spacing:.6px;text-transform:uppercase;margin-bottom:8px;}
+  .stat-value{font-size:24px;font-weight:700;}
+  .stat-value.green{color:var(--green);}
+  .stat-sub{font-size:12px;color:var(--text-faint);margin-top:4px;}
+
+  .section-title{font-size:15px;font-weight:600;margin:0 0 14px;}
+  .section-desc{font-size:12.5px;color:var(--text-faint);margin:-8px 0 18px;}
+
+  .lvl-card{padding:14px 14px;}
+  .lvl-num{font-size:10.5px;color:var(--accent-txt);letter-spacing:.5px;font-weight:700;margin-bottom:6px;}
+  .lvl-count{font-size:19px;font-weight:700;}
+  .lvl-sum{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+
+  .diagram-wrap{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:22px;display:flex;justify-content:center;background-image:radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);background-size:22px 22px;}
+  .diagram{position:relative;width:100%;max-width:520px;height:420px;}
+  .ring{position:absolute;top:50%;left:50%;border:1px dashed rgba(255,255,255,0.07);border-radius:50%;transform:translate(-50%,-50%);}
+  .node{position:absolute;transform:translate(-50%,-50%);width:auto;text-align:center;}
+  .node-dot{width:34px;height:34px;border-radius:50%;background:var(--panel-2);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-dim);margin:0 auto 4px;}
+  .node.root .node-dot{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-txt);width:42px;height:42px;font-size:12px;font-weight:700;}
+  .node-label{font-size:10px;color:var(--text-faint);max-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--text-faint);font-weight:600;padding:0 0 10px;border-bottom:1px solid var(--border-soft);}
+  td{padding:11px 0;border-bottom:1px solid var(--border-soft);font-size:13px;color:var(--text-dim);}
+  td.strong{color:var(--text);}
+  .badge-nivel{background:var(--accent-soft);color:var(--accent-txt);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;}
+
+  .empty{padding:40px 0;text-align:center;color:var(--text-faint);font-size:13px;}
+
+  .form-row{margin-bottom:16px;}
+  .form-row label{display:block;font-size:11px;color:var(--text-faint);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px;}
+  .field{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-size:14px;font-family:var(--font);}
+  .field:focus{outline:none;border-color:var(--accent);}
+  .method-row{display:flex;gap:8px;}
+  .method{flex:1;text-align:center;padding:10px;border-radius:8px;border:1px solid var(--border);color:var(--text-dim);font-size:13px;cursor:pointer;}
+  .method.active{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-txt);}
+  .btn-primary{width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;margin-top:6px;}
+  .btn-primary:hover{background:#5457e0;}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .msg{font-size:12.5px;margin-top:10px;}
+  .msg.ok{color:var(--green);}
+  .msg.err{color:var(--red);}
+  .status-chip{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:10px;}
+  .status-solicitado{background:rgba(251,191,36,0.14);color:var(--amber);}
+  .status-pago{background:rgba(52,211,153,0.14);color:var(--green);}
+
+  @media(max-width:640px){
+    .wrap{padding:18px 14px 40px;}
+    .hero-link{flex-direction:column;align-items:stretch;}
+    .hero-link-box{min-width:0;}
+    .tabs{overflow-x:auto;white-space:nowrap;}
+    .tab{margin-right:16px;font-size:13px;}
+    .grid4,.grid3{grid-template-columns:1fr 1fr;gap:10px;}
+    .grid5{grid-template-columns:1fr;gap:8px;}
+    .grid3[style]{grid-template-columns:1fr !important;}
+    .stat-value{font-size:20px;}
+    .card{padding:14px 16px;}
+    .diagram-wrap{padding:0;}
+    #rf-wrap{height:340px !important;}
+    table{font-size:11px;}
+    table thead{display:none;}
+    table tr{display:flex;flex-direction:column;padding:10px 0;border-bottom:1px solid var(--border-soft);}
+    table td{border:none;padding:2px 0;white-space:normal;}
+    .method-row{flex-direction:column;}
+  }
+  @media(max-width:400px){
+    .grid4{grid-template-columns:1fr;}
+  }
+
+  .timeline{display:flex;flex-direction:column;gap:16px;}
+  .tstep{display:flex;gap:12px;}
+  .tstep-num{width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent-txt);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .tstep-title{font-size:13px;color:var(--text);}
+  .tstep-desc{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">ac</div>
+      <div>
+        <div class="brand-name">Alpha Circuito</div>
+        <div class="brand-sub">sua cadeia de indicação</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-link">
+    <div class="hero-link-left">
+      <div class="hero-link-title">Seu link de indicação</div>
+      <div class="hero-link-sub">Compartilhe para começar a formar sua cadeia</div>
+    </div>
+    <div class="hero-link-box">
+      <input id="linkInput" readonly value="Carregando seu link...">
+      <button class="copybtn" onclick="copiarLink()">Copiar link</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="desempenho">Desempenho</div>
+    <div class="tab" data-tab="cadeia">Minha Cadeia</div>
+    <div class="tab" data-tab="saques">Saques</div>
+  </div>
+
+  <!-- DESEMPENHO -->
+  <div class="panel active" id="panel-desempenho">
+    <div class="grid4">
+      <div class="card bar-indigo">
+        <div class="stat-label">Comissão total</div>
+        <div class="stat-value" id="d-total">–</div>
+      </div>
+      <div class="card bar-green">
+        <div class="stat-label">Disponível</div>
+        <div class="stat-value green" id="d-disp">–</div>
+      </div>
+      <div class="card bar-amber">
+        <div class="stat-label">A confirmar</div>
+        <div class="stat-value" id="d-pend">–</div>
+      </div>
+      <div class="card bar-muted">
+        <div class="stat-label">Indicados diretos</div>
+        <div class="stat-value" id="d-diretos">–</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">Como a comissão é formada</div>
+      <div class="timeline">
+        <div class="tstep">
+          <div class="tstep-num">1</div>
+          <div><div class="tstep-title">Alguém da sua cadeia opera</div><div class="tstep-desc">Cada operação gera uma receita própria da plataforma</div></div>
+        </div>
+        <div class="tstep">
+          <div class="tstep-num">2</div>
+          <div><div class="tstep-title">Sua fatia sobe automaticamente</div><div class="tstep-desc">Distribuída por nível — quanto mais perto de você, maior a fatia</div></div>
+        </div>
+        <div class="tstep">
+          <div class="tstep-num">3</div>
+          <div><div class="tstep-title">Fica disponível para saque</div><div class="tstep-desc">Sem valor mínimo de espera — o saldo já é seu</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CADEIA -->
+  <div class="panel" id="panel-cadeia">
+    <div class="grid5" id="lvl-strip"></div>
+
+    <div class="diagram-wrap" style="padding:0;">
+      <div id="rf-wrap" style="width:100%;height:480px;"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">Indicados por nível</div>
+      <table>
+        <thead>
+          <tr><th>Nome</th><th>Nível</th><th>Comissão gerada</th></tr>
+        </thead>
+        <tbody id="tbl-cadeia"></tbody>
+      </table>
+      <div class="empty" id="cadeia-empty" style="display:none;">Ninguém na sua cadeia ainda. Compartilhe seu link para começar.</div>
+    </div>
+  </div>
+
+  <!-- SAQUES -->
+  <div class="panel" id="panel-saques">
+    <div class="grid3">
+      <div class="card bar-green">
+        <div class="stat-label">Saldo disponível</div>
+        <div class="stat-value green" id="s-disp">–</div>
+      </div>
+      <div class="card bar-indigo">
+        <div class="stat-label">Total gerado</div>
+        <div class="stat-value" id="s-total">–</div>
+      </div>
+      <div class="card bar-muted">
+        <div class="stat-label">Sacado / pendente</div>
+        <div class="stat-value" id="s-sac">–</div>
+      </div>
+    </div>
+
+    <div class="grid3" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="card">
+        <div class="section-title">Solicitar saque</div>
+        <div class="form-row">
+          <label>Valor</label>
+          <input class="field" type="number" id="valorSaque" placeholder="0,00" step="0.01">
+        </div>
+        <div class="form-row">
+          <label>Método</label>
+          <div class="method-row">
+            <div class="method active" data-metodo="pix">Pix</div>
+            <div class="method" data-metodo="cripto">Cripto (USDT)</div>
+          </div>
+        </div>
+        <button class="btn-primary" id="btnSaque" onclick="solicitarSaque()">Solicitar saque</button>
+        <div class="msg" id="saqueMsg"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Como funciona</div>
+        <div class="timeline">
+          <div class="tstep">
+            <div class="tstep-num">1</div>
+            <div><div class="tstep-title">Saldo já é seu</div><div class="tstep-desc">Creditado automaticamente a cada operação da sua cadeia</div></div>
+          </div>
+          <div class="tstep">
+            <div class="tstep-num">2</div>
+            <div><div class="tstep-title">Você solicita</div><div class="tstep-desc">Escolhe valor e método, sem burocracia</div></div>
+          </div>
+          <div class="tstep">
+            <div class="tstep-num">3</div>
+            <div><div class="tstep-title">Aprovação e envio</div><div class="tstep-desc">Acompanhe o status direto no histórico ao lado</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Histórico</div>
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Valor</th><th>Status</th></tr>
+          </thead>
+          <tbody id="tbl-historico"></tbody>
+        </table>
+        <div class="empty" id="hist-empty" style="display:none;font-size:12px;padding:20px 0;">Nenhuma solicitação ainda.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BACKEND = 'https://alpha-dolar-backend.onrender.com';
+
+function resolverDerivId(){
+  const direto = localStorage.getItem('alpha_deriv_id');
+  if (direto) return direto;
+  try{
+    const contas = JSON.parse(localStorage.getItem('deriv_accounts') || '[]');
+    const real = contas.find(c => !c.isDemo);
+    if (real) return real.acct;
+    if (contas[0]) return contas[0].acct;
+  }catch(e){}
+  return '';
+}
+
+const DERIV_ID = resolverDerivId();
+window.DERIV_ID = DERIV_ID;
+const BOT_NAME = localStorage.getItem('alpha_bot_name') || 'BOT Dirlei 01';
+let metodoSelecionado = 'pix';
+let saldoAtual = 0;
+
+function fmt(v){ return '$ ' + (Number(v)||0).toFixed(2); }
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+  });
+});
+
+document.querySelectorAll('.method').forEach(m => {
+  m.addEventListener('click', () => {
+    document.querySelectorAll('.method').forEach(x => x.classList.remove('active'));
+    m.classList.add('active');
+    metodoSelecionado = m.dataset.metodo;
+  });
+});
+
+function copiarLink(){
+  const inp = document.getElementById('linkInput');
+  inp.select();
+  document.execCommand('copy');
+  const btn = document.querySelector('.copybtn');
+  const original = btn.textContent;
+  btn.textContent = 'Copiado!';
+  setTimeout(() => btn.textContent = original, 1500);
+}
+
+async function carregarLink(){
+  try{
+    const r = await fetch(`${BACKEND}/api/rede/meu-link?deriv_id=${DERIV_ID}&bot_name=${encodeURIComponent(BOT_NAME)}`);
+    const d = await r.json();
+    if (d.ref_code) {
+      document.getElementById('linkInput').value = `${window.location.origin}/login?ref=${d.ref_code}`;
+    }
+  }catch(e){ console.warn('erro link', e); }
+}
+
+async function carregarDesempenho(){
+  try{
+    const r = await fetch(`${BACKEND}/api/rede/resumo?deriv_id=${DERIV_ID}&bot_name=${encodeURIComponent(BOT_NAME)}`);
+    const d = await r.json();
+    document.getElementById('d-total').textContent = fmt(d.comissao_total);
+    document.getElementById('d-disp').textContent = fmt(d.comissao_disponivel);
+    document.getElementById('d-pend').textContent = fmt(d.comissao_pendente);
+    document.getElementById('d-diretos').textContent = d.parceiros_diretos ?? 0;
+  }catch(e){ console.warn('erro resumo', e); }
+}
+
+function montarNiveisStrip(rede){
+  const strip = document.getElementById('lvl-strip');
+  strip.innerHTML = '';
+  const PCTS = {1:15, 2:8, 3:4, 4:2, 5:1};
+  for (let n = 1; n <= 5; n++){
+    const membros = rede.filter(m => m.nivel === n);
+    const soma = membros.reduce((acc,m) => acc + (m.comissao_gerada||0), 0);
+    const div = document.createElement('div');
+    div.className = 'card lvl-card bar-muted';
+    div.innerHTML = `<div class="lvl-num">NÍVEL ${n} · ${PCTS[n]}%</div>
+      <div class="lvl-count">${membros.length}</div>
+      <div class="lvl-sum">${fmt(soma)} gerado</div>`;
+    strip.appendChild(div);
+  }
+}
+
+
+async function carregarCadeia(){
+  try{
+    const r = await fetch(`${BACKEND}/api/rede/arvore?deriv_id=${DERIV_ID}`);
+    const d = await r.json();
+    const rede = d.rede || [];
+    montarNiveisStrip(rede);
+    if (window.montarReactFlow) { window.montarReactFlow(rede); } else { window._pendingRede = rede; }
+
+    const tbl = document.getElementById('tbl-cadeia');
+    tbl.innerHTML = '';
+    document.getElementById('cadeia-empty').style.display = rede.length ? 'none' : 'block';
+    rede.forEach(m => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="strong">${m.nome || m.deriv_id}</td>
+        <td><span class="badge-nivel">Nível ${m.nivel}</span></td>
+        <td>${fmt(m.comissao_gerada)}</td>`;
+      tbl.appendChild(tr);
+    });
+  }catch(e){ console.warn('erro cadeia', e); }
+}
+
+async function carregarSaldo(){
+  try{
+    const r = await fetch(`${BACKEND}/api/rede/saldo?deriv_id=${DERIV_ID}&bot_name=${encodeURIComponent(BOT_NAME)}`);
+    const d = await r.json();
+    saldoAtual = d.saldo_disponivel || 0;
+    document.getElementById('s-disp').textContent = fmt(d.saldo_disponivel);
+    document.getElementById('s-total').textContent = fmt(d.total_gerado);
+    document.getElementById('s-sac').textContent = fmt(d.total_sacado_ou_pendente);
+
+    const hist = d.historico || [];
+    const tbl = document.getElementById('tbl-historico');
+    tbl.innerHTML = '';
+    document.getElementById('hist-empty').style.display = hist.length ? 'none' : 'block';
+    hist.forEach(h => {
+      const data = h.criado_em ? new Date(h.criado_em).toLocaleDateString('pt-BR') : '-';
+      const statusClass = h.status === 'pago' ? 'status-pago' : 'status-solicitado';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${data}</td><td class="strong">${fmt(h.valor_usd)}</td>
+        <td><span class="status-chip ${statusClass}">${h.status}</span></td>`;
+      tbl.appendChild(tr);
+    });
+  }catch(e){ console.warn('erro saldo', e); }
+}
+
+async function solicitarSaque(){
+  const valor = parseFloat(document.getElementById('valorSaque').value);
+  const msg = document.getElementById('saqueMsg');
+  msg.textContent = '';
+  msg.className = 'msg';
+
+  if (!valor || valor <= 0){
+    msg.textContent = 'Informe um valor válido.';
+    msg.classList.add('err');
+    return;
+  }
+  if (valor > saldoAtual){
+    msg.textContent = 'Valor maior que o saldo disponível.';
+    msg.classList.add('err');
+    return;
+  }
+
+  const btn = document.getElementById('btnSaque');
+  btn.disabled = true;
+  try{
+    const r = await fetch(`${BACKEND}/api/rede/saque`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({deriv_id: DERIV_ID, bot_name: BOT_NAME, valor_usd: valor, metodo: metodoSelecionado})
+    });
+    const d = await r.json();
+    if (d.ok){
+      msg.textContent = 'Solicitação enviada com sucesso.';
+      msg.classList.add('ok');
+      document.getElementById('valorSaque').value = '';
+      carregarSaldo();
+    } else {
+      msg.textContent = d.erro || 'Não foi possível processar.';
+      msg.classList.add('err');
+    }
+  }catch(e){
+    msg.textContent = 'Erro de conexão. Tente novamente.';
+    msg.classList.add('err');
+  }
+  btn.disabled = false;
+}
+
+if (!DERIV_ID){
+  document.querySelector('.wrap').innerHTML = '<div class="card" style="margin-top:60px;text-align:center;">Faça login para acessar sua cadeia de indicação.</div>';
+} else {
+  carregarLink();
+  carregarDesempenho();
+  carregarCadeia();
+  carregarSaldo();
+}
+</script>
+
+<script type="module">
+import React from 'https://esm.sh/react@18';
+import { createRoot } from 'https://esm.sh/react-dom@18/client';
+import ReactFlow, { Background, Controls, MiniMap } from 'https://esm.sh/reactflow@11.11.4?external=react,react-dom';
+
+window._rfRoot = null;
+
+window.montarReactFlow = function(rede){
+  const container = document.getElementById('rf-wrap');
+  if (!container) return;
+
+  const DERIV_ID = window.DERIV_ID;
+  const nodeKey = (id) => (id === DERIV_ID ? 'root' : id);
+
+  const porNivel = {};
+  rede.forEach(m => { (porNivel[m.nivel] = porNivel[m.nivel] || []).push(m); });
+
+  const nodes = [{
+    id: 'root',
+    data: { label: React.createElement('div', {style:{textAlign:'center'}},
+      React.createElement('div', {style:{fontWeight:700,fontSize:12}}, 'Você')
+    )},
+    position: { x: 20, y: 200 },
+    style: { background:'#1e1b4b', color:'#c7d2fe', border:'1.5px solid #6366f1', borderRadius:10, padding:8, fontSize:11, width:80 }
+  }];
+  const edges = [];
+
+  Object.keys(porNivel).sort((a,b)=>a-b).forEach(nivelStr => {
+    const nivel = parseInt(nivelStr);
+    const membros = porNivel[nivel];
+    const stepY = 460 / (membros.length + 1);
+    membros.forEach((m, i) => {
+      const id = nodeKey(m.deriv_id);
+      const nome = (m.nome || m.deriv_id || '').split(' ')[0] || 'Cliente';
+
+      const ativoHoje = (m.comissao_hoje || 0) > 0;
+      const diasSemAcesso = m.ultimo_acesso
+        ? Math.floor((Date.now() - new Date(m.ultimo_acesso).getTime()) / 86400000)
+        : 999;
+      const inativo = (m.comissao_gerada || 0) === 0 && diasSemAcesso > 14;
+
+      let borderColor = 'rgba(255,255,255,0.12)';
+      let statusDot = null;
+      if (ativoHoje) {
+        borderColor = '#34d399';
+        statusDot = React.createElement('div', {style:{fontSize:9,color:'#34d399',marginTop:2}}, '● ativo hoje');
+      } else if (inativo) {
+        borderColor = 'rgba(248,113,113,0.35)';
+        statusDot = React.createElement('div', {style:{fontSize:9,color:'#8b8fa3',marginTop:2}}, '○ sem atividade');
+      }
+
+      nodes.push({
+        id,
+        data: { label: React.createElement('div', {style:{textAlign:'center',opacity: inativo && !ativoHoje ? 0.55 : 1}},
+          React.createElement('div', {style:{fontWeight:600,fontSize:11}}, nome),
+          React.createElement('div', {style:{fontSize:9,color:'#8b8fa3',marginTop:2}}, 'Nível '+nivel),
+          React.createElement('div', {style:{fontSize:10,color:'#e5e7eb',marginTop:2}}, '$ '+(m.comissao_gerada||0).toFixed(2)),
+          statusDot
+        )},
+        position: { x: 20 + nivel*200, y: stepY*(i+1) - 20 },
+        style: { background:'#161a26', color:'#e5e7eb', border:'1.5px solid '+borderColor, borderRadius:10, padding:8, width:120 }
+      });
+      const source = nodeKey(m.promoter_id || DERIV_ID);
+      edges.push({
+        id: `e-${source}-${id}`,
+        source, target: id,
+        style: { stroke:'rgba(99,102,241,0.4)' },
+        animated: false
+      });
+    });
+  });
+
+  const el = React.createElement(ReactFlow, {
+    nodes, edges, fitView: true,
+    proOptions: { hideAttribution: true }
+  },
+    React.createElement(Background, { color: 'rgba(255,255,255,0.06)', gap: 18 }),
+    React.createElement(Controls, {})
+  );
+
+  if (!window._rfRoot) {
+    window._rfRoot = createRoot(container);
+  }
+  window._rfRoot.render(el);
+};
+
+if (window._pendingRede) {
+  window.montarReactFlow(window._pendingRede);
+  window._pendingRede = null;
+}
+</script>
+</body>
+</html>
