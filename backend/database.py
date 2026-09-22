@@ -51,7 +51,7 @@ def listar_clientes():
         return r.json()
     return []
 
-def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
+def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake, markup_usd=0.0):
     import requests as req
     import os
     SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -67,7 +67,8 @@ def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake):
         'tipo': direcao,
         'stake': float(stake),
         'resultado': 'win' if ganhou else 'loss',
-        'lucro': float(lucro)
+        'lucro': float(lucro),
+        'markup_usd': float(markup_usd)
     }
     try:
         req.post(f"{SUPABASE_URL}/rest/v1/operacoes", json=payload, headers=headers)
@@ -231,3 +232,78 @@ def atualizar_plano_usuario(deriv_id, plano, status='ativo', dias=30):
         )
         return r.status_code in [200, 204]
     except: return False
+
+
+# ─── SISTEMA DE INDICAÇÃO / REDE DE AFILIADOS (modelo A — cliente final) ─────
+import random as _random
+import string as _string
+
+NIVEIS_PCT_REDE = [0.15, 0.08, 0.04, 0.02, 0.01]
+
+
+def _gerar_ref_code():
+    return ''.join(_random.choices(_string.ascii_lowercase + _string.digits, k=8))
+
+
+def resolver_referral(deriv_id, bot_name, ref_code_recebido=None):
+    url = f"{SUPABASE_URL}/rest/v1/clientes"
+    try:
+        r = requests.get(
+            f"{url}?deriv_id=eq.{deriv_id}&select=ref_code,ref_promoter_id,via_afiliado",
+            headers=HEADERS
+        )
+        if r.status_code != 200 or not r.json():
+            return
+        cliente = r.json()[0]
+        patch = {}
+
+        if not cliente.get('ref_code'):
+            patch['ref_code'] = _gerar_ref_code()
+
+        if not cliente.get('ref_promoter_id') and ref_code_recebido and not cliente.get('via_afiliado'):
+            pr = requests.get(
+                f"{url}?ref_code=eq.{ref_code_recebido}&select=deriv_id,bot_name",
+                headers=HEADERS
+            )
+            if pr.status_code == 200 and pr.json():
+                promotor = pr.json()[0]
+                if promotor.get('bot_name') == bot_name and promotor['deriv_id'] != deriv_id:
+                    patch['ref_promoter_id'] = promotor['deriv_id']
+
+        if patch:
+            requests.patch(f"{url}?deriv_id=eq.{deriv_id}", json=patch, headers=HEADERS)
+    except Exception as e:
+        print(f"Erro em resolver_referral: {e}")
+
+
+def distribuir_comissao(cliente_id, bot_name, markup_usd):
+    if not markup_usd or markup_usd <= 0:
+        return
+    url = f"{SUPABASE_URL}/rest/v1/clientes"
+    try:
+        r0 = requests.get(f"{url}?deriv_id=eq.{cliente_id}&select=via_afiliado", headers=HEADERS)
+        if r0.status_code == 200 and r0.json() and r0.json()[0].get('via_afiliado'):
+            return
+
+        atual = cliente_id
+        for nivel, pct in enumerate(NIVEIS_PCT_REDE, start=1):
+            r = requests.get(f"{url}?deriv_id=eq.{atual}&select=ref_promoter_id", headers=HEADERS)
+            if r.status_code != 200 or not r.json():
+                break
+            promotor = r.json()[0].get('ref_promoter_id')
+            if not promotor:
+                break
+            valor = round(float(markup_usd) * pct, 4)
+            requests.post(f"{SUPABASE_URL}/rest/v1/comissoes_rede", headers=HEADERS, json={
+                'bot_name': bot_name,
+                'beneficiario_id': promotor,
+                'origem_cliente_id': cliente_id,
+                'nivel': nivel,
+                'markup_origem_usd': float(markup_usd),
+                'percentual_aplicado': pct,
+                'valor_usd': valor,
+                'status': 'pendente',
+            })
+            atual = promotor
+    except Exception as e:
+        print(f"Erro em distribuir_comissao: {e}")
