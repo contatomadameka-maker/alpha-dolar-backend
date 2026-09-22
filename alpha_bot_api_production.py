@@ -2483,3 +2483,9 @@ def rede_meu_link_route():
 @app.route('/afiliados')
 def pagina_afiliados():
     return send_from_directory(os.path.join(BASE_DIR, 'web'), 'afiliados.html')
+
+
+@app.route('/api/debug/rotas')
+def debug_rotas():
+    rotas = sorted([str(r) for r in app.url_map.iter_rules()])
+    return jsonify({'total': len(rotas), 'rotas': rotas, 'tem_afiliados': '/afiliados' in rotas})
