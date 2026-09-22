@@ -310,13 +310,21 @@ def arvore_rede(deriv_id, max_nivel=5):
             novos_ids.append(fid)
 
             comissao = 0.0
+            comissao_hoje = 0.0
             try:
+                from datetime import datetime, timezone
+                hoje_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
                 rc = requests.get(
-                    f"{url_com}?beneficiario_id=eq.{deriv_id}&origem_cliente_id=eq.{fid}&select=valor_usd",
+                    f"{url_com}?beneficiario_id=eq.{deriv_id}&origem_cliente_id=eq.{fid}&select=valor_usd,criado_em",
                     headers=HEADERS
                 )
                 if rc.status_code == 200:
-                    comissao = round(sum(float(v.get('valor_usd', 0)) for v in rc.json()), 4)
+                    itens = rc.json()
+                    comissao = round(sum(float(v.get('valor_usd', 0)) for v in itens), 4)
+                    comissao_hoje = round(sum(
+                        float(v.get('valor_usd', 0)) for v in itens
+                        if str(v.get('criado_em', '')).startswith(hoje_str)
+                    ), 4)
             except Exception as e:
                 print(f"Erro ao somar comissao de {fid}: {e}")
 
@@ -325,6 +333,7 @@ def arvore_rede(deriv_id, max_nivel=5):
                 'nome': f.get('nome') or '',
                 'nivel': nivel,
                 'comissao_gerada': comissao,
+                'comissao_hoje': comissao_hoje,
                 'ultimo_acesso': f.get('ultimo_acesso'),
                 'promoter_id': f.get('ref_promoter_id'),
             })
