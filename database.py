@@ -331,3 +331,62 @@ def arvore_rede(deriv_id, max_nivel=5):
         nivel_atual = novos_ids
 
     return resultado
+
+
+def saldo_e_historico_saques(deriv_id, bot_name=None):
+    """Usado na tela Saques: saldo disponivel + historico de solicitacoes."""
+    url_com = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
+    filtro = f"?beneficiario_id=eq.{deriv_id}"
+    if bot_name:
+        filtro += f"&bot_name=eq.{bot_name}"
+    try:
+        r = requests.get(f"{url_com}{filtro}&select=valor_usd,status", headers=HEADERS)
+        rows = r.json() if r.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em saldo_e_historico_saques (comissoes): {e}")
+        rows = []
+
+    total_gerado = round(sum(float(x.get('valor_usd', 0)) for x in rows), 4)
+
+    url_saq = f"{SUPABASE_URL}/rest/v1/saques_rede"
+    try:
+        rs = requests.get(
+            f"{url_saq}?beneficiario_id=eq.{deriv_id}&order=criado_em.desc&select=*",
+            headers=HEADERS
+        )
+        historico = rs.json() if rs.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro em saldo_e_historico_saques (saques): {e}")
+        historico = []
+
+    ja_sacado_ou_pedido = round(sum(
+        float(h.get('valor_usd', 0)) for h in historico if h.get('status') in ('solicitado', 'pago')
+    ), 4)
+
+    saldo_disponivel = round(total_gerado - ja_sacado_ou_pedido, 4)
+
+    return {
+        'saldo_disponivel': max(saldo_disponivel, 0),
+        'total_gerado': total_gerado,
+        'total_sacado_ou_pendente': ja_sacado_ou_pedido,
+        'historico': historico,
+    }
+
+
+def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo):
+    """Cria um pedido de saque -- validacao de saldo fica a cargo de quem chama."""
+    url = f"{SUPABASE_URL}/rest/v1/saques_rede"
+    payload = {
+        'bot_name': bot_name,
+        'beneficiario_id': deriv_id,
+        'valor_usd': float(valor_usd),
+        'metodo': metodo,
+        'status': 'solicitado',
+    }
+    try:
+        r = requests.post(url, json=payload, headers={**HEADERS, 'Prefer': 'return=representation'})
+        if r.status_code in (200, 201):
+            return {'ok': True, 'saque': r.json()[0] if r.json() else None}
+        return {'ok': False, 'erro': f'status {r.status_code}'}
+    except Exception as e:
+        return {'ok': False, 'erro': str(e)}

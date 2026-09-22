@@ -2427,3 +2427,37 @@ def rede_arvore_route():
         return jsonify({'rede': dados, 'total': len(dados)})
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/api/rede/saldo', methods=['GET'])
+def rede_saldo_route():
+    deriv_id = request.args.get('deriv_id')
+    bot_name = request.args.get('bot_name')
+    if not deriv_id:
+        return jsonify({'erro': 'deriv_id obrigatorio'}), 400
+    try:
+        from database import saldo_e_historico_saques
+        dados = saldo_e_historico_saques(deriv_id, bot_name)
+        return jsonify(dados)
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@app.route('/api/rede/saque', methods=['POST'])
+def rede_saque_route():
+    data = request.json or {}
+    deriv_id = data.get('deriv_id')
+    bot_name = data.get('bot_name', 'default')
+    valor_usd = data.get('valor_usd')
+    metodo = data.get('metodo', 'pix')
+    if not deriv_id or not valor_usd:
+        return jsonify({'ok': False, 'erro': 'deriv_id e valor_usd obrigatorios'}), 400
+    try:
+        from database import saldo_e_historico_saques, criar_solicitacao_saque
+        saldo = saldo_e_historico_saques(deriv_id, bot_name)
+        if float(valor_usd) > saldo['saldo_disponivel']:
+            return jsonify({'ok': False, 'erro': 'valor maior que saldo disponivel'}), 400
+        resultado = criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo)
+        return jsonify(resultado)
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)}), 500
