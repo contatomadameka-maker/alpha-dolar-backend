@@ -497,7 +497,7 @@ def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo):
         return {'ok': False, 'erro': str(e)}
 
 
-def ranking_rede(bot_name, limite=10):
+def ranking_rede(bot_name, limite=10, meu_id=None):
     """Ranking geral (nao filtrado por indicacao pessoal) -- top ganhadores e top indicadores."""
     url_com = f"{SUPABASE_URL}/rest/v1/comissoes_rede"
     url_cli = f"{SUPABASE_URL}/rest/v1/clientes"
@@ -552,7 +552,18 @@ def ranking_rede(bot_name, limite=10):
         for i in top_indicadores_ids
     ]
 
-    return {'top_ganhadores': top_ganhadores, 'top_indicadores': top_indicadores}
+    minha_posicao = None
+    total_participantes = len(por_pessoa)
+    if meu_id and meu_id in por_pessoa:
+        ordenados = sorted(por_pessoa, key=por_pessoa.get, reverse=True)
+        minha_posicao = ordenados.index(meu_id) + 1
+
+    return {
+        'top_ganhadores': top_ganhadores,
+        'top_indicadores': top_indicadores,
+        'total_participantes': total_participantes,
+        'minha_posicao': minha_posicao,
+    }
 
 
 def timeline_rede(deriv_id, bot_name=None, limite=8):

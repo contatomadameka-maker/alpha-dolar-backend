@@ -2489,9 +2489,10 @@ def pagina_afiliados():
 def rede_ranking_route():
     bot_name = request.args.get('bot_name', 'default')
     limite = int(request.args.get('limite', 10))
+    meu_id = request.args.get('deriv_id')
     try:
         from database import ranking_rede
-        dados = ranking_rede(bot_name, limite)
+        dados = ranking_rede(bot_name, limite, meu_id)
         return jsonify(dados)
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
