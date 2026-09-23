@@ -18,6 +18,11 @@ class BaseStrategy(ABC):
         self.candles_history = deque(maxlen=50)  # Histórico de candles
         self.last_signal = None
         self.signal_count = 0
+        # Config isolada por instancia -- injetada pelo bot (AlphaDolar) apos
+        # criar a estrategia. Enquanto None, os usos de BotConfig continuam
+        # caindo no fallback global (self.config or BotConfig), sem quebrar
+        # nenhum uso fora do fluxo principal (testes, scripts manuais, etc).
+        self.config = None
 
     @abstractmethod
     def should_enter(self, tick_data):

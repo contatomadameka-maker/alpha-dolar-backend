@@ -36,22 +36,22 @@ class AlphaAnalytics(BaseStrategy):
         self.max_martingale_steps = rm['max_steps']
         self.risk_mode = risk_mode
         self.martingale_step = 0
-        self.stake_atual = BotConfig.STAKE_INICIAL
+        self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
 
     def on_trade_result(self, won):
         if not self.usar_martingale:
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
             return
         if won:
             self.martingale_step = 0
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
         else:
             if self.martingale_step < self.max_martingale_steps:
                 self.martingale_step += 1
-                self.stake_atual = round(BotConfig.STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
+                self.stake_atual = round((self.config or BotConfig).STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
             else:
                 self.martingale_step = 0
-                self.stake_atual = BotConfig.STAKE_INICIAL
+                self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
 
     def get_stake(self): return self.stake_atual
 
@@ -95,7 +95,7 @@ class AlphaAnalytics(BaseStrategy):
 
     def get_contract_params(self, direction):
         return {"contract_type": direction, "duration": 1, "duration_unit": "t",
-                "symbol": BotConfig.DEFAULT_SYMBOL, "basis": BotConfig.BASIS}
+                "symbol": (self.config or BotConfig).DEFAULT_SYMBOL, "basis": (self.config or BotConfig).BASIS}
 
     def get_info(self):
         return {'name': self.name, 'tier': 'VIP', 'win_rate': '78%'}
@@ -138,22 +138,22 @@ class AlphaSniper(BaseStrategy):
         self.max_martingale_steps = rm['max_steps']
         self.risk_mode = risk_mode
         self.martingale_step = 0
-        self.stake_atual = BotConfig.STAKE_INICIAL
+        self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
 
     def on_trade_result(self, won):
         if not self.usar_martingale:
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
             return
         if won:
             self.martingale_step = 0
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
         else:
             if self.martingale_step < self.max_martingale_steps:
                 self.martingale_step += 1
-                self.stake_atual = round(BotConfig.STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
+                self.stake_atual = round((self.config or BotConfig).STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
             else:
                 self.martingale_step = 0
-                self.stake_atual = BotConfig.STAKE_INICIAL
+                self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
 
     def get_stake(self): return self.stake_atual
 
@@ -222,7 +222,7 @@ class AlphaSniper(BaseStrategy):
 
     def get_contract_params(self, direction):
         return {"contract_type": direction, "duration": 1, "duration_unit": "t",
-                "symbol": BotConfig.DEFAULT_SYMBOL, "basis": BotConfig.BASIS}
+                "symbol": (self.config or BotConfig).DEFAULT_SYMBOL, "basis": (self.config or BotConfig).BASIS}
 
     def get_info(self):
         return {'name': self.name, 'tier': 'VIP', 'win_rate': '82%'}

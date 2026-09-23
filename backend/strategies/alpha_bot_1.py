@@ -41,7 +41,7 @@ class AlphaBot1(BaseStrategy):
         self.multiplicador_martingale = rm.get('multiplicador', 2.2)
         self.max_martingale_steps     = rm.get('max_steps', 3)
         self.martingale_step          = 0
-        self.stake_atual              = BotConfig.STAKE_INICIAL
+        self.stake_atual              = (self.config or BotConfig).STAKE_INICIAL
 
         # Objeto martingale compatível com o backend
         self.martingale = self
@@ -63,15 +63,15 @@ class AlphaBot1(BaseStrategy):
             return
         if ganhou:
             self.martingale_step = 0
-            self.stake_atual     = BotConfig.STAKE_INICIAL
+            self.stake_atual     = (self.config or BotConfig).STAKE_INICIAL
         else:
             if self.martingale_step < self.max_martingale_steps:
                 self.martingale_step += 1
-                self.stake_atual = round(BotConfig.STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
+                self.stake_atual = round((self.config or BotConfig).STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
                 print(f"📈 Martingale passo {self.martingale_step}: stake = ${self.stake_atual}")
             else:
                 self.martingale_step = 0
-                self.stake_atual     = BotConfig.STAKE_INICIAL
+                self.stake_atual     = (self.config or BotConfig).STAKE_INICIAL
                 print(f"🔄 Martingale resetado após {self.max_martingale_steps} passos")
 
     def should_enter(self, tick_data):
@@ -105,10 +105,10 @@ class AlphaBot1(BaseStrategy):
         """Retorna parâmetros do contrato"""
         return {
             "contract_type": direction,
-            "duration":      BotConfig.DURATION,
-            "duration_unit": BotConfig.DURATION_UNIT,
-            "symbol":        BotConfig.DEFAULT_SYMBOL,
-            "basis":         BotConfig.BASIS
+            "duration":      (self.config or BotConfig).DURATION,
+            "duration_unit": (self.config or BotConfig).DURATION_UNIT,
+            "symbol":        (self.config or BotConfig).DEFAULT_SYMBOL,
+            "basis":         (self.config or BotConfig).BASIS
         }
 
 

@@ -40,6 +40,10 @@ class AlphaDolar:
         if strategy is None:
             raise ValueError("Estratégia não pode ser None!")
         self.strategy = strategy
+        # Repassa a config isolada desta instancia para a estrategia -- assim
+        # ela tambem para de depender do BotConfig global durante a operacao.
+        if hasattr(self.strategy, 'config'):
+            self.strategy.config = self.config
 
         self.martingale = Martingale() if use_martingale else None
         self.stop_loss = StopLoss(

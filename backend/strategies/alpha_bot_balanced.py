@@ -50,7 +50,7 @@ class AlphaBotBalanced(BaseStrategy):
         self.max_martingale_steps   = rm['max_steps']
         self.risk_mode              = risk_mode
         self.martingale_step        = 0
-        self.stake_atual            = BotConfig.STAKE_INICIAL
+        self.stake_atual            = (self.config or BotConfig).STAKE_INICIAL
 
         print(f"⚙️ Modo: {trading_mode} | Confiança mínima: {self.min_confidence:.0%} | Cooldown: {self.cooldown_ticks} ticks")
         print(f"🛡️ Risco: {risk_mode} | Martingale: {self.usar_martingale} | Multiplicador: {self.multiplicador_martingale}x | Máx passos: {self.max_martingale_steps}")
@@ -58,23 +58,23 @@ class AlphaBotBalanced(BaseStrategy):
     def on_trade_result(self, won: bool):
         """Chamado após cada trade para atualizar o Martingale"""
         if not self.usar_martingale:
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
             return
 
         if won:
             # Vitória — reset
             self.martingale_step = 0
-            self.stake_atual = BotConfig.STAKE_INICIAL
+            self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
         else:
             # Derrota — aumenta stake se não atingiu máximo
             if self.martingale_step < self.max_martingale_steps:
                 self.martingale_step += 1
-                self.stake_atual = round(BotConfig.STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
+                self.stake_atual = round((self.config or BotConfig).STAKE_INICIAL * (self.multiplicador_martingale ** self.martingale_step), 2)
                 print(f"📈 Martingale passo {self.martingale_step}: stake = ${self.stake_atual}")
             else:
                 # Máximo atingido — reset
                 self.martingale_step = 0
-                self.stake_atual = BotConfig.STAKE_INICIAL
+                self.stake_atual = (self.config or BotConfig).STAKE_INICIAL
                 print(f"🔄 Martingale resetado após {self.max_martingale_steps} passos")
 
     def get_stake(self):
@@ -152,8 +152,8 @@ class AlphaBotBalanced(BaseStrategy):
             "contract_type": direction,
             "duration": 1,
             "duration_unit": "t",
-            "symbol": BotConfig.DEFAULT_SYMBOL,
-            "basis": BotConfig.BASIS
+            "symbol": (self.config or BotConfig).DEFAULT_SYMBOL,
+            "basis": (self.config or BotConfig).BASIS
         }
 
     def get_info(self):
