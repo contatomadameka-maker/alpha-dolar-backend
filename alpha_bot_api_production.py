@@ -2582,3 +2582,30 @@ def esquadrao_resumo():
         'exposto_total': round(exposto_total, 2),
         'unidades': unidades,
     })
+
+
+@app.route('/api/esquadrao/zerar/<slot>', methods=['POST'])
+def esquadrao_zerar(slot):
+    """Zera o historico/sessao de uma unidade do Esquadrao. So permite com a unidade parada."""
+    data = request.get_json(silent=True) or {}
+    deriv_id = data.get('deriv_id') or request.args.get('deriv_id', 'anonymous')
+
+    if slot not in ESQUADRAO_SLOTS:
+        return jsonify({'success': False, 'error': 'Slot invalido'}), 400
+
+    state = get_user_state(deriv_id, slot)
+    if state.get('running', False):
+        return jsonify({'success': False, 'error': 'Pare a unidade antes de zerar o historico'}), 400
+
+    get_user_state(deriv_id, slot)['trades'] = []
+    get_user_state(deriv_id, slot)['stop_reason'] = None
+    get_user_state(deriv_id, slot)['stop_message'] = None
+    get_user_state(deriv_id, slot)['mart_step'] = 0
+    get_user_state(deriv_id, slot)['_perda_desde_ultimo_ganho'] = 0.0
+    get_user_state(deriv_id, slot)['_lucro_desde_ultimo_reset'] = 0.0
+    get_user_state(deriv_id, slot)['_lucro_sessao'] = 0.0
+    get_user_state(deriv_id, slot)['bot_name_real'] = ''
+    get_user_state(deriv_id, slot)['strategy_name'] = ''
+    get_user_state(deriv_id, slot)['_symbol'] = ''
+
+    return jsonify({'success': True, 'slot': slot, 'message': 'Historico zerado'})
