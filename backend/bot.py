@@ -189,13 +189,10 @@ class AlphaDolar:
         stake = round(stake_ideal, 2)
         stake = max(round(self.config.STAKE_INICIAL, 2), stake)
 
-        # Seguranca dupla: nunca passa de 20x o stake inicial NEM de 70% do
-        # saldo atual - protege contra escalada descontrolada, mas escala
-        # proporcionalmente para quem opera com stakes/banca grandes
-        teto_inicial = round(self.config.STAKE_INICIAL * 40, 2)
-        max_stake = self.api.balance * 0.70
-        teto_final = min(teto_inicial, max_stake)
-        return round(min(stake, teto_final), 2)
+        # Sem teto artificial aqui -- a protecao do usuario fica por conta
+        # do stop loss que ele configura, nao de um limite escondido no
+        # calculo de recuperacao. Removido a pedido do Dirlei em 23/09.
+        return stake
 
     def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
         perda = self.perda_acumulada
