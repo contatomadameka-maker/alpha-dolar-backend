@@ -15,12 +15,12 @@ import threading
 from datetime import datetime
 
 try:
-    from .config import BotConfig, validate_config
+    from .config import BotConfig, validate_config, snapshot_config
     from .deriv_api import DerivAPI
     from .risk_management.martingale import Martingale
     from .risk_management.stop_loss import StopLoss
 except ImportError:
-    from config import BotConfig, validate_config
+    from config import BotConfig, validate_config, snapshot_config
     from deriv_api import DerivAPI
     from risk_management.martingale import Martingale
     from risk_management.stop_loss import StopLoss
@@ -33,6 +33,8 @@ class AlphaDolar:
         self.bot_name = "ALPHA DOLAR 2.0"
         self.version = "2.0.0"
         self._api_token = api_token or BotConfig.API_TOKEN
+        self.config = snapshot_config()
+        self.config.API_TOKEN = self._api_token
         self.api = DerivAPI(api_token=self._api_token, account_id=account_id)
 
         if strategy is None:
@@ -41,14 +43,14 @@ class AlphaDolar:
 
         self.martingale = Martingale() if use_martingale else None
         self.stop_loss = StopLoss(
-            limite_perda=BotConfig.LIMITE_PERDA,
-            lucro_alvo=BotConfig.LUCRO_ALVO,
-            stop_loss_type=BotConfig.STOP_LOSS_TYPE,
-            max_consecutive_losses=BotConfig.MAX_CONSECUTIVE_LOSSES
+            limite_perda=self.config.LIMITE_PERDA,
+            lucro_alvo=self.config.LUCRO_ALVO,
+            stop_loss_type=self.config.STOP_LOSS_TYPE,
+            max_consecutive_losses=self.config.MAX_CONSECUTIVE_LOSSES
         )
 
         self.is_running = False
-        self.current_stake = BotConfig.STAKE_INICIAL
+        self.current_stake = self.config.STAKE_INICIAL
         self.waiting_contract = False
         self.current_contract_id = None
         self._trade_lock = threading.Lock()
@@ -67,7 +69,7 @@ class AlphaDolar:
         self._ultimo_sinal_time   = time.time()
         self._aguardando_sinal    = False
         self._sem_sinal_streak    = 0
-        self._ultimo_stake_usado  = BotConfig.STAKE_INICIAL
+        self._ultimo_stake_usado  = self.config.STAKE_INICIAL
 
     def print_header(self):
         print("\n" + "="*70)
@@ -80,9 +82,9 @@ class AlphaDolar:
             print(f"   Tipo: {info.get('tier', 'N/A')}")
             print(f"   Contratos: {info.get('contract_type', 'N/A')}")
             print(f"   Indicadores: {info.get('indicators', 'N/A')}")
-        print(f"💰 Stake Inicial: ${BotConfig.STAKE_INICIAL}")
-        print(f"🎯 Lucro Alvo: ${BotConfig.LUCRO_ALVO}")
-        print(f"🛑 Limite Perda: ${BotConfig.LIMITE_PERDA}")
+        print(f"💰 Stake Inicial: ${self.config.STAKE_INICIAL}")
+        print(f"🎯 Lucro Alvo: ${self.config.LUCRO_ALVO}")
+        print(f"🛑 Limite Perda: ${self.config.LIMITE_PERDA}")
         print(f"⚡ Martingale: {'Ativado' if self.martingale else 'Desativado'}")
         print("="*70 + "\n")
 
@@ -107,12 +109,12 @@ class AlphaDolar:
                 self.tick_history.pop(0)
 
         pode_operar, motivo = self.stop_loss.pode_operar(self.api.balance)
-        if not pode_operar and self.api.balance <= BotConfig.STAKE_INICIAL:
+        if not pode_operar and self.api.balance <= self.config.STAKE_INICIAL:
             self._disparar_stop_loss("Saldo insuficiente para operar")
             return
 
-        if self.trades_hoje >= BotConfig.MAX_TRADES_PER_DAY:
-            self.log(f"Limite diário de {BotConfig.MAX_TRADES_PER_DAY} trades atingido!", "WARNING")
+        if self.trades_hoje >= self.config.MAX_TRADES_PER_DAY:
+            self.log(f"Limite diário de {self.config.MAX_TRADES_PER_DAY} trades atingido!", "WARNING")
             self.stop()
             return
 
@@ -162,7 +164,7 @@ class AlphaDolar:
         FIX 02/03b: limite aumentado para 70% do saldo (era 30%)
         """
         if self.perda_acumulada <= 0:
-            return round(BotConfig.STAKE_INICIAL, 2)
+            return round(self.config.STAKE_INICIAL, 2)
 
         # Usa o payout REAL da ultima proposta da Deriv, em vez de um valor
         # fixo assumido (0.88) que estava causando perda sistematica --
@@ -179,21 +181,21 @@ class AlphaDolar:
         else:
             payout_rate = self.PAYOUT_RATE  # fallback se ainda nao houver proposta
 
-        stake_ideal = (self.perda_acumulada + BotConfig.STAKE_INICIAL) / payout_rate
+        stake_ideal = (self.perda_acumulada + self.config.STAKE_INICIAL) / payout_rate
         stake = round(stake_ideal, 2)
-        stake = max(round(BotConfig.STAKE_INICIAL, 2), stake)
+        stake = max(round(self.config.STAKE_INICIAL, 2), stake)
 
         # Seguranca dupla: nunca passa de 20x o stake inicial NEM de 70% do
         # saldo atual - protege contra escalada descontrolada, mas escala
         # proporcionalmente para quem opera com stakes/banca grandes
-        teto_inicial = round(BotConfig.STAKE_INICIAL * 40, 2)
+        teto_inicial = round(self.config.STAKE_INICIAL * 40, 2)
         max_stake = self.api.balance * 0.70
         teto_final = min(teto_inicial, max_stake)
         return round(min(stake, teto_final), 2)
 
     def _disparar_stop_loss(self, motivo="Stop Loss atingido"):
         perda = self.perda_acumulada
-        limite = BotConfig.LIMITE_PERDA
+        limite = self.config.LIMITE_PERDA
         self.log(f"🛑 STOP LOSS ATINGIDO! Perda acum: ${perda:.2f} / Limite: ${limite:.2f}", "STOP_LOSS")
         self.log(f"🛑 Bot encerrado automaticamente por proteção de capital", "STOP_LOSS")
         self.stop()
@@ -254,7 +256,7 @@ class AlphaDolar:
 
         proposal_params = {
             'contract_type': contract_type,
-            'symbol': params.get("symbol", BotConfig.DEFAULT_SYMBOL),
+            'symbol': params.get("symbol", self.config.DEFAULT_SYMBOL),
             'amount': stake,
             'duration': params.get("duration", 1),
             'duration_unit': params.get("duration_unit", "t")
@@ -294,7 +296,7 @@ class AlphaDolar:
         else:
             profit = float(contract_data.get("profit", 0))
             if status == "lost" and profit >= 0:
-                profit = -(self._ultimo_stake_usado or BotConfig.STAKE_INICIAL)
+                profit = -(self._ultimo_stake_usado or self.config.STAKE_INICIAL)
 
         contract_id = contract_data.get("contract_id")
         vitoria = status == "won"
@@ -341,8 +343,8 @@ class AlphaDolar:
 
         # ✅ FIX 02/03: Verificar lucro alvo após cada trade
         lucro_sessao = stats.get('saldo_liquido', 0)
-        if lucro_sessao >= BotConfig.LUCRO_ALVO:
-            self.log(f"🎯 LUCRO ALVO ATINGIDO! Lucro: ${lucro_sessao:.2f} / Alvo: ${BotConfig.LUCRO_ALVO:.2f}", "WIN")
+        if lucro_sessao >= self.config.LUCRO_ALVO:
+            self.log(f"🎯 LUCRO ALVO ATINGIDO! Lucro: ${lucro_sessao:.2f} / Alvo: ${self.config.LUCRO_ALVO:.2f}", "WIN")
             self.stop()
             return
 
@@ -355,7 +357,7 @@ class AlphaDolar:
 
     def start(self):
         try:
-            if not validate_config():
+            if not validate_config(self.config):
                 return False
 
             self.print_header()
@@ -380,7 +382,7 @@ class AlphaDolar:
             self.api.set_contract_callback(self.on_contract_update)
             self.api.set_balance_callback(self.on_balance_update)
 
-            self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+            self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
 
             self.is_running = True
             self.api._bot_ref = self
@@ -412,7 +414,7 @@ class AlphaDolar:
                 if sem_tick > TICK_TIMEOUT:
                     self.log(f"⚠️ WATCHDOG: sem tick {sem_tick:.0f}s — reconectando WebSocket!", "WARNING")
                     try:
-                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+                        self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
                         self._ultimo_tick_time  = agora
                         self._ultimo_sinal_time = agora
                     except Exception as e_tick:
@@ -431,7 +433,7 @@ class AlphaDolar:
                         while len(self.tick_history) < 30:
                             self.tick_history.append(ultimo)
                     elif len(self.tick_history) == 0:
-                        self.api.subscribe_ticks(BotConfig.DEFAULT_SYMBOL)
+                        self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
                         self._ultimo_sinal_time = agora
                         self._sem_sinal_streak  = 0
                         continue

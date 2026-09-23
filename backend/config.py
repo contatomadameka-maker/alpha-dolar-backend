@@ -126,23 +126,48 @@ class MarketConfig:
     }
 
 # ===== VALIDAÇÕES =====
-def validate_config():
-    """Valida as configurações antes de iniciar o bot"""
+def snapshot_config():
+    """Congela os valores atuais do BotConfig global numa copia propria --
+    usada na criacao de cada bot. Depois de criada, a instancia so le dessa
+    copia (self.config), nunca mais do BotConfig global -- assim, se outro
+    bot (de outra conta) mudar o BotConfig global depois, esta instancia
+    continua com os valores certos, sem interferencia."""
+    class _ConfigSnapshot:
+        pass
+    snap = _ConfigSnapshot()
+    campos = [
+        'API_TOKEN', 'APP_ID', 'DEFAULT_SYMBOL', 'STAKE_INICIAL',
+        'LUCRO_ALVO', 'LIMITE_PERDA', 'STOP_LOSS_TYPE',
+        'MAX_CONSECUTIVE_LOSSES', 'MAX_TRADES_PER_DAY',
+        'USAR_MARTINGALE', 'MULTIPLICADOR_MARTINGALE',
+        'MAX_MARTINGALE_STEPS', 'DURATION', 'DURATION_UNIT',
+        'BASIS', 'MIN_BALANCE',
+    ]
+    for campo in campos:
+        setattr(snap, campo, getattr(BotConfig, campo))
+    return snap
+
+
+def validate_config(config=None):
+    """Valida as configuracoes antes de iniciar o bot.
+    Sem argumento, valida o BotConfig global (comportamento original).
+    Com um snapshot_config(), valida a configuracao daquela instancia."""
+    cfg = config if config is not None else BotConfig
     errors = []
 
-    if BotConfig.API_TOKEN == "COLE_SEU_TOKEN_AQUI":
+    if cfg.API_TOKEN == "COLE_SEU_TOKEN_AQUI":
         errors.append("⚠️ Configure seu API_TOKEN da Deriv!")
 
-    if BotConfig.STAKE_INICIAL < 0.35:
+    if cfg.STAKE_INICIAL < 0.35:
         errors.append("⚠️ Stake inicial muito baixo! Mínimo: $0.35")
 
-    if BotConfig.STAKE_INICIAL > BotConfig.MIN_BALANCE and False:  # desabilitado
+    if cfg.STAKE_INICIAL > cfg.MIN_BALANCE and False:  # desabilitado
         errors.append("⚠️ Stake inicial maior que saldo mínimo!")
 
-    if BotConfig.LUCRO_ALVO <= 0:
+    if cfg.LUCRO_ALVO <= 0:
         errors.append("⚠️ Lucro alvo deve ser maior que zero!")
 
-    if BotConfig.LIMITE_PERDA <= 0:
+    if cfg.LIMITE_PERDA <= 0:
         errors.append("⚠️ Limite de perda deve ser maior que zero!")
 
     if errors:
