@@ -431,7 +431,11 @@ def start_bot():
             return jsonify({'success': False, 'error': f'O bot {bot_type} já está em execução. Pare-o antes de reiniciar.'}), 400
 
         # ==================== BOT REAL ====================
-        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples']:
+        # Alpha Esquadrao: unidade-1 a unidade-4 tambem viram bots reais,
+        # nao apenas simulados -- permite rodar ate 4 unidades em paralelo
+        # por conta, alem dos paineis ia/ia_simples que ja existiam.
+        ESQUADRAO_SLOTS = [f'unidade-{i}' for i in range(1, 5)]
+        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples'] + ESQUADRAO_SLOTS:
             print("🤖 Iniciando BOT PYTHON REAL...")
 
             BotConfig.DEFAULT_SYMBOL = symbol
