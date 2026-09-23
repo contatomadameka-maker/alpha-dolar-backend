@@ -2515,3 +2515,70 @@ def rede_timeline_route():
         return jsonify({'eventos': dados})
     except Exception as e:
         return jsonify({'erro': str(e)}), 500
+
+
+# ==================== ALPHA ESQUADRAO ====================
+ESQUADRAO_SLOTS = [f'unidade-{i}' for i in range(1, 5)]
+
+@app.route('/api/esquadrao/resumo')
+def esquadrao_resumo():
+    """Visao consolidada das ate 4 unidades do Alpha Esquadrao de uma conta."""
+    deriv_id = request.args.get('deriv_id', 'anonymous')
+
+    unidades = []
+    lucro_total = 0.0
+    exposto_total = 0.0
+    ativas = 0
+
+    for slot in ESQUADRAO_SLOTS:
+        state = get_user_state(deriv_id, slot)
+        bot = state.get('instance') or get_bot_instance(deriv_id, slot)
+
+        stats = {}
+        if bot:
+            if BOTS_AVAILABLE and hasattr(bot, 'stop_loss'):
+                try: stats = bot.stop_loss.get_estatisticas()
+                except: pass
+            elif hasattr(bot, 'stats'):
+                stats = bot.stats
+
+        thread = state.get('thread')
+        thread_alive = thread is not None and thread.is_alive()
+        if state.get('running') and not thread_alive and bot is None:
+            get_user_state(deriv_id, slot)['running'] = False
+            if not get_user_state(deriv_id, slot).get('stop_reason'):
+                get_user_state(deriv_id, slot)['stop_reason'] = 'crashed'
+
+        is_running = get_user_state(deriv_id, slot).get('running', False)
+        lucro_liquido = get_user_state(deriv_id, slot).get('_lucro_sessao', stats.get('saldo_liquido', 0)) or 0
+        current_stake = getattr(bot, 'current_stake', 0) if bot else 0
+        waiting_contract = getattr(bot, 'waiting_contract', False) if bot else False
+
+        if is_running:
+            ativas += 1
+        lucro_total += float(lucro_liquido)
+        if waiting_contract:
+            exposto_total += float(current_stake or 0)
+
+        unidades.append({
+            'slot': slot,
+            'running': is_running,
+            'bot_name': get_user_state(deriv_id, slot).get('bot_name_real', ''),
+            'strategy_name': get_user_state(deriv_id, slot).get('strategy_name', ''),
+            'symbol': get_user_state(deriv_id, slot).get('_symbol', ''),
+            'lucro_liquido': round(float(lucro_liquido), 2),
+            'total_trades': stats.get('total_trades', 0),
+            'win_rate': stats.get('win_rate', 0),
+            'current_stake': round(float(current_stake or 0), 2),
+            'stop_reason': get_user_state(deriv_id, slot).get('stop_reason'),
+        })
+
+    return jsonify({
+        'success': True,
+        'deriv_id': deriv_id,
+        'unidades_ativas': ativas,
+        'unidades_total': len(ESQUADRAO_SLOTS),
+        'lucro_total': round(lucro_total, 2),
+        'exposto_total': round(exposto_total, 2),
+        'unidades': unidades,
+    })
