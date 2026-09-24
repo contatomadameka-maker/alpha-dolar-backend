@@ -185,7 +185,13 @@ class AlphaDolar:
         else:
             payout_rate = self.PAYOUT_RATE  # fallback se ainda nao houver proposta
 
-        stake_ideal = (self.perda_acumulada + self.config.STAKE_INICIAL) / payout_rate
+        # Multiplicador escolhido na tela funciona como acelerador do lucro-alvo:
+        # em vez de mirar so "perda + 1x stake inicial", mira "perda + Nx stake
+        # inicial" -- continua garantindo recuperacao total, so aumenta o extra
+        # de lucro em cima dela. Sem escolha explicita, acelerador = 1.0 (igual
+        # ao comportamento de sempre, sem mudanca de nada).
+        acelerador = getattr(self.config, 'MULTIPLICADOR_ACELERADOR', None) or 1.0
+        stake_ideal = (self.perda_acumulada + self.config.STAKE_INICIAL * acelerador) / payout_rate
         stake = round(stake_ideal, 2)
         stake = max(round(self.config.STAKE_INICIAL, 2), stake)
 

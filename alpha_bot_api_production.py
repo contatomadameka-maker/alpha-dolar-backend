@@ -474,7 +474,12 @@ def start_bot():
             print(f"🔑 Token [{account_type.upper()}]: {token[:10]}...")
 
             trading_mode   = config.get('trading_mode', 'faster')
-            risk_mode      = config.get('risk_mode', 'conservative')
+            _risk_preset   = config.get('risk_mode', 'conservative')
+            _mult_escolhido = config.get('multiplicador')
+            risk_mode = {
+                'preset': _risk_preset,
+                'multiplicador': float(_mult_escolhido) if _mult_escolhido not in (None, '', 0) else None,
+            }
             strategy_id    = config.get('strategy', 'alpha_bot_1')
             multi_strategies = config.get('multi_strategies', [])
             is_multi = strategy_id == 'multi' and multi_strategies
@@ -520,6 +525,7 @@ def start_bot():
 
             try:
                 bot = AlphaDolar(strategy=strategy, use_martingale=getattr(strategy, "usar_martingale", True), api_token=token, account_id=deriv_id)
+                bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
