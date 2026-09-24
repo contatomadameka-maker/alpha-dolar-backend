@@ -68,6 +68,7 @@ try:
     from backend.strategies.alpha_smart import AlphaSmart
     from backend.strategies.alpha_analytics_sniper import AlphaAnalytics, AlphaSniper
     from backend.strategies.premium_strategies import MegaAlpha1, MegaAlpha2, MegaAlpha3, AlphaElite, AlphaNexus
+    from backend.strategies.alpha_perfil import AlphaPerfil
     BOTS_AVAILABLE = True
     print("✅ Todas as 15 estratégias carregadas!")
 except ImportError as e:
@@ -92,6 +93,7 @@ STRATEGY_MAP = {
     'mega_alpha_3':       lambda tm, rm: MegaAlpha3(tm, rm),
     'alpha_elite':        lambda tm, rm: AlphaElite(tm, rm),
     'alpha_nexus':        lambda tm, rm: AlphaNexus(tm, rm),
+    'alpha_perfil':       lambda tm, rm: AlphaPerfil(tm, rm),
 }
 
 SYMBOL_MAP = {
