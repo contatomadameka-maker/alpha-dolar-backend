@@ -44,7 +44,12 @@ class AlphaBotBalanced(BaseStrategy):
         self.trading_mode    = trading_mode
 
         # Aplica gerenciamento de risco
-        rm = self.RISK_MODE_CONFIG.get(risk_mode, self.RISK_MODE_CONFIG['conservative'])
+        if isinstance(risk_mode, dict):
+            rm = dict(self.RISK_MODE_CONFIG.get(risk_mode.get('preset', 'conservative'), self.RISK_MODE_CONFIG['conservative']))
+            if risk_mode.get('multiplicador') is not None:
+                rm['multiplier'] = risk_mode['multiplicador']
+        else:
+            rm = self.RISK_MODE_CONFIG.get(risk_mode, self.RISK_MODE_CONFIG['conservative'])
         self.usar_martingale        = rm['martingale']
         self.multiplicador_martingale = rm['multiplier']
         self.max_martingale_steps   = rm['max_steps']
