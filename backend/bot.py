@@ -275,12 +275,23 @@ class AlphaDolar:
                 take_profit=params.get("take_profit"),
             )
         else:
+            _symbol_usado = params.get("symbol", self.config.DEFAULT_SYMBOL)
+            # Boom/Crash/Jump nao aceitam duracao em ticks (so em minutos+) --
+            # sem isso, a Deriv rejeita a compra com TradingDurationNotAllowed
+            # e o bot fica preso sem nunca operar, mesmo detectando sinal certo.
+            if _symbol_usado.startswith(('BOOM', 'CRASH', 'JD')):
+                _duration = params.get("duration") if params.get("duration_unit") not in (None, 't') else 1
+                _duration_unit = 'm' if params.get("duration_unit") in (None, 't') else params.get("duration_unit")
+            else:
+                _duration = params.get("duration", 1)
+                _duration_unit = params.get("duration_unit", "t")
+
             proposal_params = {
                 'contract_type': contract_type,
-                'symbol': params.get("symbol", self.config.DEFAULT_SYMBOL),
+                'symbol': _symbol_usado,
                 'amount': stake,
-                'duration': params.get("duration", 1),
-                'duration_unit': params.get("duration_unit", "t")
+                'duration': _duration,
+                'duration_unit': _duration_unit
             }
             if barrier is not None:
                 proposal_params['barrier'] = barrier
