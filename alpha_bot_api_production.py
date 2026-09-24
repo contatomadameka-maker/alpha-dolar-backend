@@ -69,6 +69,7 @@ try:
     from backend.strategies.alpha_analytics_sniper import AlphaAnalytics, AlphaSniper
     from backend.strategies.premium_strategies import MegaAlpha1, MegaAlpha2, MegaAlpha3, AlphaElite, AlphaNexus
     from backend.strategies.alpha_perfil import AlphaPerfil
+    from backend.strategies.alpha_regente import AlphaRegente
     BOTS_AVAILABLE = True
     print("✅ Todas as 15 estratégias carregadas!")
 except ImportError as e:
