@@ -2618,3 +2618,91 @@ def esquadrao_zerar(slot):
     get_user_state(deriv_id, slot)['_symbol'] = ''
 
     return jsonify({'success': True, 'slot': slot, 'message': 'Historico zerado'})
+
+
+# ==================== ALPHA PERFIL - PADRAO VENCEDOR ====================
+PADRAO_MIN_AMOSTRA_TOTAL = 20   # so analisa depois de pelo menos 20 operacoes com symbol salvo
+PADRAO_MIN_AMOSTRA_GRUPO = 5    # so aponta um mercado/turno como "melhor" com pelo menos 5 ocorrencias nele
+
+def _turno_do_horario(hora):
+    if 0 <= hora < 6:
+        return 'madrugada', 'Madrugada (00h-06h)'
+    if 6 <= hora < 12:
+        return 'manha', 'Manhã (06h-12h)'
+    if 12 <= hora < 18:
+        return 'tarde', 'Tarde (12h-18h)'
+    return 'noite', 'Noite (18h-00h)'
+
+
+@app.route('/api/perfil/padrao')
+def perfil_padrao_vencedor():
+    deriv_id = request.args.get('deriv_id', '')
+    bot_name = request.args.get('bot_name', '')
+    if not deriv_id:
+        return jsonify({'success': False, 'error': 'deriv_id obrigatorio'}), 400
+
+    try:
+        from database import listar_operacoes
+        todas = listar_operacoes(bot_name) if bot_name else listar_operacoes()
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    minhas = [op for op in todas if op.get('cliente_id') == deriv_id and op.get('symbol')]
+    total_amostra = len(minhas)
+
+    if total_amostra < PADRAO_MIN_AMOSTRA_TOTAL:
+        return jsonify({
+            'success': True, 'suficiente': False,
+            'total_amostra': total_amostra, 'minimo_necessario': PADRAO_MIN_AMOSTRA_TOTAL,
+        })
+
+    from collections import defaultdict
+    from datetime import datetime
+
+    por_mercado = defaultdict(lambda: {'wins': 0, 'total': 0})
+    por_turno = defaultdict(lambda: {'wins': 0, 'total': 0, 'label': ''})
+
+    for op in minhas:
+        symbol = op.get('symbol')
+        ganhou = op.get('resultado') == 'win'
+        por_mercado[symbol]['total'] += 1
+        if ganhou:
+            por_mercado[symbol]['wins'] += 1
+
+        criado_em = op.get('criado_em', '')
+        try:
+            dt = datetime.fromisoformat(criado_em.replace('Z', '+00:00'))
+            turno_id, turno_label = _turno_do_horario(dt.hour)
+            por_turno[turno_id]['label'] = turno_label
+            por_turno[turno_id]['total'] += 1
+            if ganhou:
+                por_turno[turno_id]['wins'] += 1
+        except Exception:
+            pass
+
+    def _melhor(dicionario, min_amostra):
+        candidatos = [
+            (chave, dados['wins'] / dados['total'] * 100, dados['total'])
+            for chave, dados in dicionario.items() if dados['total'] >= min_amostra
+        ]
+        if not candidatos:
+            return None
+        chave, win_rate, total = max(candidatos, key=lambda x: x[1])
+        return {'chave': chave, 'win_rate': round(win_rate, 1), 'total': total}
+
+    melhor_mercado = _melhor(por_mercado, PADRAO_MIN_AMOSTRA_GRUPO)
+    melhor_turno_raw = _melhor(por_turno, PADRAO_MIN_AMOSTRA_GRUPO)
+    melhor_turno = None
+    if melhor_turno_raw:
+        melhor_turno = {
+            'label': por_turno[melhor_turno_raw['chave']]['label'],
+            'win_rate': melhor_turno_raw['win_rate'],
+            'total': melhor_turno_raw['total'],
+        }
+
+    return jsonify({
+        'success': True, 'suficiente': True,
+        'total_amostra': total_amostra,
+        'melhor_mercado': melhor_mercado,
+        'melhor_turno': melhor_turno,
+    })
