@@ -723,6 +723,7 @@ def start_bot():
             original_contract_update = bot.on_contract_update
             def patched_contract_update(contract_data):
                 status = contract_data.get('status')
+                print(f"🔎 DEBUG contract_update [{bot_type}]: status={status} keys={list(contract_data.keys())}")
                 # Ignora eventos de liberacao artificial (timeout/reconexao/erro de compra) --
                 # nao sao resultados reais de trade, apenas destravam o bot para o proximo sinal.
                 is_fake_event = (contract_data.get('_timeout') or contract_data.get('_reconnect') or
