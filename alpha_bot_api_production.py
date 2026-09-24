@@ -437,7 +437,7 @@ def start_bot():
         # nao apenas simulados -- permite rodar ate 4 unidades em paralelo
         # por conta, alem dos paineis ia/ia_simples que ja existiam.
         ESQUADRAO_SLOTS = [f'unidade-{i}' for i in range(1, 5)]
-        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples'] + ESQUADRAO_SLOTS:
+        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil'] + ESQUADRAO_SLOTS:
             print("🤖 Iniciando BOT PYTHON REAL...")
 
             BotConfig.DEFAULT_SYMBOL = symbol
@@ -482,7 +482,7 @@ def start_bot():
                 'preset': _risk_preset,
                 'multiplicador': float(_mult_escolhido) if _mult_escolhido not in (None, '', 0) else None,
             }
-            strategy_id    = config.get('strategy', 'alpha_bot_1')
+            strategy_id    = 'alpha_perfil' if bot_type == 'perfil' else config.get('strategy', 'alpha_bot_1')
             multi_strategies = config.get('multi_strategies', [])
             is_multi = strategy_id == 'multi' and multi_strategies
             stop_loss_type = config.get('stop_loss_type', 'value')
