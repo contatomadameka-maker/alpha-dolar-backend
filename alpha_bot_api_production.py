@@ -946,6 +946,7 @@ def get_bot_stats(bot_type):
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
         'perda_dc': get_user_state(deriv_id, bot_type).get('_perda_desde_ultimo_ganho', 0),
         'limite_perda': state.get('limite_perda', BotConfig.LIMITE_PERDA),
+        'multiplicador_atual': getattr(getattr(bot, 'config', None), 'MULTIPLICADOR_ACELERADOR', None) if bot else None,
     })
 
 # ==================== TRADES ====================
