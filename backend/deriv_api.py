@@ -296,6 +296,31 @@ class DerivAPI:
         self._send(proposal)
         self.log(f"Solicitando proposta: {contract_type} {symbol}", "INFO")
 
+    def get_proposal_multiplier(self, symbol, amount, direction, multiplier, stop_loss=None, take_profit=None):
+        """Contratos Multiplier nao tem duration -- ficam abertos ate serem
+        vendidos, manualmente ou pelo stop_loss/take_profit que a propria
+        Deriv fecha sozinha quando informado no limit_order."""
+        symbol_key = "underlying_symbol" if getattr(self, '_using_otp', False) else "symbol"
+        contract_type = "MULTUP" if direction == "CALL" else "MULTDOWN"
+        proposal = {
+            "proposal": 1,
+            "amount": amount,
+            "basis": BotConfig.BASIS,
+            "contract_type": contract_type,
+            "currency": self.currency,
+            "multiplier": multiplier,
+            symbol_key: symbol,
+        }
+        limit_order = {}
+        if stop_loss:
+            limit_order["stop_loss"] = stop_loss
+        if take_profit:
+            limit_order["take_profit"] = take_profit
+        if limit_order:
+            proposal["limit_order"] = limit_order
+        self._send(proposal)
+        self.log(f"Solicitando proposta Multiplier: {contract_type} {symbol} {multiplier}x", "INFO")
+
     def buy_contract(self, proposal_id, price):
         self._send({"buy": proposal_id, "price": price})
         self.log(f"Comprando contrato ID: {proposal_id}", "TRADE")
