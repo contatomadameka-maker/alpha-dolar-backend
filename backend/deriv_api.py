@@ -223,13 +223,15 @@ class DerivAPI:
             try: self.ws.close()
             except: pass
             self.ws = None
-        # Aguarda threads encerrarem
-        if self.ws_thread and self.ws_thread.is_alive():
+        # Aguarda threads encerrarem -- mesma protecao do _reconnect(): uma
+        # thread nunca pode dar join() nela mesma, senao trava para sempre.
+        current = threading.current_thread()
+        if self.ws_thread and self.ws_thread.is_alive() and self.ws_thread is not current:
             self.ws_thread.join(timeout=3)
-            self.ws_thread = None
-        if self.keep_alive_thread and self.keep_alive_thread.is_alive():
+        self.ws_thread = None
+        if self.keep_alive_thread and self.keep_alive_thread.is_alive() and self.keep_alive_thread is not current:
             self.keep_alive_thread.join(timeout=3)
-            self.keep_alive_thread = None
+        self.keep_alive_thread = None
         self.log("Desconectado da Deriv API", "INFO")
 
     def authorize(self):
