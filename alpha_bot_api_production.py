@@ -526,8 +526,6 @@ def start_bot():
                     factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
                     strategy = factory(trading_mode, risk_mode)
             except Exception as e:
-                import traceback
-                traceback.print_exc()
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
