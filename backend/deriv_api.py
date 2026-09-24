@@ -355,6 +355,9 @@ class DerivAPI:
             data     = json.loads(message)
             msg_type = data.get("msg_type")
 
+            if "error" in data:
+                self.log(f"⚠️ DEBUG erro Deriv [{msg_type}]: {data['error']}", "ERROR")
+
             if msg_type == "ping":
                 self._send({"pong": 1})
 
