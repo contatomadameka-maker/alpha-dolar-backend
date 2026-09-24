@@ -557,7 +557,7 @@ def start_bot():
                         _payout_bruto = getattr(getattr(bot, 'api', None), 'last_payout_value', 0) or 0
                         _markup_usd = round(float(_payout_bruto) * 0.03, 4)
                         print(f"💾 Salvando operação: cliente={_cliente_id} bot={_bot_name} won={won} profit={profit} markup={_markup_usd}")
-                        _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake, _markup_usd)
+                        _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake, _markup_usd, symbol=symbol_used)
                         try:
                             from database import distribuir_comissao
                             distribuir_comissao(_cliente_id, _bot_name, _markup_usd)
@@ -678,7 +678,8 @@ def start_bot():
                             direcao=direction,
                             ganhou=won,
                             lucro=round(profit, 2),
-                            stake=round(stake, 2)
+                            stake=round(stake, 2),
+                            symbol=symbol_used
                         )
                 except Exception as e:
                     print(f"Erro ao salvar operação: {e}")
