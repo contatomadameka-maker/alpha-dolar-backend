@@ -261,18 +261,30 @@ class AlphaDolar:
             log_msg += f" | Barreira: {barrier}"
         self.log(log_msg, "TRADE")
 
-        proposal_params = {
-            'contract_type': contract_type,
-            'symbol': params.get("symbol", self.config.DEFAULT_SYMBOL),
-            'amount': stake,
-            'duration': params.get("duration", 1),
-            'duration_unit': params.get("duration_unit", "t")
-        }
-        if barrier is not None:
-            proposal_params['barrier'] = barrier
-
         self._ultimo_stake_usado = stake
-        self.api.get_proposal(**proposal_params)
+
+        if contract_type in ('MULTUP', 'MULTDOWN'):
+            # Multiplier nao tem duration -- fica aberto ate a Deriv fechar
+            # sozinha (limit_order) ou ate ser vendido manualmente.
+            self.api.get_proposal_multiplier(
+                symbol=params.get("symbol", self.config.DEFAULT_SYMBOL),
+                amount=stake,
+                direction=direction,
+                multiplier=params.get("multiplier", 100),
+                stop_loss=params.get("stop_loss"),
+                take_profit=params.get("take_profit"),
+            )
+        else:
+            proposal_params = {
+                'contract_type': contract_type,
+                'symbol': params.get("symbol", self.config.DEFAULT_SYMBOL),
+                'amount': stake,
+                'duration': params.get("duration", 1),
+                'duration_unit': params.get("duration_unit", "t")
+            }
+            if barrier is not None:
+                proposal_params['barrier'] = barrier
+            self.api.get_proposal(**proposal_params)
         self.waiting_contract = True
         self.trades_hoje += 1
         self._ultimo_trade_time = time.time()
