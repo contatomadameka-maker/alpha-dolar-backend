@@ -284,7 +284,7 @@ class DerivAPI:
         """Consulta quais tipos de contrato e duracoes a Deriv aceita para
         um simbolo especifico -- usado para descobrir por que Boom/Crash/Jump
         rejeitam duracao em ticks/minutos fixos (TradingDurationNotAllowed)."""
-        self._send({"contracts_for": symbol, "currency": self.currency or "USD"})
+        self._send({"contracts_for": symbol})
         self.log(f"Solicitando contracts_for de {symbol}", "INFO")
 
     def get_proposal(self, contract_type, symbol, amount, duration, duration_unit="t", barrier=None):
