@@ -530,7 +530,14 @@ def start_bot():
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
-                bot = AlphaDolar(strategy=strategy, use_martingale=getattr(strategy, "usar_martingale", True), api_token=token, account_id=deriv_id)
+                # Enxame desliga martingale de recuperacao: o Enxame gerencia o
+                # proprio limite de perda/lucro em dolar por unidade, e o
+                # martingale (que dobra o stake tentando recuperar) podia
+                # "furar" esse limite numa unica operacao antes do stop
+                # loss da sessao conseguir agir. Nenhum outro bot muda de
+                # comportamento -- essa flag so se aplica a slots enxame-N.
+                _usa_martingale = False if bot_type.startswith('enxame-') else getattr(strategy, "usar_martingale", True)
+                bot = AlphaDolar(strategy=strategy, use_martingale=_usa_martingale, api_token=token, account_id=deriv_id)
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
