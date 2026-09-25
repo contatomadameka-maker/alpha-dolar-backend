@@ -413,6 +413,7 @@ class AlphaDolar:
             self.api.set_balance_callback(self.on_balance_update)
 
             self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
+            self.api.get_contracts_for(self.config.DEFAULT_SYMBOL)
 
             self.is_running = True
             self.api._bot_ref = self

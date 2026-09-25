@@ -280,6 +280,13 @@ class DerivAPI:
     def subscribe_balance(self):
         self._send({"balance": 1, "subscribe": 1})
 
+    def get_contracts_for(self, symbol):
+        """Consulta quais tipos de contrato e duracoes a Deriv aceita para
+        um simbolo especifico -- usado para descobrir por que Boom/Crash/Jump
+        rejeitam duracao em ticks/minutos fixos (TradingDurationNotAllowed)."""
+        self._send({"contracts_for": symbol, "currency": self.currency or "USD"})
+        self.log(f"Solicitando contracts_for de {symbol}", "INFO")
+
     def get_proposal(self, contract_type, symbol, amount, duration, duration_unit="t", barrier=None):
         # Novo OAuth usa underlying_symbol, legado usa symbol
         symbol_key = "underlying_symbol" if getattr(self, '_using_otp', False) else "symbol"
@@ -381,6 +388,21 @@ class DerivAPI:
             elif msg_type == "tick":
                 if self.on_tick_callback:
                     self.on_tick_callback(data.get("tick", {}))
+
+            elif msg_type == "contracts_for":
+                cf = data.get("contracts_for", {})
+                available = cf.get("available", [])
+                # Extrai as combinacoes unicas de contract_type + duracoes permitidas
+                resumo = {}
+                for c in available:
+                    ct = c.get("contract_type")
+                    resumo.setdefault(ct, {
+                        "durations": set(),
+                        "min_contract_duration": c.get("min_contract_duration"),
+                        "max_contract_duration": c.get("max_contract_duration"),
+                    })
+                for ct, info in resumo.items():
+                    self.log(f"📋 CONTRACTS_FOR: {ct} | min={info['min_contract_duration']} max={info['max_contract_duration']}", "INFO")
 
             elif msg_type == "proposal":
                 if "error" in data:
