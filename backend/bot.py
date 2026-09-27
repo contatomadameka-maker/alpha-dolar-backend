@@ -462,7 +462,8 @@ class AlphaDolar:
                         signal_data_forcado = None
                         # Reset martingale antes de forçar trade
                         self.stop_loss._perda_acumulada = 0.0
-                        self.martingale.reset()
+                        if self.martingale:
+                            self.martingale.reset()
 
                         # ✅ FIX 03/03: tenta obter sinal completo com barrier
                         if hasattr(self.strategy, 'analyze'):
