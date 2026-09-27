@@ -530,7 +530,11 @@ def start_bot():
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
-                bot = AlphaDolar(strategy=strategy, use_martingale=getattr(strategy, "usar_martingale", True), api_token=token, account_id=deriv_id)
+                # Enxame: martingale do bot desligado (o limite de perda em dolar
+                # da unidade nao pode ser furado por recuperacao). Vale so para
+                # slots enxame-N; o watchdog ja esta protegido contra martingale None.
+                _usa_martingale = False if bot_type.startswith('enxame-') else getattr(strategy, "usar_martingale", True)
+                bot = AlphaDolar(strategy=strategy, use_martingale=_usa_martingale, api_token=token, account_id=deriv_id)
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
