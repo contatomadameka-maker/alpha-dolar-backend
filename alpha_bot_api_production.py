@@ -565,7 +565,7 @@ def start_bot():
             _my_gen = _uuid_gen.uuid4().hex
             get_user_state(deriv_id, bot_type)['_gen'] = _my_gen
             _old_inst = get_user_state(deriv_id, bot_type).get('instance')
-            if bot_type.startswith('enxame-') and _old_inst is not None and _old_inst is not bot:
+            if bot_type.startswith('enxame-') and _old_inst is not None and _old_inst is not bot and getattr(_old_inst, 'is_running', False):
                 import threading as _th_old
                 def _parar_antigo(_b=_old_inst, _slot=bot_type):
                     try:

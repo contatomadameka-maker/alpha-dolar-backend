@@ -392,7 +392,7 @@ class AlphaDolar:
                 return
 
     def on_balance_update(self, balance):
-        self.log(f"💰 Saldo atualizado: ${balance:.2f}", "INFO")
+        return  # sem log: cada robo recebe o mesmo saldo da conta e poluia o log
 
     def start(self):
         try:
