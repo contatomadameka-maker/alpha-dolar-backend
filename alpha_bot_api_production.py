@@ -591,6 +591,17 @@ def start_bot():
                             print(f"Erro ao distribuir comissao de rede: {e_dist}")
                 except Exception as e:
                     print(f"Erro ao salvar op: {e}")
+                try:
+                    if bot_type.startswith('enxame-'):
+                        _registrar_ledger({
+                            't': time.time(), 'hora': datetime.now().strftime('%H:%M:%S'),
+                            'slot': bot_type,
+                            'gen_atual': get_user_state(deriv_id, bot_type).get('_gen') == _my_gen,
+                            'estrategia': strategy_id, 'simbolo': symbol_used, 'direcao': direction,
+                            'stake': round(float(stake), 2), 'profit': round(float(profit), 2), 'won': bool(won),
+                        })
+                except Exception as _e_led:
+                    print(f"Erro ledger: {_e_led}")
                 if bot_type.startswith('enxame-') and get_user_state(deriv_id, bot_type).get('_gen') != _my_gen:
                     print(f"⚠️ Resultado de geracao antiga ignorado: {bot_type} profit={profit}")
                     return
@@ -921,6 +932,63 @@ def stop_bot():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # ==================== STATS ====================
+def _ledger_path():
+    import os
+    return os.environ.get('LEDGER_PATH', '/tmp/enxame_ledger.jsonl')
+
+def _registrar_ledger(reg):
+    import json
+    with open(_ledger_path(), 'a', encoding='utf-8') as f:
+        f.write(json.dumps(reg, ensure_ascii=False) + '\n')
+
+@app.route('/api/enxame/ledger')
+def enxame_ledger():
+    import json
+    linhas = []
+    try:
+        with open(_ledger_path(), 'r', encoding='utf-8') as f:
+            for l in f:
+                try:
+                    linhas.append(json.loads(l))
+                except Exception:
+                    pass
+    except FileNotFoundError:
+        pass
+
+    def resumo(itens):
+        n = len(itens)
+        w = sum(1 for i in itens if i.get('won'))
+        return {'n': n, 'wins': w, 'win_rate': round(100.0 * w / n, 1) if n else 0,
+                'lucro': round(sum(i.get('profit', 0) for i in itens), 2)}
+
+    def agrupar(chave):
+        vals = sorted({i.get(chave) for i in linhas if i.get(chave)})
+        return {v: resumo([i for i in linhas if i.get(chave) == v]) for v in vals}
+
+    pays = [i['profit'] / i['stake'] for i in linhas if i.get('won') and i.get('stake')]
+    payout = round(sum(pays) / len(pays), 3) if pays else None
+    equilibrio = round(100.0 / (1 + payout), 1) if payout else None
+
+    ordenadas = sorted(linhas, key=lambda i: i.get('t', 0))
+    coincide = 0
+    for a, ia in enumerate(ordenadas):
+        for ib in ordenadas[max(0, a - 15):a + 16]:
+            if ib is not ia and ib.get('slot') != ia.get('slot') and ib.get('simbolo') == ia.get('simbolo') \
+               and ib.get('direcao') == ia.get('direcao') and abs(ib.get('t', 0) - ia.get('t', 0)) <= 3:
+                coincide += 1
+                break
+
+    return jsonify({
+        'geral': resumo(linhas),
+        'payout_medio': payout,
+        'acerto_para_empatar_pct': equilibrio,
+        'apostas_coincidentes': coincide,
+        'apostas_coincidentes_pct': round(100.0 * coincide / len(linhas), 1) if linhas else 0,
+        'por_estrategia': agrupar('estrategia'),
+        'por_mercado': agrupar('simbolo'),
+        'por_direcao': agrupar('direcao'),
+    })
+
 @app.route('/api/bot/stats/<bot_type>')
 def get_bot_stats(bot_type):
     deriv_id = request.args.get('deriv_id', 'anonymous')
