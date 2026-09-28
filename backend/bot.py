@@ -330,6 +330,12 @@ class AlphaDolar:
                 profit = -(self._ultimo_stake_usado or self.config.STAKE_INICIAL)
 
         contract_id = contract_data.get("contract_id")
+        if contract_id is not None:
+            if not hasattr(self, "_contratos_processados"):
+                self._contratos_processados = set()
+            if contract_id in self._contratos_processados:
+                return
+            self._contratos_processados.add(contract_id)
         vitoria = status == "won"
 
         self.waiting_contract = False

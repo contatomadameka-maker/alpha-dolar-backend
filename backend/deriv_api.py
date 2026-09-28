@@ -445,7 +445,17 @@ class DerivAPI:
                 status   = contract.get("status")
 
                 if self.on_contract_callback:
-                    self.on_contract_callback(contract)
+                    _cid = contract.get("contract_id")
+                    _liquidado = contract.get("status") in ("won", "lost")
+                    if not hasattr(self, "_ids_liquidados"):
+                        self._ids_liquidados = []
+                    if _liquidado and _cid is not None and _cid in self._ids_liquidados:
+                        pass  # resultado desse contrato ja foi entregue
+                    else:
+                        if _liquidado and _cid is not None:
+                            self._ids_liquidados.append(_cid)
+                            self._ids_liquidados = self._ids_liquidados[-200:]
+                        self.on_contract_callback(contract)
 
                 if status in ["won", "lost"]:
                     profit = float(contract.get("profit", 0))
