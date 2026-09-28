@@ -556,6 +556,10 @@ def start_bot():
             get_user_state(deriv_id, bot_type)['_limite_perda'] = BotConfig.LIMITE_PERDA
             get_user_state(deriv_id, bot_type)['_lucro_sessao'] = 0.0
 
+            import uuid as _uuid_gen
+            _my_gen = _uuid_gen.uuid4().hex
+            get_user_state(deriv_id, bot_type)['_gen'] = _my_gen
+
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={get_user_state(deriv_id, bot_type).get('mart_step',0)}")
                 try:
@@ -573,6 +577,9 @@ def start_bot():
                             print(f"Erro ao distribuir comissao de rede: {e_dist}")
                 except Exception as e:
                     print(f"Erro ao salvar op: {e}")
+                if bot_type.startswith('enxame-') and get_user_state(deriv_id, bot_type).get('_gen') != _my_gen:
+                    print(f"⚠️ Resultado de geracao antiga ignorado: {bot_type} profit={profit}")
+                    return
                 trades_ate_agora = get_user_state(deriv_id, bot_type)['trades']
                 total = len(trades_ate_agora) + 1
                 wins  = sum(1 for t in trades_ate_agora if t.get('result') == 'win') + (1 if won else 0)
@@ -947,7 +954,7 @@ def get_bot_stats(bot_type):
         'bot_running': is_running, 'waiting_signal': waiting_signal,
         'mart_step': mart_step, 'mart_max': mart_max,
          'strategy_name': get_user_state(deriv_id, bot_type).get('strategy_name', ''),
-        'saldo_atual': stats.get('balance', 0), 'lucro_liquido': get_user_state(deriv_id, bot_type).get('_lucro_sessao', stats.get('saldo_liquido', 0)),
+        'saldo_atual': stats.get('balance', 0), 'lucro_liquido': (stats.get('saldo_liquido', 0) if (bot_type.startswith('enxame-') and bot is not None and 'saldo_liquido' in stats) else get_user_state(deriv_id, bot_type).get('_lucro_sessao', stats.get('saldo_liquido', 0))),
         'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
         'perda_dc': get_user_state(deriv_id, bot_type).get('_perda_desde_ultimo_ganho', 0),
