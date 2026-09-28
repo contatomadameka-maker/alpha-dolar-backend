@@ -207,6 +207,9 @@ class AlphaDolar:
         self.log(f"🛑 Bot encerrado automaticamente por proteção de capital", "STOP_LOSS")
         self.stop()
 
+    _MERCADOS_OCUPADOS = {}
+    _MERCADO_LOCK = __import__('threading').Lock()
+
     def executar_trade(self, direction, signal_data=None):
         # Trava atomica: impede que dois disparos simultaneos (ex: watchdog
         # forcando trade + sinal organico do tick, em threads diferentes)
@@ -267,6 +270,26 @@ class AlphaDolar:
             params = self.strategy.get_contract_params(direction)
             contract_type = params.get("contract_type", direction)
             barrier = None
+
+        if getattr(self, 'enxame_stop_estrito', False):
+            _simb = params.get("symbol", self.config.DEFAULT_SYMBOL)
+            _cls = type(self)
+            with _cls._MERCADO_LOCK:
+                _occ = _cls._MERCADOS_OCUPADOS.get(_simb)
+                _ocupado = (
+                    _occ is not None and _occ is not self
+                    and getattr(_occ, 'waiting_contract', False)
+                    and getattr(_occ, '_mercado_ocupado', None) == _simb
+                    and time.time() - getattr(_occ, '_mercado_ocupado_t', 0) < 60
+                )
+                if not _ocupado:
+                    _cls._MERCADOS_OCUPADOS[_simb] = self
+                    self._mercado_ocupado = _simb
+                    self._mercado_ocupado_t = time.time()
+            if _ocupado:
+                self.log(f"⏸️ Enxame: {_simb} ja tem contrato aberto de outro robo - aguardando proximo sinal", "INFO")
+                self.waiting_contract = False
+                return
 
         log_msg = f"🎯 Executando {contract_type} | Stake: ${stake:.2f} | Perda acum: ${self.perda_acumulada:.2f}"
         if barrier is not None:
