@@ -234,6 +234,18 @@ class AlphaDolar:
             stake = self.current_stake
             print(f"🔍 DEBUG stake: branch=CURRENT_STAKE stake={stake}")
 
+        if getattr(self, 'enxame_stop_estrito', False):
+            perda_sessao = max(0.0, -self.stop_loss.saldo_liquido)
+            if perda_sessao + stake > self.config.LIMITE_PERDA:
+                self.log(
+                    f"🛑 Enxame: aposta de ${stake:.2f} com perda atual ${perda_sessao:.2f} passaria do limite "
+                    f"${self.config.LIMITE_PERDA:.2f} - unidade encerrada sem apostar",
+                    "WARNING"
+                )
+                self.waiting_contract = False
+                self._disparar_stop_loss("Proxima aposta passaria do limite de perda")
+                return
+
         if self.api.balance < stake:
             self.log(f"Saldo insuficiente! Necessário: ${stake:.2f} | Disponível: ${self.api.balance:.2f}", "ERROR")
             if stake > self.api.balance * 0.50:
@@ -370,6 +382,14 @@ class AlphaDolar:
         deve_parar, motivo = self.stop_loss.deve_parar()
         if deve_parar and "saldo" in motivo.lower():
             self._disparar_stop_loss(motivo)
+
+        # Enxame: o limite de perda vale como teto real da unidade.
+        if getattr(self, 'enxame_stop_estrito', False):
+            perda_sessao = max(0.0, -stats.get('saldo_liquido', 0))
+            if perda_sessao >= self.config.LIMITE_PERDA:
+                self.log(f"🛑 Enxame: perda da sessao ${perda_sessao:.2f} atingiu o limite ${self.config.LIMITE_PERDA:.2f}", "WARNING")
+                self._disparar_stop_loss("Limite de perda da unidade atingido")
+                return
 
     def on_balance_update(self, balance):
         self.log(f"💰 Saldo atualizado: ${balance:.2f}", "INFO")
