@@ -541,6 +541,11 @@ def start_bot():
                 _orig_log = bot.log
                 def _patched_log(message, level="INFO", _bt=bot_type, _orig=_orig_log):
                     _orig(message, level)
+                    try:
+                        if bot_type.startswith('enxame-') and get_user_state(deriv_id, _bt).get('_gen') != _my_gen:
+                            return
+                    except NameError:
+                        pass
                     if level == "STOP_LOSS":
                         get_user_state(deriv_id, _bt)['stop_reason']  = 'stop_loss'
                         get_user_state(deriv_id, _bt)['stop_message'] = message
@@ -559,6 +564,15 @@ def start_bot():
             import uuid as _uuid_gen
             _my_gen = _uuid_gen.uuid4().hex
             get_user_state(deriv_id, bot_type)['_gen'] = _my_gen
+            _old_inst = get_user_state(deriv_id, bot_type).get('instance')
+            if bot_type.startswith('enxame-') and _old_inst is not None and _old_inst is not bot:
+                import threading as _th_old
+                def _parar_antigo(_b=_old_inst, _slot=bot_type):
+                    try:
+                        _b.stop()
+                    except Exception as _e_old:
+                        print(f"Aviso: falha ao parar robo antigo de {_slot}: {_e_old}")
+                _th_old.Thread(target=_parar_antigo, daemon=True).start()
 
             def on_trade_completed(direction, won, profit, stake, symbol_used, exit_tick=None):
                 print(f"🔔 on_trade_completed CHAMADO! won={won} profit={profit} step_antes={get_user_state(deriv_id, bot_type).get('mart_step',0)}")
