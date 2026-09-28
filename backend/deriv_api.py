@@ -366,7 +366,7 @@ class DerivAPI:
                 self.log(f"⚠️ DEBUG erro Deriv [{msg_type}]: {data['error']}", "ERROR")
 
             if msg_type == "ping":
-                self._send({"pong": 1})
+                pass  # resposta ao nosso ping; a Deriv nao tem pedido "pong"
 
             elif msg_type == "authorize":
                 if "error" in data:
