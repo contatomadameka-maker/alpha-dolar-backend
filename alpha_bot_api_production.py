@@ -530,6 +530,21 @@ def start_bot():
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
+                # Antes de substituir a instancia do slot, guarda o resultado
+                # liquido da geracao que acabou de terminar -- o objeto antigo
+                # e descartado agora, e sem isso o frontend as vezes consulta
+                # o /api/bot/stats depois desse reset e ve saldo_liquido=0 da
+                # geracao NOVA em vez do resultado real da geracao que perdeu.
+                if bot_type.startswith('enxame-'):
+                    try:
+                        _bot_antigo = get_user_state(deriv_id, bot_type).get('instance')
+                        if _bot_antigo is not None and hasattr(_bot_antigo, 'stop_loss') and _bot_antigo.stop_loss:
+                            _saldo_antigo = getattr(_bot_antigo.stop_loss, 'saldo_liquido', None)
+                            if _saldo_antigo is not None:
+                                get_user_state(deriv_id, bot_type)['_ultimo_resultado_geracao'] = round(float(_saldo_antigo), 2)
+                    except Exception as _e_cap:
+                        print(f"Aviso: falha ao capturar resultado da geracao anterior de {bot_type}: {_e_cap}")
+
                 bot = AlphaDolar(strategy=strategy, use_martingale=getattr(strategy, "usar_martingale", True), api_token=token, account_id=deriv_id)
                 # Enxame: martingale normal, mas o limite de perda da unidade e teto real.
                 bot.enxame_stop_estrito = bot_type.startswith('enxame-')
@@ -1037,6 +1052,7 @@ def get_bot_stats(bot_type):
         'mart_step': mart_step, 'mart_max': mart_max,
          'strategy_name': get_user_state(deriv_id, bot_type).get('strategy_name', ''),
         'saldo_atual': stats.get('balance', 0), 'lucro_liquido': (stats.get('saldo_liquido', 0) if (bot_type.startswith('enxame-') and bot is not None and 'saldo_liquido' in stats) else get_user_state(deriv_id, bot_type).get('_lucro_sessao', stats.get('saldo_liquido', 0))),
+        'ultimo_resultado_geracao': get_user_state(deriv_id, bot_type).get('_ultimo_resultado_geracao'),
         'total_trades': stats.get('total_trades', 0), 'win_rate': stats.get('win_rate', 0),
         'vitorias': stats.get('vitorias', 0), 'derrotas': stats.get('derrotas', 0),
         'perda_dc': get_user_state(deriv_id, bot_type).get('_perda_desde_ultimo_ganho', 0),
