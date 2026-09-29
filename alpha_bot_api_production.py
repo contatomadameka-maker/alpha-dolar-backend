@@ -1017,7 +1017,7 @@ def feed_ganhos_get():
             rows = r.data
         except Exception as e:
             print(f"Feed: erro ao ler do Supabase: {e}")
-    if rows is None:
+    if not rows:
         rows = _FEED_MEM[:limit]
     itens = [{
         'nome': _feed_nome_curto(x.get('nome')), 'bot': x.get('bot') or '', 'mercado': x.get('mercado') or '',
