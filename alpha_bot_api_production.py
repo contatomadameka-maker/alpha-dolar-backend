@@ -607,6 +607,14 @@ def start_bot():
                 except Exception as e:
                     print(f"Erro ao salvar op: {e}")
                 try:
+                    if won and float(profit) > 0:
+                        _st_feed = get_user_state(deriv_id, bot_type)
+                        _feed_registrar(deriv_id, _st_feed.get('nome') or _st_feed.get('user_name') or '',
+                                        'Alpha Enxame' if bot_type.startswith('enxame-') else _st_feed.get('bot_name', bot_type),
+                                        symbol_used, profit, stake, _st_feed.get('account_type', 'demo'))
+                except Exception as _e_feed:
+                    print(f"Erro feed: {_e_feed}")
+                try:
                     if bot_type.startswith('enxame-'):
                         _registrar_ledger({
                             't': time.time(), 'hora': datetime.now().strftime('%H:%M:%S'),
@@ -955,6 +963,86 @@ def _registrar_ledger(reg):
     import json
     with open(_ledger_path(), 'a', encoding='utf-8') as f:
         f.write(json.dumps(reg, ensure_ascii=False) + '\n')
+
+# ==================== FEED DE GANHOS REAIS ====================
+import re as _re_feed
+_FEED_MEM = []     # reserva em memória se o Supabase falhar
+_FEED_RATE = {}    # limite de envios por conta
+
+def _feed_nome_curto(nome):
+    nome = (nome or '').strip()
+    partes = [p for p in _re_feed.split(r'\s+', nome) if p]
+    if not partes:
+        return 'Trader'
+    p = partes[0]
+    curto = p[0].upper() + '***' + (p[-1].lower() if len(p) > 2 else '')
+    if len(partes) > 1:
+        curto += ' ' + partes[-1][0].upper() + '.'
+    return curto
+
+def _feed_registrar(deriv_id, nome, bot, mercado, lucro, stake, conta, contract_id=None):
+    try:
+        lucro = round(float(lucro), 2)
+        stake = round(float(stake or 0), 2)
+    except Exception:
+        return False
+    if lucro <= 0 or lucro > 5000:          # só ganhos, com teto contra abuso
+        return False
+    row = {
+        'deriv_id': str(deriv_id or '')[:30], 'nome': str(nome or '')[:60],
+        'bot': str(bot or '')[:40], 'mercado': str(mercado or '')[:40],
+        'lucro': lucro, 'stake': stake, 'conta': 'real' if conta == 'real' else 'demo',
+        'contract_id': str(contract_id) if contract_id else None,
+    }
+    _FEED_MEM.insert(0, dict(row, created_at=datetime.utcnow().isoformat() + 'Z'))
+    del _FEED_MEM[200:]
+    if supabase_client:
+        try:
+            supabase_client.table('feed_ganhos').insert(row).execute()
+        except Exception as e:
+            print(f"Feed: erro ao gravar no Supabase: {e}")
+    return True
+
+@app.route('/api/feed/ganhos', methods=['GET'])
+def feed_ganhos_get():
+    try:
+        limit = max(1, min(int(request.args.get('limit', 30)), 60))
+    except Exception:
+        limit = 30
+    rows = None
+    if supabase_client:
+        try:
+            r = supabase_client.table('feed_ganhos').select('nome,bot,mercado,lucro,conta,created_at') \
+                .order('created_at', desc=True).limit(limit).execute()
+            rows = r.data
+        except Exception as e:
+            print(f"Feed: erro ao ler do Supabase: {e}")
+    if rows is None:
+        rows = _FEED_MEM[:limit]
+    itens = [{
+        'nome': _feed_nome_curto(x.get('nome')), 'bot': x.get('bot') or '', 'mercado': x.get('mercado') or '',
+        'lucro': float(x.get('lucro') or 0), 'conta': x.get('conta') or 'demo', 'quando': x.get('created_at'),
+    } for x in rows if float(x.get('lucro') or 0) > 0]
+    return jsonify({'ok': True, 'itens': itens})
+
+@app.route('/api/feed/ganho', methods=['POST'])
+def feed_ganho_post():
+    d = request.get_json(silent=True) or {}
+    did = str(d.get('deriv_id') or '')[:30]
+    cid = str(d.get('contract_id') or '')[:40]
+    if not did or not cid:
+        return jsonify({'ok': False, 'erro': 'deriv_id e contract_id obrigatorios'}), 400
+    ip = (request.headers.get('X-Forwarded-For') or request.remote_addr or '').split(',')[0].strip()
+    if ip in IP_BLACKLIST or did in DERIV_ID_BLACKLIST:
+        return jsonify({'ok': False}), 403
+    agora = time.time()
+    recentes = [t for t in _FEED_RATE.get(did, []) if agora - t < 60]
+    if len(recentes) >= 20:
+        return jsonify({'ok': False, 'erro': 'limite'}), 429
+    recentes.append(agora)
+    _FEED_RATE[did] = recentes
+    ok = _feed_registrar(did, d.get('nome'), d.get('bot'), d.get('mercado'), d.get('lucro'), d.get('stake'), d.get('conta'), cid)
+    return jsonify({'ok': ok})
 
 @app.route('/api/enxame/ledger')
 def enxame_ledger():
