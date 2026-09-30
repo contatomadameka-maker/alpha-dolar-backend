@@ -549,6 +549,7 @@ def start_bot():
                 # Enxame: martingale normal, mas o limite de perda da unidade e teto real.
                 bot.enxame_stop_estrito = bot_type.startswith('enxame-')
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
+                bot.limite_tentativas = (bot_type == 'ia')   # LIMITE-TENTATIVAS-V1: so a IA Simples; Enxame e outros seguem como antes
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
