@@ -712,9 +712,7 @@ def start_bot():
                     get_user_state(deriv_id, bot_type)['stop_reason']  = 'take_profit'
                     get_user_state(deriv_id, bot_type)['stop_message'] = f'META ATINGIDA! Lucro: +${_lucro_sessao:.2f}'
                     get_user_state(deriv_id, bot_type)['running']      = False
-                    if hasattr(bot, 'stop'):
-                        try: bot.stop()
-                        except: pass
+                    bot._parar_apos_registro = True   # META-ORDEM-V1: para so depois do robo registrar esta operacao
                 trade = {
                     'id': int(time.time() * 1000), 'direction': direction,
                     'result': 'win' if won else 'loss', 'profit': round(profit, 2),
@@ -812,6 +810,12 @@ def start_bot():
                         print(f"❌ Erro em on_trade_completed: {e_otc}")
                         _tb2.print_exc()
                 original_contract_update(contract_data)
+                if getattr(bot, '_parar_apos_registro', False):   # META-ORDEM-V1
+                    bot._parar_apos_registro = False
+                    try:
+                        if getattr(bot, 'is_running', False): bot.stop()
+                    except Exception as _e_meta:
+                        print(f'Aviso: falha ao parar apos meta: {_e_meta}')
 
             # Patch no método do objeto — sobrevive ao bot.start() que chama set_contract_callback(self.on_contract_update)
             bot.on_contract_update = patched_contract_update
