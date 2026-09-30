@@ -370,9 +370,22 @@ class AlphaDolar:
         if vitoria:
             self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
             self.perda_acumulada = 0.0
+            self._rec_tent = 0
         else:
             self.log(f"😞 DERROTA! Perda: ${abs(profit):.2f} | ID: {contract_id}", "LOSS")
             self.perda_acumulada += abs(profit)
+            # LIMITE-TENTATIVAS-V1: o modo de risco define quantas recuperacoes o robo faz.
+            # Acabou, aceita a perda e volta para a entrada inicial (como no DC), em vez de dobrar ate o stop loss.
+            self._rec_tent = getattr(self, '_rec_tent', 0) + 1
+            if self.martingale:
+                _maxt = int(getattr(self.martingale, 'max_steps', 0) or 0)
+                if self._rec_tent > _maxt:
+                    self.log(f"↩️ Fim das {_maxt} tentativas de recuperacao -- perda de ${self.perda_acumulada:.2f} aceita, voltando para a entrada inicial", "WARNING")
+                    self.perda_acumulada = 0.0
+                    self._rec_tent = 0
+                    self.martingale.reset()
+                else:
+                    self.martingale.step_atual = min(self._rec_tent, _maxt)
 
         if hasattr(self.strategy, 'on_trade_result'):
             self.strategy.on_trade_result(vitoria)
