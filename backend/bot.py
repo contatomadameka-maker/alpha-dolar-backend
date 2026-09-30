@@ -275,7 +275,8 @@ class AlphaDolar:
             _simb = params.get("symbol", self.config.DEFAULT_SYMBOL)
             _cls = type(self)
             with _cls._MERCADO_LOCK:
-                _occ = _cls._MERCADOS_OCUPADOS.get(_simb)
+                _chave = (getattr(self, '_dono', '') or '', _simb)  # TRAVA-POR-CONTA-V1: cada conta tem a sua trava
+                _occ = _cls._MERCADOS_OCUPADOS.get(_chave)
                 _ocupado = (
                     _occ is not None and _occ is not self
                     and getattr(_occ, 'waiting_contract', False)
@@ -283,7 +284,7 @@ class AlphaDolar:
                     and time.time() - getattr(_occ, '_mercado_ocupado_t', 0) < 60
                 )
                 if not _ocupado:
-                    _cls._MERCADOS_OCUPADOS[_simb] = self
+                    _cls._MERCADOS_OCUPADOS[_chave] = self
                     self._mercado_ocupado = _simb
                     self._mercado_ocupado_t = time.time()
             if _ocupado:

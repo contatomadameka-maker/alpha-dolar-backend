@@ -550,6 +550,7 @@ def start_bot():
                 bot.enxame_stop_estrito = bot_type.startswith('enxame-')
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
                 bot.limite_tentativas = (bot_type == 'ia')   # LIMITE-TENTATIVAS-V1: so a IA Simples; Enxame e outros seguem como antes
+                bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
