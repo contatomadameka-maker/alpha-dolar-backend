@@ -623,6 +623,7 @@ def start_bot():
                             'gen_atual': get_user_state(deriv_id, bot_type).get('_gen') == _my_gen,
                             'estrategia': strategy_id, 'simbolo': symbol_used, 'direcao': direction,
                             'stake': round(float(stake), 2), 'profit': round(float(profit), 2), 'won': bool(won),
+                            'deriv_id': deriv_id, 'conta_tipo': get_user_state(deriv_id, bot_type).get('account_type', 'demo'),
                         })
                 except Exception as _e_led:
                     print(f"Erro ledger: {_e_led}")
