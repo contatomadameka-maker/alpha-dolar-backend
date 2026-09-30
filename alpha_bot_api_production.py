@@ -711,7 +711,7 @@ def start_bot():
                 if _lucro_sessao >= _target and get_user_state(deriv_id, bot_type).get('running'):
                     get_user_state(deriv_id, bot_type)['stop_reason']  = 'take_profit'
                     get_user_state(deriv_id, bot_type)['stop_message'] = f'META ATINGIDA! Lucro: +${_lucro_sessao:.2f}'
-                    get_user_state(deriv_id, bot_type)['running']      = False
+                    # META-ORDEM-V2: 'running' so vira False depois que o robo registrar a operacao (bloco abaixo)
                     bot._parar_apos_registro = True   # META-ORDEM-V1: para so depois do robo registrar esta operacao
                 trade = {
                     'id': int(time.time() * 1000), 'direction': direction,
@@ -812,6 +812,7 @@ def start_bot():
                 original_contract_update(contract_data)
                 if getattr(bot, '_parar_apos_registro', False):   # META-ORDEM-V1
                     bot._parar_apos_registro = False
+                    get_user_state(deriv_id, bot_type)['running'] = False   # META-ORDEM-V2
                     try:
                         if getattr(bot, 'is_running', False): bot.stop()
                     except Exception as _e_meta:
