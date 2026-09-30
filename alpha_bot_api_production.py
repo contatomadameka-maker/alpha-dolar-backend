@@ -1890,6 +1890,66 @@ def get_cliente_email():
     except Exception as e:
         return jsonify({'email': '', 'error': str(e)})
 
+
+# ═══ LEDGER-SUPA-V1: livro de operacoes do Enxame gravado tambem no Supabase ═══
+# Cada operacao vai para a tabela enxame_ledger (em segundo plano). Quando o Render reinicia,
+# o arquivo em /tmp e reconstruido a partir do Supabase -- o /api/enxame/ledger continua igual.
+import json as _lj, threading as _lth, urllib.request as _lurl
+_LEDGER_SUPA_URL = os.environ.get('SUPABASE_URL', 'https://urlthgicnomfbyklesou.supabase.co').rstrip('/')
+def _ledger_supa_key():
+    return os.environ.get('SUPABASE_KEY', '')
+def _ledger_supa_req(path, method='GET', body=None, extra=None):
+    k = _ledger_supa_key()
+    if not k:
+        raise RuntimeError('SUPABASE_KEY nao definida no Render')
+    h = {'apikey': k, 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json'}
+    if extra: h.update(extra)
+    data = _lj.dumps(body).encode('utf-8') if body is not None else None
+    rq = _lurl.Request(_LEDGER_SUPA_URL + '/rest/v1/' + path, data=data, headers=h, method=method)
+    with _lurl.urlopen(rq, timeout=15) as r:
+        t = r.read().decode('utf-8')
+        return _lj.loads(t) if t else None
+
+_registrar_ledger_arquivo = _registrar_ledger
+def _registrar_ledger(reg):
+    _registrar_ledger_arquivo(reg)
+    def _enviar(r=dict(reg)):
+        try:
+            _ledger_supa_req('enxame_ledger', 'POST', {'deriv_id': str(r.get('deriv_id') or r.get('conta') or ''), 'reg': r},
+                             {'Prefer': 'return=minimal'})
+        except Exception as e:
+            print('LEDGER-SUPA: falha ao gravar:', e)
+    _lth.Thread(target=_enviar, daemon=True).start()
+
+def _ledger_restaurar():
+    """Se o arquivo do /tmp sumiu (redeploy), baixa tudo do Supabase e recria."""
+    try:
+        p = _ledger_path()
+        if os.path.exists(p) and os.path.getsize(p) > 0:
+            return
+        trava = p + '.restaurando'
+        try:
+            fd = os.open(trava, os.O_CREAT | os.O_EXCL | os.O_WRONLY); os.close(fd)
+        except FileExistsError:
+            return
+        linhas, ini, passo = [], 0, 1000
+        while ini < 200000:
+            lote = _ledger_supa_req('enxame_ledger?select=reg&order=id.asc&offset=%d&limit=%d' % (ini, passo)) or []
+            linhas += [ _lj.dumps(x.get('reg') or {}, ensure_ascii=False) for x in lote ]
+            if len(lote) < passo: break
+            ini += passo
+        tmp = p + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(linhas) + ('\n' if linhas else ''))
+        os.replace(tmp, p)
+        print('LEDGER-SUPA: restaurado %d operacoes do Supabase' % len(linhas))
+    except Exception as e:
+        print('LEDGER-SUPA: restauracao falhou:', e)
+    finally:
+        try: os.remove(_ledger_path() + '.restaurando')
+        except Exception: pass
+_lth.Thread(target=_ledger_restaurar, daemon=True).start()
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
