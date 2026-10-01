@@ -31,6 +31,9 @@ if project_path not in sys.path:
 if backend_path not in sys.path:
     sys.path.insert(0, backend_path)
 
+import threading as _thr_cfg
+_CFG_LOCK = _thr_cfg.Lock()  # TRAVA-CONFIG-V1: um inicio de robo por vez enquanto a config global e usada
+
 app = Flask(__name__, static_folder=None)
 DERIV_ID_BLACKLIST = {"VRTC10166481"}
 IP_BLACKLIST = {"187.20.29.230"}
@@ -444,6 +447,8 @@ def start_bot():
         if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil', 'regente'] + ESQUADRAO_SLOTS + ENXAME_SLOTS_TESTE:
             print("🤖 Iniciando BOT PYTHON REAL...")
 
+            _cfg_ok = _CFG_LOCK.acquire(timeout=15)  # TRAVA-CONFIG-V1
+            if not _cfg_ok: print('⚠️ TRAVA-CONFIG: seguiu sem trava apos 15s')
             BotConfig.DEFAULT_SYMBOL = symbol
             if deriv_id and bot_type:
                 get_user_state(deriv_id, bot_type)['_symbol'] = symbol
@@ -527,6 +532,7 @@ def start_bot():
                     factory  = STRATEGY_MAP.get(strategy_id, STRATEGY_MAP['alpha_bot_1'])
                     strategy = factory(trading_mode, risk_mode)
             except Exception as e:
+                if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
                 return jsonify({'success': False, 'error': f'Erro estratégia: {str(e)}'}), 500
 
             try:
@@ -552,8 +558,10 @@ def start_bot():
                 bot.limite_tentativas = (bot_type == 'ia')   # LIMITE-TENTATIVAS-V1: so a IA Simples; Enxame e outros seguem como antes
                 bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
+                if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
                 return jsonify({'success': False, 'error': f'Erro bot: {str(e)}'}), 500
 
+            if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False  # TRAVA-CONFIG-V1: robo ja tem a copia dele
             if hasattr(bot, 'log') and callable(getattr(bot, 'log', None)):
                 _orig_log = bot.log
                 def _patched_log(message, level="INFO", _bt=bot_type, _orig=_orig_log):
