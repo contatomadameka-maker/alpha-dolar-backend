@@ -237,7 +237,7 @@ class AlphaDolar:
             stake = self.current_stake
             print(f"🔍 DEBUG stake: branch=CURRENT_STAKE stake={stake}")
 
-        if getattr(self, 'enxame_stop_estrito', False):
+        if getattr(self, 'enxame_stop_estrito', False) or getattr(self, 'stop_estrito', False):  # SEM-TRAVA-V1
             perda_sessao = max(0.0, -self.stop_loss.saldo_liquido)
             if perda_sessao + stake > self.config.LIMITE_PERDA:
                 self.log(

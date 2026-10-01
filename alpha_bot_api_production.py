@@ -555,7 +555,8 @@ def start_bot():
                 # Enxame: martingale normal, mas o limite de perda da unidade e teto real.
                 bot.enxame_stop_estrito = bot_type.startswith('enxame-')
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
-                bot.limite_tentativas = (bot_type == 'ia') and str((locals().get('data') or {}).get('origem') or ((locals().get('config') or {}).get('origem') if isinstance(locals().get('config'), dict) else '') or '') != 'ia_avancado'  # ORIGEM-V1   # LIMITE-TENTATIVAS-V1: so a IA Simples; Enxame e outros seguem como antes
+                bot.limite_tentativas = False  # SEM-TRAVA-V1: recuperacao livre, quem limita e o stop loss do usuario
+                bot.stop_estrito = bot_type in ('ia', 'ia_simples')  # SEM-TRAVA-V1: nunca passar do limite de perda
                 bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
                 if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
