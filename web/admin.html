@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script>/* ADMIN-PROXY-V1: pedidos ao Supabase passam pelo servidor, com a senha do admin */
+(function(){var BK='https://alpha-dolar-backend.onrender.com',of=window.fetch.bind(window);
+window.fetch=function(u,o){try{var s=String(u&&u.url?u.url:u),m=s.match(/^https:\/\/[a-z0-9]+\.supabase\.co(\/rest\/v1\/.*)$/);
+if(m){o=o||{};var h=o.headers||{},pf=h.Prefer||h.prefer||'';return of(BK+'/api/admin/supa',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Token':sessionStorage.getItem('admin_token')||''},body:JSON.stringify({path:m[1],method:o.method||'GET',body:o.body||null,prefer:pf})});}}catch(e){}
+return of(u,o);};
+window.__adminLogin=async function(s){try{var r=await of(BK+'/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:s})});var j=await r.json();if(j.ok){sessionStorage.setItem('admin_token',s);return true;}if(j.erro&&/Render/.test(j.erro))alert(j.erro);}catch(e){alert('Servidor fora do ar, tente de novo em 1 minuto.');}return false;};
+})();</script>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Dolar — Admin</title>
@@ -410,7 +418,7 @@
 </div>
 
 <script>
-const SENHA_ADMIN = 'alpha2025';
+const SENHA_ADMIN = '';
 const BACKEND = 'https://alpha-dolar-backend.onrender.com';
 const RS_TAXA = 0.30;   // 30% Revenue Share da Deriv
 const COMISSAO = 0.20;  // 20% sua comissão sobre o RS
@@ -419,11 +427,10 @@ let bots = [], clientes = [], operacoes = [];
 let editandoIdx = null;
 
 // ── AUTH ──────────────────────────────────────────
-function verificarSenha(){
+async function verificarSenha(){
   const s = document.getElementById('senha-input').value;
-  if(s === SENHA_ADMIN){
+  if(await window.__adminLogin(s)){
     document.getElementById('login-screen').style.display = 'none';
-    localStorage.setItem('admin_auth','1');
     carregar();
   } else {
     document.getElementById('login-erro').style.display = 'block';
@@ -491,7 +498,7 @@ window.addEventListener('DOMContentLoaded', function() {
   filtroAtivo = { from: getDataISO(from), to: getDataISO(hoje) };
 });
 
-if(localStorage.getItem('admin_auth') === '1'){
+if(sessionStorage.getItem('admin_token') === '1'){
   document.getElementById('login-screen').style.display = 'none';
   carregar();
 }
@@ -689,7 +696,7 @@ async function carregarQuizStats() {
 
 // ── PRODUTOS LIBERADOS ────────────────────────────
 const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo';
+const SUPA_KEY  = '';
 
 async function carregarProdutos() {
   const r = await fetch(SUPA_URL + '/rest/v1/produtos_liberados?select=*&order=comprado_em.desc',

@@ -39,6 +39,11 @@ DERIV_ID_BLACKLIST = {"VRTC10166481"}
 IP_BLACKLIST = {"187.20.29.230"}
 CORS(app)
 register_cakto_webhook(app, supabase_client)
+try:
+    from admin_api import register_admin_api  # ADMIN-API-V1
+    register_admin_api(app)
+except Exception as _e_adm:
+    print("ADMIN-API: falhou ao registrar:", _e_adm)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
@@ -2294,7 +2299,7 @@ def ativar_trial():
         return jsonify({'erro': 'Email e produto obrigatorios'}), 400
 
     SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co'
-    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo'
+    SUPABASE_KEY = (__import__('os').environ.get('SUPABASE_KEY') or (open(__import__('os').path.expanduser('~/.alpha_supabase_key')).read().strip() if __import__('os').path.exists(__import__('os').path.expanduser('~/.alpha_supabase_key')) else ''))
     HEADERS = {
         'apikey': SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',

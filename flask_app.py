@@ -1181,7 +1181,7 @@ def quiz_stats():
 # SUPABASE CONFIG
 # ─────────────────────────────────────────────
 SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co'
-SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MzA2NzIwNiwiZXhwIjoyMDg4NjQzMjA2fQ.ZcPJry5CAxteeM2x-vymjXTFQ3EWZast0SHw-YRh1vo'
+SUPABASE_SERVICE_KEY = (__import__('os').environ.get('SUPABASE_KEY') or (open(__import__('os').path.expanduser('~/.alpha_supabase_key')).read().strip() if __import__('os').path.exists(__import__('os').path.expanduser('~/.alpha_supabase_key')) else ''))
 import urllib.request
 
 def supabase_liberar(email, produto, tipo='vitalicio'):
