@@ -3630,7 +3630,7 @@ body { overflow-x: hidden !important; }
                 if (tier === 'vip' || tier === 'premium') {
                     const email = localStorage.getItem('alpha_email') || '';
                     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-                    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+                    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
                     const produto = tier === 'vip' ? 'estrategias-vip' : 'premium-elite';
                     try {
                         const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.' + produto + '&select=id',
@@ -5870,7 +5870,7 @@ setTimeout(function() {
 window.abrirAlphaIaPro=async function(){
   const email=localStorage.getItem('alpha_email')||'';
   const SUPA_URL='https://urlthgicnomfbyklesou.supabase.co';
-  const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+  const SUPA_ANON='sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
   try{
     const r=await fetch(SUPA_URL+'/rest/v1/produtos_ativos?email=eq.'+encodeURIComponent(email)+'&produto=eq.ia-pro&select=id',
       {headers:{'apikey':SUPA_ANON,'Authorization':'Bearer '+SUPA_ANON}});
@@ -6556,7 +6556,7 @@ let _bankPerfil = 'moderado';
 window.verificarModoBaixoRisco = async function() {
     const email = localStorage.getItem('alpha_email') || '';
     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
     try {
         const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.premium-elite&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
@@ -6573,7 +6573,7 @@ window.verificarModoBaixoRisco = async function() {
 
 window.abrirAlphaBank = async function() {
     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
     const email = localStorage.getItem('alpha_email') || '';
     if (!email) {
         window.ativarTrial('alpha-bank','Alpha Bank',()=>{ document.getElementById('alphaBankModal').style.display='block'; bankAtualizar(); }); return;
@@ -7137,7 +7137,7 @@ let _patternAcertos = 0;
 window.abrirAlphaPattern = async function() {
     const email = localStorage.getItem('alpha_email') || '';
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
     try {
         const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-pattern&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
@@ -7424,7 +7424,7 @@ let _clockInterval = null;
 window.abrirAlphaClock = async function() {
     const email = localStorage.getItem('alpha_email') || '';
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
     try {
         const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-clock&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
@@ -7700,7 +7700,7 @@ let _copyWins = 0, _copyTotal = 0, _copyLucro = 0;
 window.abrirAlphaCopy = async function() {
     const email = localStorage.getItem('alpha_email') || '';
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
     try {
         const r = await fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.alpha-copy&select=id',
             { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } });
@@ -10230,7 +10230,7 @@ window.verificarTrialDemo = async function(produto) {
     if (!email) return;
 
     const SUPA_URL = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
 
     try {
         const r = await fetch(
@@ -10307,7 +10307,7 @@ window.toggleMultiStrategy = function() {
 window.getEstrategiasDisponiveis = async function() {
     const email = localStorage.getItem('alpha_email') || '';
     const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-    const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+    const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
 
     // Estratégias free — sempre disponíveis
     const free = ['alpha_bot_1','alpha_bot_2','alpha_bot_3','alpha_bot_balanced'];
@@ -11271,7 +11271,7 @@ document.addEventListener('DOMContentLoaded', function() {
       toggle.checked = false;
       const email = localStorage.getItem('alpha_email') || '';
       const SUPA_URL  = 'https://urlthgicnomfbyklesou.supabase.co';
-      const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY';
+      const SUPA_ANON = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
       fetch(SUPA_URL + '/rest/v1/produtos_ativos?email=eq.' + encodeURIComponent(email) + '&produto=eq.ia-avancado&select=id',
         { headers: { 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + SUPA_ANON } }
       ).then(function(r) { return r.json(); }).then(function(d) {

@@ -4,7 +4,7 @@
 // Salva destino e vai para home que tem o modal
 const _email = localStorage.getItem('alpha_email') || '';
 fetch('https://urlthgicnomfbyklesou.supabase.co/rest/v1/produtos_liberados?email=eq.' + encodeURIComponent(_email) + '&produto=eq.ai-signals&select=id',
-    { headers: { 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY', 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVybHRoZ2ljbm9tZmJ5a2xlc291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjcyMDYsImV4cCI6MjA4ODY0MzIwNn0.m1Avj7nkYz1AbN3T472E_TleCdc38iq_W8zFeVvqRrY' } }
+    { headers: { 'apikey': 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw', 'Authorization': 'Bearer sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw' } }
 ).then(r => r.json()).then(d => {
     if (d && d.length > 0) { sessionStorage.setItem('abrirModal','sinais'); window.location.replace('/home'); }
     else { window.location.replace('/checkout?produto=ai-signals'); }
