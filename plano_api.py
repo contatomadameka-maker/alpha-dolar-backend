@@ -137,12 +137,26 @@ def register_plano_api(app, supabase_client=None):
     def pode(info, ferramenta):
         return info['nivel'] >= NIVEL_FERRAMENTA.get(ferramenta, 0) or ferramenta in info['ferramentas']
 
+    _TOQUE = {}
+    def _tocar(ids):  # ULTIMO-ACESSO-V1: atualiza clientes.ultimo_acesso (no maximo 1x a cada 10 min)
+        k = ','.join(sorted(ids))
+        if time.time() - _TOQUE.get(k, 0) < 600: return
+        _TOQUE[k] = time.time()
+        try:
+            kk = _key()
+            requests.patch(URL + '/rest/v1/clientes?deriv_id=in.(' + ','.join(ids) + ')',
+                           headers={'apikey': kk, 'Authorization': 'Bearer ' + kk, 'Content-Type': 'application/json', 'Prefer': 'return=minimal'},
+                           json={'ultimo_acesso': datetime.now(timezone.utc).isoformat()}, timeout=8)
+        except Exception as e:
+            print('[PLANO] ultimo_acesso falhou:', e)
+
     @app.route('/api/plano', methods=['POST'])
     def plano_do_cliente():
         d = request.get_json(silent=True) or {}
         ids = _contas_do_token(str(d.get('token', '')).strip())
         if not ids:
             return jsonify({'ok': True, 'plano': 'free', 'nivel': 0, 'ferramentas': [], 'contas': [], 'motivo': 'login nao confirmado'})
+        _tocar(ids)
         try:
             info = plano_por_ids(ids, str(d.get('email', '')).strip().lower())
         except Exception as e:
