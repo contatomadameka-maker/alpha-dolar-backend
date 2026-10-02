@@ -164,6 +164,69 @@ def register_plano_api(app, supabase_client=None):
         info.update({'ok': True, 'contas': ids, 'niveis': NIVEL_FERRAMENTA})
         return jsonify(info)
 
+    # ===== OPS-API-V1: grava as operacoes de todas as ferramentas (navegador) na tabela operacoes =====
+    _BOTS = {'t': 0, 'pct': {}}
+    def _markup_pct(bot_name):
+        if time.time() - _BOTS['t'] > 600:
+            try:
+                _BOTS['pct'] = {b.get('nome'): float(b.get('markup_pct') or 0) for b in _sb('bots?select=nome,markup_pct')}
+                _BOTS['t'] = time.time()
+            except Exception:
+                pass
+        return _BOTS['pct'].get(bot_name, 0.0)
+
+    _CLI = {}
+    def _cliente_de(ids):
+        k = ','.join(sorted(ids))
+        if k in _CLI and time.time() - _CLI[k][0] < 600:
+            return _CLI[k][1]
+        row = {}
+        try:
+            rows = _sb('clientes?select=id,bot_name,deriv_id&deriv_id=in.(' + ','.join(ids) + ')&limit=1')
+            row = rows[0] if rows else {}
+        except Exception:
+            pass
+        _CLI[k] = (time.time(), row)
+        return row
+
+    @app.route('/api/ops/registrar', methods=['POST'])
+    def ops_registrar():
+        d = request.get_json(silent=True) or {}
+        ids = _contas_do_token(str(d.get('token', '')).strip())
+        if not ids:
+            return jsonify({'ok': False, 'erro': 'login nao confirmado'}), 401
+        cli = _cliente_de(ids)
+        bot = cli.get('bot_name') or 'sem bot'
+        pct = _markup_pct(bot)
+        linhas = []
+        for o in (d.get('ops') or [])[:50]:
+            try:
+                acc = str(o.get('deriv_id') or '')
+                if acc and acc not in ids:
+                    continue  # so aceita contas do proprio login
+                conta = 'real' if str(o.get('conta')) == 'real' else 'demo'
+                stake = round(float(o.get('stake') or 0), 2)
+                lucro = round(float(o.get('lucro') or 0), 2)
+                linhas.append({
+                    'contract_id': str(o.get('contract_id')), 'deriv_id': acc or None, 'cliente_id': cli.get('id'),
+                    'bot_name': bot, 'ferramenta': str(o.get('ferramenta') or '')[:40], 'conta': conta,
+                    'stake': stake, 'lucro': lucro, 'resultado': 'won' if lucro > 0 else 'lost',
+                    'symbol': str(o.get('symbol') or '')[:30], 'tipo': str(o.get('tipo') or '')[:30],
+                    'markup_usd': round(stake * pct / 100, 4) if conta == 'real' else 0,
+                })
+            except Exception:
+                continue
+        if not linhas:
+            return jsonify({'ok': True, 'gravadas': 0})
+        k = _key()
+        r = requests.post(URL + '/rest/v1/operacoes?on_conflict=contract_id', json=linhas, timeout=15,
+                          headers={'apikey': k, 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json',
+                                   'Prefer': 'resolution=ignore-duplicates,return=minimal'})
+        if not r.ok:
+            print('[OPS] supabase', r.status_code, r.text[:300])
+            return jsonify({'ok': False, 'erro': 'supabase %s' % r.status_code}), 502
+        return jsonify({'ok': True, 'gravadas': len(linhas)})
+
     @app.before_request
     def _trava_conta_real():
         if request.method != 'POST' or request.path.rstrip('/') != '/api/bot/start':
