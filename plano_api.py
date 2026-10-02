@@ -17,7 +17,7 @@ FERRAMENTAS_DO_PRODUTO = {
 NIVEL_FERRAMENTA = {
     'ia-simples': 0, 'grafico': 0, 'manual': 0,
     'sinais': 1, 'auto-trading': 1, 'digitos': 1,
-    'ia-pro': 2, 'ia-avancado': 2, 'ia-contextual': 2, 'touch': 2, 'global': 2, 'estrategias-premium': 2,
+    'ia-pro': 2, 'ia-avancado': 2, 'ia-contextual': 3, 'touch': 2, 'global': 3, 'estrategias-premium': 2,
     'enxame': 3, 'esquadrao': 3, 'regente': 3, 'perfil': 3, 'estrategias-vip': 3,
 }
 PREMIUM = ('mega_alpha_1', 'mega_alpha_2', 'mega_alpha_3', 'alpha_elite', 'alpha_nexus')
