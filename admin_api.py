@@ -20,7 +20,8 @@ def register_admin_api(app):
 
     @app.route('/api/admin/supa', methods=['POST'])
     def admin_supa():
-        if not _senha_ok(request.headers.get('X-Admin-Token', '')):
+        _tk = request.headers.get('X-Admin-Token', '') or (request.get_json(silent=True) or {}).get('token', '')  # ADMIN-API-V2
+        if not _senha_ok(_tk):
             time.sleep(1)
             return jsonify({'erro': 'nao autorizado'}), 401
         d = request.get_json(silent=True) or {}
