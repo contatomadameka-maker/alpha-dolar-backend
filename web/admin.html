@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script>/* ADMIN-B64-V1: btoa/atob que aceitam acento e emoji */window.__b64e=function(s){return btoa(unescape(encodeURIComponent(String(s))));};window.__b64d=function(s){try{return decodeURIComponent(escape(atob(s)));}catch(e){return atob(s);}};</script>
+
 <script>/* ADMIN-PROXY-V1: pedidos ao Supabase passam pelo servidor, com a senha do admin */
 (function(){var BK='https://alpha-dolar-backend.onrender.com',of=window.fetch.bind(window);
 window.fetch=function(u,o){try{var s=String(u&&u.url?u.url:u),m=s.match(/^https:\/\/[a-z0-9]+\.supabase\.co(\/rest\/v1\/.*)$/);
@@ -721,7 +723,7 @@ async function carregarProdutos() {
     grupos[email].push(p);
   });
   tb.innerHTML = Object.entries(grupos).map(([email, prods]) => {
-    const uid = 'grp_' + btoa(email).replace(/[^a-z0-9]/gi,'').substr(0,10);
+    const uid = 'grp_' + __b64e(email).replace(/[^a-z0-9]/gi,'').substr(0,10);
     const tags = prods.slice(0,3).map(p =>
       `<span style="background:rgba(0,212,255,.1);border:1px solid var(--cyan);color:var(--cyan);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-right:4px">${nomes[p.produto]||p.produto}</span>`
     ).join('') + (prods.length > 3 ? `<span style="font-size:10px;color:var(--muted)">+${prods.length-3} mais</span>` : '');
