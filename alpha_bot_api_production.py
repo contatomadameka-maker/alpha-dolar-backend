@@ -44,6 +44,11 @@ try:
     register_admin_api(app)
 except Exception as _e_adm:
     print("ADMIN-API: falhou ao registrar:", _e_adm)
+try:
+    from plano_api import register_plano_api  # PLANO-API-V1
+    register_plano_api(app, supabase_client)
+except Exception as _e_pl:
+    print("PLANO-API: falhou ao registrar:", _e_pl)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
