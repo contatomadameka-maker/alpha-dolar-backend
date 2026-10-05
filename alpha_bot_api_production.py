@@ -2470,7 +2470,7 @@ def get_financeiro_admin():
     date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
     mes_inicio = date_from
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,resultado,lucro,bot_name,stake&criado_em=gte.{date_from}&limit=5000",
+        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,deriv_id,resultado,lucro,bot_name,stake,conta&criado_em=gte.{date_from}&criado_em=lte.{date_to if 'T' in date_to else date_to + 'T23:59:59'}&or=(conta.is.null,conta.eq.real)&limit=5000",  # ADMIN-AOVIVO-V1: so conta real
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
@@ -2493,13 +2493,13 @@ def get_financeiro_admin():
         ops_bot = [o for o in operacoes if o.get('bot_name') == bot_nome or o.get('cliente_id') in ids_clientes_bot]
 
         # Total geral do bot
-        ganhos_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') == 'win')
-        perdas_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') == 'loss')
+        ganhos_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') in ('win', 'won'))
+        perdas_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') in ('loss', 'lost'))
 
         # Somente clientes afiliados
         ops_afiliado = [o for o in ops_bot if o.get('cliente_id') in ids_bot_afiliado]
-        ganhos_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') == 'win')
-        perdas_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') == 'loss')
+        ganhos_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') in ('win', 'won'))
+        perdas_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') in ('loss', 'lost'))
         net_af    = round(perdas_af - ganhos_af, 2)
         rev_share = round(net_af * 0.30, 2)
 
@@ -2509,7 +2509,7 @@ def get_financeiro_admin():
         # Markup estimado por bot
         total_stakes_bot = sum(float(o.get('stake', 0)) for o in ops_bot)
         markup_est_bot   = round(total_stakes_bot * (markup_pct / 100), 2)
-        markup_alpha_bot = round(markup_est_bot * 0.20, 2)
+        markup_alpha_bot = round(markup_est_bot, 2)  # ADMIN-AOVIVO-V1: o markup e 100% do Alpha Dolar
 
         resultado_bots.append({
             'nome'              : bot_nome,
@@ -3262,3 +3262,67 @@ def _rt_parada_pedida(k, snap):
         print('RETOMAR-V3:', e, flush=True)
     return False
 print('🔄 RETOMAR-V3 ativo: robo parado pelo usuario nunca volta sozinho', flush=True)
+
+
+# ═══ ADMIN-AOVIVO-V1: quem esta operando agora, por robo ═══
+# Robos do servidor: estado no Redis (running + batimento _hb do RETOMAR-V2).
+# Ferramentas do navegador: contas que registraram operacao nos ultimos 5 minutos.
+@app.route('/api/admin/ao-vivo', methods=['GET'])
+def admin_ao_vivo():
+    import json as _j
+    from datetime import datetime as _dt, timedelta as _td
+    senha = os.environ.get('ADMIN_SENHA', '')
+    if not senha or request.headers.get('X-Admin-Token', '') != senha:
+        return jsonify({'ok': False, 'erro': 'nao autorizado'}), 401
+    agora = time.time()
+    contas = {}   # deriv_id -> {bot, conta, ferramentas:set}
+    def marca(did, bot, conta, ferr):
+        if not did:
+            return
+        x = contas.setdefault(did, {'bot': bot or 'sem bot', 'conta': 'demo', 'ferr': set()})
+        if bot and x['bot'] == 'sem bot':
+            x['bot'] = bot
+        if conta == 'real':
+            x['conta'] = 'real'
+        if ferr:
+            x['ferr'].add(ferr)
+    try:
+        import redis as _redis
+        r = _redis.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
+        for k in r.scan_iter('bot_state:*', count=500):
+            try:
+                st = _j.loads(r.get(k) or '{}')
+            except Exception:
+                continue
+            if not st.get('running'):
+                continue
+            hb = float(st.get('_hb') or 0)
+            if hb and agora - hb > 30:
+                continue  # sem batimento ha 30s: nao esta mais rodando
+            partes = k.split(':')
+            did = st.get('deriv_id') or (partes[1] if len(partes) > 2 else '')
+            tipo = partes[-1] if len(partes) > 2 else 'servidor'
+            nome = {'ia': 'IA Simples', 'ia_simples': 'IA Simples', 'perfil': 'Perfil', 'regente': 'Regente'}.get(tipo, 'Enxame' if tipo.startswith('enxame') else 'Esquadrão' if tipo.startswith('unidade') else tipo)
+            marca(did, st.get('bot_name'), st.get('account_type'), nome)
+    except Exception as e:
+        print('AO-VIVO redis:', e)
+    try:
+        desde = (_dt.utcnow() - _td(minutes=5)).strftime('%Y-%m-%dT%H:%M:%S')
+        ops = _ledger_supa_req('operacoes?select=deriv_id,cliente_id,bot_name,ferramenta,conta&criado_em=gte.' + desde + '&limit=1000') or []
+        for o in ops:
+            marca(str(o.get('deriv_id') or o.get('cliente_id') or ''), o.get('bot_name'), o.get('conta'), o.get('ferramenta') or 'navegador')
+    except Exception as e:
+        print('AO-VIVO ops:', e)
+    bots = {}
+    for did, x in contas.items():
+        b = bots.setdefault(x['bot'], {'total': 0, 'real': 0, 'demo': 0, 'ferramentas': {}, 'contas': []})
+        b['total'] += 1
+        b['real' if x['conta'] == 'real' else 'demo'] += 1
+        for f in x['ferr']:
+            b['ferramentas'][f] = b['ferramentas'].get(f, 0) + 1
+        s = str(did)
+        b['contas'].append((s[:4] + '…' + s[-3:] if len(s) > 8 else s) + (' (real)' if x['conta'] == 'real' else ''))
+    tot = len(contas)
+    real = sum(1 for x in contas.values() if x['conta'] == 'real')
+    return jsonify({'ok': True, 'total': tot, 'real': real, 'demo': tot - real, 'bots': bots, 'atualizado': int(agora)})
+print('🟢 ADMIN-AOVIVO-V1 ativo: /api/admin/ao-vivo', flush=True)
