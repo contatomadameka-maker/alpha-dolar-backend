@@ -211,6 +211,8 @@ class AlphaDolar:
     _MERCADO_LOCK = __import__('threading').Lock()
 
     def executar_trade(self, direction, signal_data=None):
+        if getattr(type(self), '_PAUSA_GLOBAL', False):  # RETOMAR-V1: servidor desligando, nao abre operacao nova
+            return
         # Trava atomica: impede que dois disparos simultaneos (ex: watchdog
         # forcando trade + sinal organico do tick, em threads diferentes)
         # executem trades ao mesmo tempo usando o mesmo estado de perda_acumulada.

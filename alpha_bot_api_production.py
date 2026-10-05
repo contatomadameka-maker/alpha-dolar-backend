@@ -885,9 +885,16 @@ def start_bot():
                     'bot_name': bot_nome if 'bot_nome' in dir() else bot_type,
                 })
 
+            _snap = None  # RETOMAR-V1: se o robo esta voltando de um deploy, recupera a contagem da sessao
+            try:
+                _snap = _RETOMAR_SNAP.pop((deriv_id, bot_type), None)
+                if _snap: _aplicar_snap_bot(bot, _snap)
+            except Exception as _e_rt: print('RETOMAR: snapshot nao aplicado:', _e_rt)
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
             set_bot_instance(deriv_id, bot_type, bot)
+            try: _REGISTRO[(deriv_id, bot_type)] = (bot, dict(data))  # RETOMAR-V1
+            except Exception: pass
 
             get_user_state(deriv_id, bot_type).update({
                 'running': True, 'instance': bot, 'thread': thread,
@@ -898,6 +905,9 @@ def start_bot():
                 'mart_step': 0, 'mart_max': 3,
             })
 
+            if _snap:  # RETOMAR-V1
+                try: _aplicar_snap_estado(deriv_id, bot_type, _snap)
+                except Exception as _e_rt2: print('RETOMAR: estado nao aplicado:', _e_rt2)
             return jsonify({
                 'success': True, 'message': 'Bot iniciado!',
                 'bot_type': bot_type, 'account_type': account_type,
@@ -954,6 +964,13 @@ def stop_bot():
 
         bot_type = data.get('bot_type', 'ia')
         deriv_id = data.get('deriv_id', 'anonymous')
+        try:  # RETOMAR-V1: parar enquanto o robo ainda esta voltando do deploy
+            if _rt_pendente(deriv_id, bot_type) and get_user_state(deriv_id, bot_type).get('instance') is None:
+                _CANCELADOS.add((deriv_id, bot_type)); _RETOMANDO.discard((deriv_id, bot_type))
+                get_user_state(deriv_id, bot_type)['running'] = False
+                get_user_state(deriv_id, bot_type)['stop_reason'] = 'manual'
+                return jsonify({'success': True, 'message': 'Bot parado!', 'stats': {}})
+        except NameError: pass
         if not get_user_state(deriv_id, bot_type).get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} não está rodando'}), 400
 
@@ -1144,12 +1161,12 @@ def get_bot_stats(bot_type):
 
     # Só marca como parado se não tem instância E thread morta
     # Evita falso positivo quando estado vem do Redis sem thread local
-    if state.get('running') and not thread_alive and instance is None:
+    if state.get('running') and not thread_alive and instance is None and not _rt_espera(deriv_id, bot_type):  # RETOMAR-V1
         get_user_state(deriv_id, bot_type)['running'] = False
         if not get_user_state(deriv_id, bot_type).get('stop_reason'):
             get_user_state(deriv_id, bot_type)['stop_reason'] = 'crashed'
 
-    is_running   = get_user_state(deriv_id, bot_type).get('running', False)
+    is_running   = get_user_state(deriv_id, bot_type).get('running', False) or _rt_pendente(deriv_id, bot_type)  # RETOMAR-V1
     stop_reason  = get_user_state(deriv_id, bot_type).get('stop_reason')
     stop_message = get_user_state(deriv_id, bot_type).get('stop_message')
 
@@ -2842,12 +2859,12 @@ def esquadrao_resumo():
 
         thread = state.get('thread')
         thread_alive = thread is not None and thread.is_alive()
-        if state.get('running') and not thread_alive and bot is None:
+        if state.get('running') and not thread_alive and bot is None and not _rt_espera(deriv_id, slot):  # RETOMAR-V1
             get_user_state(deriv_id, slot)['running'] = False
             if not get_user_state(deriv_id, slot).get('stop_reason'):
                 get_user_state(deriv_id, slot)['stop_reason'] = 'crashed'
 
-        is_running = get_user_state(deriv_id, slot).get('running', False)
+        is_running = get_user_state(deriv_id, slot).get('running', False) or _rt_pendente(deriv_id, slot)  # RETOMAR-V1
         lucro_liquido = get_user_state(deriv_id, slot).get('_lucro_sessao', stats.get('saldo_liquido', 0)) or 0
         current_stake = getattr(bot, 'current_stake', 0) if bot else 0
         waiting_contract = getattr(bot, 'waiting_contract', False) if bot else False
@@ -2995,3 +3012,182 @@ def perfil_padrao_vencedor():
         'melhor_mercado': melhor_mercado,
         'melhor_turno': melhor_turno,
     })
+
+
+# ═══ RETOMAR-V1: robos do servidor sobrevivem ao deploy do Render ═══
+# Ao desligar (SIGTERM do Render), o servidor para de abrir operacoes, espera as abertas
+# fecharem, salva o estado de cada robo no Supabase (tabela bot_retomar) e so entao desliga.
+# O servidor novo le essa tabela e religa cada robo com a mesma config e a mesma contagem.
+import atexit as _rt_atexit, json as _rt_json, time as _rt_time, threading as _rt_th
+from urllib.parse import quote as _rt_q
+_RT_BOOT = _rt_time.time()
+_REGISTRO = {}        # (deriv_id, bot_type) -> (bot, payload do start)
+_RETOMANDO = set()    # robos que estao voltando depois do deploy
+_CANCELADOS = set()   # usuario clicou em parar enquanto o robo voltava
+_RETOMAR_SNAP = {}
+_RT_TABELA = 'bot_retomar'
+_RT_BOT_ATTRS = ('perda_acumulada', '_rec_tent', 'trades_hoje', 'current_stake', '_ultimo_stake_usado')
+_RT_STATE_KEYS = ('_lucro_sessao', '_perda_desde_ultimo_ganho', '_lucro_desde_ultimo_reset', 'trades',
+                  'mart_step', 'mart_max', 'strategy_name', '_ultimo_resultado_geracao')
+
+def _rt_simples(v, n=0):
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return True
+    if n < 3 and isinstance(v, (list, tuple)):
+        return all(_rt_simples(x, n + 1) for x in v)
+    if n < 3 and isinstance(v, dict):
+        return all(isinstance(k, str) and _rt_simples(x, n + 1) for k, x in v.items())
+    return False
+
+def _rt_dict(obj):
+    if obj is None:
+        return {}
+    try:
+        return {k: v for k, v in vars(obj).items() if k != 'config' and _rt_simples(v)}
+    except Exception:
+        return {}
+
+def _rt_pendente(deriv_id, bot_type):
+    return (deriv_id, bot_type) in _RETOMANDO
+
+def _rt_boot_recente():
+    return _rt_time.time() - _RT_BOOT < 90
+
+def _rt_espera(deriv_id, bot_type):
+    return _rt_pendente(deriv_id, bot_type) or _rt_boot_recente()
+
+def _rt_snapshot(chave, bot, payload):
+    did, bt = chave
+    st = get_user_state(did, bt)
+    return {
+        'payload': payload,
+        'bot': {a: getattr(bot, a) for a in _RT_BOT_ATTRS if hasattr(bot, a) and _rt_simples(getattr(bot, a))},
+        'stop_loss': _rt_dict(getattr(bot, 'stop_loss', None)),
+        'martingale': _rt_dict(getattr(bot, 'martingale', None)),
+        'strategy_cls': type(getattr(bot, 'strategy', None)).__name__,
+        'strategy': _rt_dict(getattr(bot, 'strategy', None)),
+        'estado': {k: st.get(k) for k in _RT_STATE_KEYS if st.get(k) is not None and _rt_simples(st.get(k))},
+        't': _rt_time.time(),
+    }
+
+def _aplicar_snap_bot(bot, snap):
+    for a, v in (snap.get('bot') or {}).items():
+        try: setattr(bot, a, v)
+        except Exception: pass
+    for nome in ('stop_loss', 'martingale'):
+        alvo = getattr(bot, nome, None)
+        if alvo is not None:
+            for a, v in (snap.get(nome) or {}).items():
+                try: setattr(alvo, a, v)
+                except Exception: pass
+    s = getattr(bot, 'strategy', None)
+    if s is not None and type(s).__name__ == snap.get('strategy_cls'):
+        for a, v in (snap.get('strategy') or {}).items():
+            try: setattr(s, a, v)
+            except Exception: pass
+
+def _aplicar_snap_estado(deriv_id, bot_type, snap):
+    st = get_user_state(deriv_id, bot_type)
+    for k, v in (snap.get('estado') or {}).items():
+        try: st[k] = v
+        except Exception: pass
+
+def _rt_salvar(linhas):
+    if linhas:
+        _ledger_supa_req(_RT_TABELA + '?on_conflict=chave', 'POST', linhas,
+                         {'Prefer': 'resolution=merge-duplicates,return=minimal'})
+
+def _rt_drenar():
+    vivos = [(k, b, p) for k, (b, p) in list(_REGISTRO.items()) if getattr(b, 'is_running', False)]
+    if not vivos:
+        return
+    print(f"🔄 RETOMAR: servidor desligando com {len(vivos)} robo(s) rodando. Fechando operacoes abertas...", flush=True)
+    try:
+        for _k, _b, _p in vivos:
+            type(_b)._PAUSA_GLOBAL = True   # nenhum robo abre operacao nova daqui em diante
+    except Exception:
+        pass
+    def _linhas(fase):
+        out = []
+        for k, b, p in vivos:
+            if not getattr(b, 'is_running', False):
+                continue  # bateu meta ou stop na ultima operacao: nao volta
+            try:
+                d = _rt_snapshot(k, b, p); d['fase'] = fase
+                out.append({'chave': f'{k[0]}|{k[1]}', 'deriv_id': k[0], 'bot_type': k[1], 'dados': d})
+            except Exception as e:
+                print('RETOMAR: snapshot falhou', k, e, flush=True)
+        return out
+    try:
+        _rt_salvar(_linhas('drenando'))   # avisa o servidor novo que esses robos vao voltar
+    except Exception as e:
+        print('RETOMAR: aviso previo falhou:', e, flush=True)
+    fim = _rt_time.time() + 18
+    while _rt_time.time() < fim and any(getattr(b, 'waiting_contract', False) for _k, b, _p in vivos):
+        _rt_time.sleep(0.3)
+    abertos = [k for k, b, _p in vivos if getattr(b, 'waiting_contract', False)]
+    if abertos:
+        print('⚠️ RETOMAR: operacao ainda aberta em', abertos, flush=True)
+    try:
+        linhas = _linhas('pronto')
+        _rt_salvar(linhas)
+        print(f"✅ RETOMAR: {len(linhas)} robo(s) salvos para voltar no servidor novo", flush=True)
+    except Exception as e:
+        print('❌ RETOMAR: falha ao salvar no Supabase:', e, flush=True)
+
+_rt_atexit.register(_rt_drenar)
+
+def _rt_iniciar(k, snap):
+    did, bt = k
+    payload = dict(snap.get('payload') or {})
+    try:
+        if not payload.get('token'):
+            print('RETOMAR: sem token para', k, flush=True)
+            return
+        get_user_state(did, bt)['running'] = False
+        _RETOMAR_SNAP[k] = snap
+        with app.test_request_context('/api/bot/start', method='POST', data=_rt_json.dumps(payload),
+                                      content_type='application/json'):
+            resp = start_bot()
+        corpo = resp[0] if isinstance(resp, tuple) else resp
+        info = corpo.get_json() or {}
+        print(('✅' if info.get('success') else '❌') + f" RETOMAR: {bt} de {did} -> {info.get('message') or info.get('error')}", flush=True)
+    except Exception as e:
+        print('RETOMAR: falha ao religar', k, e, flush=True)
+    finally:
+        _RETOMAR_SNAP.pop(k, None)
+        _RETOMANDO.discard(k)
+
+def _rt_retomar_loop():
+    fim = _rt_time.time() + 300
+    primeira = True
+    while _rt_time.time() < fim:
+        try:
+            rows = _ledger_supa_req(_RT_TABELA + '?select=chave,deriv_id,bot_type,dados') or []
+        except Exception as e:
+            if primeira:
+                print('RETOMAR: leitura da tabela bot_retomar falhou:', e, flush=True)
+            rows = []
+        primeira = False
+        for r in rows:
+            k = (r.get('deriv_id') or '', r.get('bot_type') or '')
+            snap = r.get('dados') or {}
+            idade = _rt_time.time() - float(snap.get('t') or 0)
+            if idade > 600 or k in _CANCELADOS:
+                try: _ledger_supa_req(_RT_TABELA + '?chave=eq.' + _rt_q(r['chave'], safe=''), 'DELETE', None, {'Prefer': 'return=minimal'})
+                except Exception: pass
+                _RETOMANDO.discard(k)
+                continue
+            _RETOMANDO.add(k)
+            if snap.get('fase') == 'drenando' and idade < 40:
+                continue  # o servidor velho ainda esta fechando a operacao aberta
+            try:
+                _ledger_supa_req(_RT_TABELA + '?chave=eq.' + _rt_q(r['chave'], safe=''), 'DELETE', None, {'Prefer': 'return=minimal'})
+            except Exception as e:
+                print('RETOMAR: nao consegui marcar como retomado', k, e, flush=True)
+                continue
+            _rt_iniciar(k, snap)
+        _rt_time.sleep(3)
+
+_rt_th.Thread(target=_rt_retomar_loop, daemon=True).start()
+print('🔄 RETOMAR-V1 ativo: robos voltam sozinhos depois do deploy', flush=True)
