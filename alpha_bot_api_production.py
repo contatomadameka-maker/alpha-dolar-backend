@@ -3326,3 +3326,56 @@ def admin_ao_vivo():
     real = sum(1 for x in contas.values() if x['conta'] == 'real')
     return jsonify({'ok': True, 'total': tot, 'real': real, 'demo': tot - real, 'bots': bots, 'atualizado': int(agora)})
 print('🟢 ADMIN-AOVIVO-V1 ativo: /api/admin/ao-vivo', flush=True)
+
+
+# ═══ MARKUP-CSV-V1: markup oficial da Deriv importado do CSV (Analytics > Apps) ═══
+def _mk_admin_ok():
+    senha = os.environ.get('ADMIN_SENHA', '')
+    return bool(senha) and request.headers.get('X-Admin-Token', '') == senha
+
+@app.route('/api/admin/markup-oficial', methods=['GET', 'POST', 'DELETE'])
+def admin_markup_oficial():
+    if not _mk_admin_ok():
+        return jsonify({'ok': False, 'erro': 'nao autorizado'}), 401
+    import re as _re
+    if request.method == 'GET':
+        try:
+            rows = _ledger_supa_req('markup_oficial?select=*&order=periodo_inicio.desc,app_nome.asc&limit=500') or []
+            bots = _ledger_supa_req('bots?select=nome,app_id') or []
+        except Exception as e:
+            return jsonify({'ok': False, 'erro': str(e)}), 500
+        return jsonify({'ok': True, 'linhas': rows, 'bots': bots})
+    d = request.get_json(silent=True) or {}
+    ini, fim = str(d.get('periodo_inicio', '')), str(d.get('periodo_fim', ''))
+    if not (_re.match(r'^\d{4}-\d{2}-\d{2}$', ini) and _re.match(r'^\d{4}-\d{2}-\d{2}$', fim)) or ini > fim:
+        return jsonify({'ok': False, 'erro': 'periodo invalido'}), 400
+    if request.method == 'DELETE':
+        try:
+            _ledger_supa_req('markup_oficial?periodo_inicio=eq.%s&periodo_fim=eq.%s' % (ini, fim), 'DELETE', None, {'Prefer': 'return=minimal'})
+        except Exception as e:
+            return jsonify({'ok': False, 'erro': str(e)}), 500
+        return jsonify({'ok': True})
+    linhas = []
+    for a in (d.get('apps') or [])[:50]:
+        try:
+            app_id = str(a.get('app_id') or '').strip()[:80]
+            if not app_id:
+                continue
+            linhas.append({
+                'periodo_inicio': ini, 'periodo_fim': fim,
+                'app_nome': str(a.get('app_nome') or '')[:80], 'app_id': app_id,
+                'markup_pct': float(a.get('markup_pct') or 0), 'trades': int(float(a.get('trades') or 0)),
+                'clientes_ativos': int(float(a.get('clientes_ativos') or 0)),
+                'markup_usd': round(float(a.get('markup_usd') or 0), 4), 'volume_usd': round(float(a.get('volume_usd') or 0), 2),
+            })
+        except Exception:
+            continue
+    if not linhas:
+        return jsonify({'ok': False, 'erro': 'nenhum app valido no arquivo'}), 400
+    try:
+        _ledger_supa_req('markup_oficial?on_conflict=app_id,periodo_inicio,periodo_fim', 'POST', linhas,
+                         {'Prefer': 'resolution=merge-duplicates,return=minimal'})
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': str(e)}), 500
+    return jsonify({'ok': True, 'importadas': len(linhas)})
+print('📄 MARKUP-CSV-V1 ativo: /api/admin/markup-oficial', flush=True)
