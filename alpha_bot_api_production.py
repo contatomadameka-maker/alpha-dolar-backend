@@ -3386,3 +3386,47 @@ def admin_markup_oficial():
         return jsonify({'ok': False, 'erro': str(e)}), 500
     return jsonify({'ok': True, 'importadas': len(linhas)})
 print('📄 MARKUP-CSV-V1 ativo: /api/admin/markup-oficial', flush=True)
+
+
+# ===== RETOMAR-V5: painel aberto renova o token dos robos ligados =====
+@app.route('/api/bot/token', methods=['POST'])
+def rt_v5_token():
+    try:
+        d = request.get_json(silent=True) or {}
+        deriv_id = str(d.get('deriv_id') or '').strip()
+        tok = str(d.get('token') or '').strip()
+        if not deriv_id or not tok.startswith('ory_at_'):
+            return jsonify({'success': False, 'error': 'dados invalidos'}), 400
+        alvos = [k for k in list(_REGISTRO.keys()) if k[0] == deriv_id]
+        pend = []
+        for k in alvos:
+            try:
+                if _REGISTRO[k][1].get('token') != tok: pend.append(k)
+            except Exception: pass
+        if not pend:
+            return jsonify({'success': True, 'atualizados': 0})
+        import urllib.request as _ur, json as _j
+        rq = _ur.Request('https://api.derivws.com/trading/v1/options/accounts',
+                         headers={'Authorization': 'Bearer ' + tok, 'Deriv-App-ID': '34lv1PuWzjElEuwWcDLyr'})
+        try:
+            with _ur.urlopen(rq, timeout=8) as r:
+                contas = [str(a.get('account_id')) for a in (_j.loads(r.read()).get('data') or [])]
+        except Exception:
+            return jsonify({'success': False, 'error': 'token recusado pela Deriv'}), 401
+        if deriv_id not in contas:
+            return jsonify({'success': False, 'error': 'token nao pertence a conta'}), 403
+        n = 0
+        for k in pend:
+            try:
+                bot, dados = _REGISTRO[k]
+                dados['token'] = tok
+                api = getattr(bot, 'api', None)
+                if api is not None: api.api_token = tok
+                try: get_user_state(k[0], k[1])['token'] = tok
+                except Exception: pass
+                n += 1
+            except Exception: pass
+        if n: print(f'🔑 RETOMAR-V5: token renovado para {deriv_id} ({n} robo(s))', flush=True)
+        return jsonify({'success': True, 'atualizados': n})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
