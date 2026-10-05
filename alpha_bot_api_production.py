@@ -1200,11 +1200,24 @@ def get_bot_stats(bot_type):
     mart_step = get_user_state(deriv_id, bot_type).get('mart_step', 0)
     mart_max  = get_user_state(deriv_id, bot_type).get('mart_max', 3)
 
+    _rec_livre, _prox_stake, _lim_perda = False, None, None
+    try:  # MART-REAL-V1: recuperacao sem limite -> mostra a tentativa real, nao "Step 0/3"
+        if bot and getattr(bot, 'martingale', None) and not getattr(bot, 'limite_tentativas', False):
+            _rec_livre = True
+            _pa = float(getattr(bot, 'perda_acumulada', 0) or 0)
+            mart_step = int(getattr(bot, '_rec_tent', 0) or 0) if _pa > 0 else 0
+            mart_max = 0
+            _st_m = get_user_state(deriv_id, bot_type)
+            _ini = float(_st_m.get('_stake_inicial') or getattr(bot.config, 'STAKE_INICIAL', 0) or 0)
+            _prox_stake = round(bot._calcular_stake_recuperacao(), 2) if _pa > 0 else round(_ini, 2)
+            _lim_perda = float(_st_m.get('_limite_perda') or getattr(bot.config, 'LIMITE_PERDA', 0) or 0) or None
+    except Exception as _e_m: print('MART-REAL-V1:', _e_m)
+
     return jsonify({
         'success': True, 'bot_type': bot_type, 'running': is_running,
         'stats': stats, 'stop_reason': stop_reason, 'stop_message': stop_message,
         'bot_running': is_running, 'waiting_signal': waiting_signal,
-        'mart_step': mart_step, 'mart_max': mart_max,
+        'mart_step': mart_step, 'mart_max': mart_max, 'rec_livre': _rec_livre, 'prox_stake': _prox_stake, 'limite_perda': _lim_perda,
          'strategy_name': get_user_state(deriv_id, bot_type).get('strategy_name', ''),
         'saldo_atual': stats.get('balance', 0), 'lucro_liquido': (stats.get('saldo_liquido', 0) if (bot_type.startswith('enxame-') and bot is not None and 'saldo_liquido' in stats) else get_user_state(deriv_id, bot_type).get('_lucro_sessao', stats.get('saldo_liquido', 0))),
         'ultimo_resultado_geracao': get_user_state(deriv_id, bot_type).get('_ultimo_resultado_geracao'),
