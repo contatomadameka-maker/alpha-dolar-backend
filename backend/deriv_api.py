@@ -134,9 +134,11 @@ class DerivAPI:
                     url = otp_url
                     self._using_otp = True
                 else:
-                    self.log("OTP falhou, tentando WebSocket padrão", "WARN")
-                    url = f"wss://ws.derivws.com/websockets/v3?app_id={self.app_id}"
+                    # RETOMAR-V4: o WebSocket antigo nao aceita o app_id novo (sempre 520) - nao adianta tentar
+                    self.log("OTP falhou - token da Deriv expirado ou revogado", "ERROR")
+                    self._otp_falhou = True
                     self._using_otp = False
+                    return False
             else:
                 url = f"wss://ws.binaryws.com/websockets/v3?app_id={self.app_id}"
                 self._using_otp = False

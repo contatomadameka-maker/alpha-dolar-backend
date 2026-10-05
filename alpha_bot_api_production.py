@@ -864,6 +864,13 @@ def start_bot():
                     get_user_state(deriv_id, bot_type)['lucro_alvo']     = _user_target
                     get_user_state(deriv_id, bot_type)['_symbol']        = _user_symbol
                     bot.start()
+                    try:  # RETOMAR-V4: token vencido -> para com motivo claro, nao "sem motivo"
+                        if getattr(getattr(bot, 'api', None), '_otp_falhou', False):
+                            _st4 = get_user_state(deriv_id, bot_type)
+                            _st4['stop_reason']  = 'sessao_expirada'
+                            _st4['stop_message'] = 'Sua sessão na Deriv expirou. Saia, entre de novo e ligue o robô.'
+                            print(f'🔑 RETOMAR-V4: sessao Deriv expirada para {deriv_id}/{bot_type}', flush=True)
+                    except Exception: pass
                 except Exception as e:
                     import traceback
                     print(f"❌ Erro thread bot: {e}")
