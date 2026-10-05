@@ -3092,6 +3092,7 @@ def _rt_snapshot(chave, bot, payload):
         'strategy': _rt_dict(getattr(bot, 'strategy', None)),
         'estado': {k: st.get(k) for k in _RT_STATE_KEYS if st.get(k) is not None and _rt_simples(st.get(k))},
         't': _rt_time.time(),
+        'inicio': float(getattr(bot, '_rt_inicio', 0) or 0),  # RETOMAR-V3
     }
 
 def _aplicar_snap_bot(bot, snap):
@@ -3201,7 +3202,7 @@ def _rt_retomar_loop():
             k = (r.get('deriv_id') or '', r.get('bot_type') or '')
             snap = r.get('dados') or {}
             idade = _rt_time.time() - float(snap.get('t') or 0)
-            if idade > 600 or k in _CANCELADOS:
+            if idade > 600 or k in _CANCELADOS or globals().get('_rt_parada_pedida', lambda *a: False)(k, snap):  # RETOMAR-V3
                 try: _ledger_supa_req(_RT_TABELA + '?chave=eq.' + _rt_q(r['chave'], safe=''), 'DELETE', None, {'Prefer': 'return=minimal'})
                 except Exception: pass
                 _RETOMANDO.discard(k)
@@ -3247,3 +3248,17 @@ def _rt_vigia():
 
 _rt_th.Thread(target=_rt_vigia, daemon=True).start()
 print('🔄 RETOMAR-V2 ativo: troca de servidor sem o painel perceber', flush=True)
+
+
+# RETOMAR-V3: antes de religar, confere no Redis se alguem mandou parar esse robo
+# depois que ele foi ligado (vale para qualquer servidor, nao so para este).
+def _rt_parada_pedida(k, snap):
+    try:
+        sp = float(get_user_state(k[0], k[1]).get('_stop_pedido') or 0)
+        if sp and sp > float(snap.get('inicio') or 0):
+            print(f"🛑 RETOMAR: {k[1]} de {k[0]} nao volta -- o usuario mandou parar", flush=True)
+            return True
+    except Exception as e:
+        print('RETOMAR-V3:', e, flush=True)
+    return False
+print('🔄 RETOMAR-V3 ativo: robo parado pelo usuario nunca volta sozinho', flush=True)
