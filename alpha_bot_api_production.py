@@ -893,7 +893,9 @@ def start_bot():
             thread = threading.Thread(target=run_bot, daemon=True)
             thread.start()
             set_bot_instance(deriv_id, bot_type, bot)
-            try: _REGISTRO[(deriv_id, bot_type)] = (bot, dict(data))  # RETOMAR-V1
+            try:
+                bot._rt_inicio = time.time()  # RETOMAR-V2
+                _REGISTRO[(deriv_id, bot_type)] = (bot, dict(data))  # RETOMAR-V1
             except Exception: pass
 
             get_user_state(deriv_id, bot_type).update({
@@ -993,6 +995,16 @@ def stop_bot():
             except: pass
             return jsonify({'success': True, 'message': 'Bot parado!', 'stats': stats})
 
+        try:  # RETOMAR-V2: o robo esta no outro servidor (troca de deploy) -- pede a parada pelo Redis
+            _st = get_user_state(deriv_id, bot_type)
+            _st['_stop_pedido'] = time.time()
+            _st['running'] = False
+            _st['stop_reason'] = 'manual'
+            _CANCELADOS.add((deriv_id, bot_type)); _RETOMANDO.discard((deriv_id, bot_type))
+            try: _limpar_estado(bot_type)
+            except Exception: pass
+            return jsonify({'success': True, 'message': 'Bot parado!', 'stats': {}})
+        except NameError: pass
         return jsonify({'success': False, 'error': 'Instância não encontrada'}), 500
 
     except Exception as e:
@@ -1155,6 +1167,10 @@ def get_bot_stats(bot_type):
                 stats['currency'] = bot.api.currency
             except: pass
 
+    try:  # RETOMAR-V2: robo vivo no outro servidor durante a troca do deploy
+        if not bot and _rt_vivo_fora(deriv_id, bot_type) and isinstance(state.get('_stats'), dict):
+            stats = dict(state.get('_stats'))
+    except Exception: pass
     thread       = state.get('thread')
     thread_alive = thread is not None and thread.is_alive()
     instance     = state.get('instance') or get_bot_instance(deriv_id, bot_type)
@@ -3053,8 +3069,16 @@ def _rt_pendente(deriv_id, bot_type):
 def _rt_boot_recente():
     return _rt_time.time() - _RT_BOOT < 90
 
+def _rt_vivo_fora(deriv_id, bot_type):  # RETOMAR-V2
+    try:
+        st = get_user_state(deriv_id, bot_type)
+        hb = float(st.get('_hb') or 0)
+        return bool(st.get('running')) and _rt_time.time() - hb < 12
+    except Exception:
+        return False
+
 def _rt_espera(deriv_id, bot_type):
-    return _rt_pendente(deriv_id, bot_type) or _rt_boot_recente()
+    return _rt_pendente(deriv_id, bot_type) or _rt_boot_recente() or _rt_vivo_fora(deriv_id, bot_type)
 
 def _rt_snapshot(chave, bot, payload):
     did, bt = chave
@@ -3112,6 +3136,10 @@ def _rt_drenar():
         for k, b, p in vivos:
             if not getattr(b, 'is_running', False):
                 continue  # bateu meta ou stop na ultima operacao: nao volta
+            try:  # RETOMAR-V2
+                if float(get_user_state(k[0], k[1]).get('_stop_pedido') or 0) > float(getattr(b, '_rt_inicio', 0) or 0):
+                    continue
+            except Exception: pass
             try:
                 d = _rt_snapshot(k, b, p); d['fase'] = fase
                 out.append({'chave': f'{k[0]}|{k[1]}', 'deriv_id': k[0], 'bot_type': k[1], 'dados': d})
@@ -3159,7 +3187,7 @@ def _rt_iniciar(k, snap):
         _RETOMANDO.discard(k)
 
 def _rt_retomar_loop():
-    fim = _rt_time.time() + 300
+    fim = _rt_time.time() + 1200  # RETOMAR-V2
     primeira = True
     while _rt_time.time() < fim:
         try:
@@ -3191,3 +3219,31 @@ def _rt_retomar_loop():
 
 _rt_th.Thread(target=_rt_retomar_loop, daemon=True).start()
 print('🔄 RETOMAR-V1 ativo: robos voltam sozinhos depois do deploy', flush=True)
+
+
+# RETOMAR-V2: vigia -- a cada 3s cada servidor avisa no Redis que seus robos estao vivos
+# (e com quais numeros) e obedece pedidos de parada feitos pelo outro servidor.
+def _rt_vigia():
+    while True:
+        _rt_time.sleep(3)
+        for k, (b, _p) in list(_REGISTRO.items()):
+            try:
+                if not getattr(b, 'is_running', False):
+                    continue
+                st = get_user_state(k[0], k[1])
+                sp = float(st.get('_stop_pedido') or 0)
+                if sp and sp > float(getattr(b, '_rt_inicio', 0) or 0):
+                    print(f"🛑 RETOMAR: parada pedida pelo outro servidor -> {k[1]} de {k[0]}", flush=True)
+                    _rt_th.Thread(target=b.stop, daemon=True).start()
+                    continue
+                st['_hb'] = _rt_time.time()
+                try:
+                    est = b.stop_loss.get_estatisticas()
+                    st['_stats'] = {x: y for x, y in est.items() if _rt_simples(y)}
+                except Exception:
+                    pass
+            except Exception as e:
+                print('RETOMAR vigia:', k, e, flush=True)
+
+_rt_th.Thread(target=_rt_vigia, daemon=True).start()
+print('🔄 RETOMAR-V2 ativo: troca de servidor sem o painel perceber', flush=True)
