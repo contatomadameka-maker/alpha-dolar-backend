@@ -2818,6 +2818,38 @@ def rede_saque_route():
         return jsonify({'ok': False, 'erro': str(e)}), 500
 
 
+# REDE-VINCULAR-V1: login novo (OAuth) registra o cliente e liga a indicacao sem sobrescrever dados
+@app.route('/api/rede/vincular', methods=['POST'])
+def rede_vincular_route():
+    import requests as _rq
+    d = request.get_json(silent=True) or {}
+    did = str(d.get('deriv_id', '')).strip().upper()
+    if not did or len(did) > 30:
+        return jsonify({'ok': False, 'erro': 'deriv_id'}), 400
+    bot = (d.get('bot_name') or 'default')[:80]
+    email = (d.get('email') or '').strip()[:200]
+    ref = (d.get('ref_code') or '').strip()[:40]
+    tipo = 'real' if str(d.get('account_type', '')).lower() == 'real' else 'demo'
+    url = os.environ.get('SUPABASE_URL', '') + '/rest/v1/clientes'
+    key = os.environ.get('SUPABASE_KEY', '')
+    h = {'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'}
+    try:
+        r = _rq.get(url + '?deriv_id=eq.' + did + '&select=deriv_id,email', headers=h, timeout=10)
+        atual = r.json() if r.status_code == 200 else []
+        if not atual:
+            novo = {'deriv_id': did, 'bot_name': bot, 'account_type': tipo}
+            if email:
+                novo['email'] = email
+            _rq.post(url, headers=dict(h, Prefer='resolution=ignore-duplicates'), json=novo, timeout=10)
+        elif email and not (atual[0].get('email') or '').strip():
+            _rq.patch(url + '?deriv_id=eq.' + did, headers=h, json={'email': email}, timeout=10)
+        from database import resolver_referral
+        resolver_referral(did, bot, ref or None)
+        return jsonify({'ok': True})
+    except Exception as e:
+        print('[REDE-VINCULAR] erro', did, e)
+        return jsonify({'ok': False, 'erro': str(e)}), 500
+
 @app.route('/api/rede/meu-link', methods=['GET'])
 def rede_meu_link_route():
     deriv_id = request.args.get('deriv_id')
