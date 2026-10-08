@@ -73,6 +73,22 @@ def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake, markup_
     if symbol:
         payload['symbol'] = symbol
     try:
+        # OPERACOES-SERVIDOR-V1: conta/deriv_id/ferramenta + nao grava a mesma operacao 2x
+        _did = str(cliente_id or '').strip()
+        _up = _did.upper()
+        if _did and not payload.get('deriv_id'): payload['deriv_id'] = _did
+        if not payload.get('conta'):
+            payload['conta'] = 'real' if _up.startswith(('ROT', 'CR', 'MF', 'MLT', 'MX')) else ('demo' if _up.startswith(('DOT', 'VRT')) else None)
+        if not payload.get('ferramenta'): payload['ferramenta'] = 'servidor'
+        import time as _t
+        _k = (str(bot_name), _did, str(direcao), round(float(stake or 0), 2), round(float(lucro or 0), 2))
+        _g = globals().setdefault('_OPS_ULT', {})
+        _agora = _t.time()
+        if _agora - _g.get(_k, 0) < 3:
+            print('[operacoes] duplicada ignorada', _k)
+            return
+        _g[_k] = _agora
+        if len(_g) > 5000: _g.clear()
         req.post(f"{SUPABASE_URL}/rest/v1/operacoes", json=payload, headers=headers)
     except:
         pass
