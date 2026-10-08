@@ -2519,7 +2519,7 @@ def get_financeiro_admin():
     date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
     mes_inicio = date_from
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,deriv_id,resultado,lucro,bot_name,stake,conta&criado_em=gte.{date_from}&criado_em=lte.{date_to if 'T' in date_to else date_to + 'T23:59:59'}&or=(conta.is.null,conta.eq.real)&limit=5000",  # ADMIN-AOVIVO-V1: so conta real
+        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,deriv_id,resultado,lucro,bot_name,stake,conta,markup_usd&criado_em=gte.{date_from}&criado_em=lte.{date_to if 'T' in date_to else date_to + 'T23:59:59'}&or=(conta.is.null,conta.eq.real)&limit=5000",  # ADMIN-AOVIVO-V1: so conta real
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
@@ -2557,7 +2557,7 @@ def get_financeiro_admin():
 
         # Markup estimado por bot
         total_stakes_bot = sum(float(o.get('stake', 0)) for o in ops_bot)
-        markup_est_bot   = round(total_stakes_bot * (markup_pct / 100), 2)
+        markup_est_bot = round(sum(float(o.get('markup_usd') or 0) for o in ops_bot) or total_stakes_bot * (markup_pct / 100), 2)  # MARKUP-REAL-V1
         markup_alpha_bot = round(markup_est_bot, 2)  # ADMIN-AOVIVO-V1: o markup e 100% do Alpha Dolar
 
         resultado_bots.append({
