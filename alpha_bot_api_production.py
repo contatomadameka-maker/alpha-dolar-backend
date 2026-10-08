@@ -622,7 +622,12 @@ def start_bot():
                         _salvar_op(_bot_name, _cliente_id, direction, won, profit, stake, _markup_usd, symbol=symbol_used)
                         try:
                             from database import distribuir_comissao
-                            distribuir_comissao(_cliente_id, _bot_name, _markup_usd)
+                            _cid_rede = None  # REDE-SEGURA-V1
+                            for _a in ('last_contract_id', 'ultimo_contract_id', 'current_contract_id', 'contract_id'):
+                                _v = getattr(getattr(bot, 'api', None), _a, None) or getattr(bot, _a, None)
+                                if _v:
+                                    _cid_rede = str(_v); break
+                            distribuir_comissao(_cliente_id, _bot_name, _markup_usd, contract_id=_cid_rede)
                         except Exception as e_dist:
                             print(f"Erro ao distribuir comissao de rede: {e_dist}")
                 except Exception as e:
@@ -2798,6 +2803,7 @@ def rede_saldo_route():
         return jsonify({'erro': str(e)}), 500
 
 
+_SAQUE_ULT = {}  # REDE-SEGURA-V1: trava contra dois saques seguidos
 @app.route('/api/rede/saque', methods=['POST'])
 def rede_saque_route():
     data = request.json or {}
@@ -2808,6 +2814,10 @@ def rede_saque_route():
     if not deriv_id or not valor_usd:
         return jsonify({'ok': False, 'erro': 'deriv_id e valor_usd obrigatorios'}), 400
     try:
+        import time as _t_sq
+        if _t_sq.time() - _SAQUE_ULT.get(str(deriv_id), 0) < 15:
+            return jsonify({'ok': False, 'erro': 'aguarde alguns segundos e tente de novo'}), 429
+        _SAQUE_ULT[str(deriv_id)] = _t_sq.time()
         from database import saldo_e_historico_saques, criar_solicitacao_saque
         saldo = saldo_e_historico_saques(deriv_id, bot_name)
         if float(valor_usd) > saldo['saldo_disponivel']:

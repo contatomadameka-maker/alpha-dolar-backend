@@ -207,43 +207,51 @@ def resolver_referral(deriv_id, bot_name, ref_code_recebido=None):
         print(f"Erro em resolver_referral: {e}")
 
 
-def distribuir_comissao(cliente_id, bot_name, markup_usd):
+def distribuir_comissao(cliente_id, bot_name, markup_usd, contract_id=None):
     """
-    Chamar logo apos salvar_operacao, quando markup_usd > 0.
-    Sobe a cadeia de patrocinadores gravando um lancamento por nivel.
+    REDE-SEGURA-V1: chamar logo apos salvar_operacao (so conta real), quando markup_usd > 0.
+    Sobe a cadeia de patrocinadores (ate 5 niveis) gravando um lancamento PENDENTE por nivel.
+    Pendente nao pode ser sacado: so vira 'disponivel' quando o admin confirma o markup oficial da Deriv.
     """
-    if not markup_usd or markup_usd <= 0:
+    import os as _os
+    if not markup_usd or float(markup_usd) <= 0:
+        return
+    if not str(cliente_id or '').upper().startswith(('ROT', 'CR', 'MF', 'MLT', 'MX')):
+        return  # nunca gera comissao de conta demo
+    bots_ok = [b.strip() for b in (_os.environ.get('REDE_BOTS') or 'BOT Dirlei 01').split(',') if b.strip()]
+    if bot_name not in bots_ok:
         return
     url = f"{SUPABASE_URL}/rest/v1/clientes"
     try:
-        # Trava modelo B: cliente vindo de parceiro de template nao gera rede de indicacao
-        r0 = requests.get(f"{url}?deriv_id=eq.{cliente_id}&select=via_afiliado", headers=HEADERS)
+        r0 = requests.get(f"{url}?deriv_id=eq.{cliente_id}&select=via_afiliado", headers=HEADERS, timeout=10)
         if r0.status_code == 200 and r0.json() and r0.json()[0].get('via_afiliado'):
             return
-
+        if contract_id:
+            rx = requests.get(f"{SUPABASE_URL}/rest/v1/comissoes_rede?contract_id=eq.{contract_id}&select=id&limit=1", headers=HEADERS, timeout=10)
+            if rx.status_code == 200 and rx.json():
+                return  # esta operacao ja gerou comissao
+        vistos = {str(cliente_id)}
         atual = cliente_id
         for nivel, pct in enumerate(NIVEIS_PCT_REDE, start=1):
-            r = requests.get(f"{url}?deriv_id=eq.{atual}&select=ref_promoter_id", headers=HEADERS)
+            r = requests.get(f"{url}?deriv_id=eq.{atual}&select=ref_promoter_id", headers=HEADERS, timeout=10)
             if r.status_code != 200 or not r.json():
                 break
             promotor = r.json()[0].get('ref_promoter_id')
-            if not promotor:
-                break
+            if not promotor or str(promotor) in vistos:
+                break  # fim da cadeia ou ciclo
+            vistos.add(str(promotor))
             valor = round(float(markup_usd) * pct, 4)
-            requests.post(f"{SUPABASE_URL}/rest/v1/comissoes_rede", headers=HEADERS, json={
-                'bot_name': bot_name,
-                'beneficiario_id': promotor,
-                'origem_cliente_id': cliente_id,
-                'nivel': nivel,
-                'markup_origem_usd': float(markup_usd),
-                'percentual_aplicado': pct,
-                'valor_usd': valor,
-                'status': 'pendente',
-            })
+            corpo = {
+                'bot_name': bot_name, 'beneficiario_id': promotor, 'origem_cliente_id': cliente_id,
+                'nivel': nivel, 'markup_origem_usd': float(markup_usd), 'percentual_aplicado': pct,
+                'valor_usd': valor, 'status': 'pendente',
+            }
+            if contract_id:
+                corpo['contract_id'] = str(contract_id)
+            requests.post(f"{SUPABASE_URL}/rest/v1/comissoes_rede", headers=dict(HEADERS, Prefer='resolution=ignore-duplicates'), json=corpo, timeout=10)
             atual = promotor
     except Exception as e:
         print(f"Erro em distribuir_comissao: {e}")
-
 
 def resumo_rede(deriv_id, bot_name=None):
     """Soma as comissoes de rede de um beneficiario -- usado na tela Desempenho."""
@@ -387,7 +395,9 @@ def saldo_e_historico_saques(deriv_id, bot_name=None):
         print(f"Erro em saldo_e_historico_saques (comissoes): {e}")
         rows = []
 
-    total_gerado = round(sum(float(x.get('valor_usd', 0)) for x in rows), 4)
+    # REDE-SEGURA-V1: so o que o admin confirmou (disponivel) pode ser sacado
+    total_gerado = round(sum(float(x.get('valor_usd', 0)) for x in rows if x.get('status') == 'disponivel'), 4)
+    total_a_confirmar = round(sum(float(x.get('valor_usd', 0)) for x in rows if x.get('status') == 'pendente'), 4)
 
     url_saq = f"{SUPABASE_URL}/rest/v1/saques_rede"
     try:
@@ -409,6 +419,7 @@ def saldo_e_historico_saques(deriv_id, bot_name=None):
     return {
         'saldo_disponivel': max(saldo_disponivel, 0),
         'total_gerado': total_gerado,
+        'total_a_confirmar': total_a_confirmar,
         'total_sacado_ou_pendente': ja_sacado_ou_pedido,
         'historico': historico,
     }
