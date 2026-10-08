@@ -164,7 +164,21 @@ def limpar_estado_bot(bot_type):
 import random as _random
 import string as _string
 
-NIVEIS_PCT_REDE = [0.15, 0.08, 0.04, 0.02, 0.01]  # nivel 1 a 5
+# REDE-TETO-V1: a rede divide no maximo 0,70 a cada 3,00 de markup (23,33%).
+# Valores em "centavos por 3,00 de markup", nivel 1 a 5. Ajustavel pela env REDE_NIVEIS.
+import os as _os_rede
+REDE_BASE = 3.00
+REDE_TETO = 0.70
+def _niveis_rede():
+    try:
+        v = [max(0.0, float(x)) for x in (_os_rede.environ.get('REDE_NIVEIS') or '0.35,0.15,0.10,0.06,0.04').split(',')][:5]
+    except Exception:
+        v = [0.35, 0.15, 0.10, 0.06, 0.04]
+    s = sum(v)
+    if s > REDE_TETO:  # nunca passa do teto: reduz tudo na mesma proporcao
+        v = [x * REDE_TETO / s for x in v]
+    return [x / REDE_BASE for x in v]  # fracao do markup por nivel
+NIVEIS_PCT_REDE = _niveis_rede()  # nivel 1 a 5
 
 
 def _gerar_ref_code():
@@ -218,8 +232,8 @@ def distribuir_comissao(cliente_id, bot_name, markup_usd, contract_id=None):
         return
     if not str(cliente_id or '').upper().startswith(('ROT', 'CR', 'MF', 'MLT', 'MX')):
         return  # nunca gera comissao de conta demo
-    bots_ok = [b.strip() for b in (_os.environ.get('REDE_BOTS') or 'BOT Dirlei 01').split(',') if b.strip()]
-    if bot_name not in bots_ok:
+    bots_ok = [b.strip() for b in (_os.environ.get('REDE_BOTS') or '').split(',') if b.strip()]
+    if bots_ok and bot_name not in bots_ok:
         return
     url = f"{SUPABASE_URL}/rest/v1/clientes"
     try:
@@ -240,7 +254,8 @@ def distribuir_comissao(cliente_id, bot_name, markup_usd, contract_id=None):
             if not promotor or str(promotor) in vistos:
                 break  # fim da cadeia ou ciclo
             vistos.add(str(promotor))
-            valor = round(float(markup_usd) * pct, 4)
+            import math as _m
+            valor = _m.floor(float(markup_usd) * pct * 10000) / 10000.0
             corpo = {
                 'bot_name': bot_name, 'beneficiario_id': promotor, 'origem_cliente_id': cliente_id,
                 'nivel': nivel, 'markup_origem_usd': float(markup_usd), 'percentual_aplicado': pct,
