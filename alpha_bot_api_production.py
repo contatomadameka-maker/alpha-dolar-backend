@@ -2029,6 +2029,30 @@ def _ledger_restaurar():
         except Exception: pass
 _lth.Thread(target=_ledger_restaurar, daemon=True).start()
 
+
+# VIA-LINK-V1: depois do /api/rede/vincular, marca via_afiliado em cadastro novo (ate 6h), nunca desmarca
+@app.after_request
+def _via_link_v1(resp):
+    try:
+        if request.path != '/api/rede/vincular' or request.method != 'POST' or resp.status_code >= 400:
+            return resp
+        d = request.get_json(silent=True) or {}
+        did = str(d.get('deriv_id') or '').strip().upper()
+        if not did or not d.get('via_afiliado'):
+            return resp
+        import requests as _rq
+        from datetime import datetime, timedelta, timezone
+        url = os.environ.get('SUPABASE_URL', '').rstrip('/') + '/rest/v1/clientes'
+        key = os.environ.get('SUPABASE_KEY', '')
+        h = {'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'}
+        lim = (datetime.now(timezone.utc) - timedelta(hours=6)).strftime('%Y-%m-%dT%H:%M:%S')
+        bot = str(d.get('bot_afiliado') or d.get('bot_name') or '').strip()[:80]
+        _rq.patch(url + '?deriv_id=eq.' + did + '&via_afiliado=not.is.true&criado_em=gte.' + lim,
+                  json={'via_afiliado': True, 'bot_afiliado': bot}, headers=h, timeout=8)
+    except Exception as e:
+        print('[via-link] erro', e)
+    return resp
+
 if __name__ == '__main__':
     print("\n" + "="*70)
     print("🚀 ALPHA DOLAR 2.0 - API PRODUCTION v5")
