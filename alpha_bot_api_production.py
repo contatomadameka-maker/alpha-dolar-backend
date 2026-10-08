@@ -2515,14 +2515,14 @@ def get_financeiro_admin():
         # Clientes do bot (para buscar ops pelo cliente_id também)
         ids_clientes_bot = {c['deriv_id'] for c in todos_clientes if c.get('bot_name') == bot_nome or c.get('bot_afiliado') == bot_nome}
         # Busca ops pelo bot_name OU pelo cliente_id dos clientes do bot
-        ops_bot = [o for o in operacoes if o.get('bot_name') == bot_nome or o.get('cliente_id') in ids_clientes_bot]
+        ops_bot = [o for o in operacoes if o.get('bot_name') == bot_nome or o.get('cliente_id') in ids_clientes_bot or o.get('deriv_id') in ids_clientes_bot]
 
         # Total geral do bot
         ganhos_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') in ('win', 'won'))
         perdas_total = sum(abs(o['lucro']) for o in ops_bot if o.get('resultado') in ('loss', 'lost'))
 
         # Somente clientes afiliados
-        ops_afiliado = [o for o in ops_bot if o.get('cliente_id') in ids_bot_afiliado]
+        ops_afiliado = [o for o in ops_bot if o.get('deriv_id') in ids_bot_afiliado or o.get('cliente_id') in ids_bot_afiliado]  # REVENUE-AFILIADO-V1
         ganhos_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') in ('win', 'won'))
         perdas_af = sum(abs(o['lucro']) for o in ops_afiliado if o.get('resultado') in ('loss', 'lost'))
         net_af    = round(perdas_af - ganhos_af, 2)
