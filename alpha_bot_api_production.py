@@ -2469,7 +2469,7 @@ def get_markup_stats():
 
 # ==================== REVENUE SHARE REAL + MARKUP ====================
 @app.route('/api/admin/financeiro', methods=['GET'])
-def get_financeiro_admin():
+def get_financeiro_admin():  # FINANCEIRO-SO-REAL-V1
     """Retorna dados financeiros reais para o painel admin principal"""
     import requests as req
     from datetime import datetime
@@ -2495,7 +2495,7 @@ def get_financeiro_admin():
     date_to   = request.args.get('date_to',   datetime.utcnow().strftime('%Y-%m-%d') + 'T23:59:59')
     mes_inicio = date_from
     ops_r = req.get(
-        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,deriv_id,resultado,lucro,bot_name,stake,conta&criado_em=gte.{date_from}&criado_em=lte.{date_to if 'T' in date_to else date_to + 'T23:59:59'}&or=(conta.is.null,conta.eq.real)&limit=5000",  # ADMIN-AOVIVO-V1: so conta real
+        f"{SUPA_URL}/rest/v1/operacoes?select=cliente_id,deriv_id,resultado,lucro,bot_name,stake,conta&criado_em=gte.{date_from}&criado_em=lte.{date_to if 'T' in date_to else date_to + 'T23:59:59'}&conta=eq.real&limit=5000",  # ADMIN-AOVIVO-V1: so conta real
         headers=headers
     )
     operacoes = ops_r.json() if ops_r.status_code == 200 else []
