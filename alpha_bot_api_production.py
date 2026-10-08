@@ -2822,7 +2822,21 @@ def rede_saque_route():
         saldo = saldo_e_historico_saques(deriv_id, bot_name)
         if float(valor_usd) > saldo['saldo_disponivel']:
             return jsonify({'ok': False, 'erro': 'valor maior que saldo disponivel'}), 400
-        resultado = criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo)
+        # REDE-DESTINO-V1
+        _jd = request.get_json(silent=True) or {}
+        _dest = str(_jd.get('destino') or '').strip()
+        _min = float(os.environ.get('REDE_SAQUE_MIN', '10') or 10)
+        if not (5 <= len(_dest) <= 200):
+            _m = 'Informe a chave Pix ou a carteira para receber.'
+            return jsonify({'ok': False, 'success': False, 'erro': _m, 'error': _m}), 400
+        try:
+            _v = float(str(_jd.get('valor_usd') or 0).replace(',', '.'))
+        except Exception:
+            _v = 0
+        if _v < _min:
+            _m = 'O saque minimo e $%.2f.' % _min
+            return jsonify({'ok': False, 'success': False, 'erro': _m, 'error': _m}), 400
+        resultado = criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo, destino=_dest)
         return jsonify(resultado)
     except Exception as e:
         return jsonify({'ok': False, 'erro': str(e)}), 500

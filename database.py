@@ -440,7 +440,7 @@ def saldo_e_historico_saques(deriv_id, bot_name=None):
     }
 
 
-def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo):
+def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo, destino=''):  # REDE-DESTINO-V1
     """Cria um pedido de saque -- validacao de saldo fica a cargo de quem chama."""
     url = f"{SUPABASE_URL}/rest/v1/saques_rede"
     payload = {
@@ -448,7 +448,7 @@ def criar_solicitacao_saque(deriv_id, bot_name, valor_usd, metodo):
         'beneficiario_id': deriv_id,
         'valor_usd': float(valor_usd),
         'metodo': metodo,
-        'status': 'solicitado',
+        "destino": str(destino or "")[:200], 'status': 'solicitado',
     }
     try:
         r = requests.post(url, json=payload, headers={**HEADERS, 'Prefer': 'return=representation'})
