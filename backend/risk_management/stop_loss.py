@@ -93,8 +93,18 @@ class StopLoss:
 
         # ADV-STOP-V1: limite pelo resultado LIQUIDO da sessao (antes abs() parava tambem no lucro)
         tipo = str(self.stop_loss_type or "value")
-        if tipo in ("value", "both") and -self.saldo_liquido >= self.limite_perda:
-            return True, f"🛑 Limite de perda atingido! ${self.saldo_liquido:.2f}"
+        # ADV-STOP-V2: perda da sequencia atual (soma das perdas desde o ultimo ganho; o ganho de recuperacao zera)
+        perda_seq = 0.0
+        for t in reversed(self.historico_trades):
+            if t.get("vitoria"):
+                break
+            perda_seq += abs(float(t.get("profit") or 0))
+        if tipo in ("value", "both"):
+            if perda_seq >= self.limite_perda:
+                return True, f"🛑 Limite de perda atingido na sequência! -${perda_seq:.2f}"
+            # teto de seguranca: a sessao inteira tambem nunca passa do limite
+            if -self.saldo_liquido >= self.limite_perda:
+                return True, f"🛑 Limite de perda da sessão atingido! ${self.saldo_liquido:.2f}"
         if tipo in ("consecutive_losses", "sequence", "both") and self.perdas_consecutivas >= self.max_consecutive_losses:
             return True, f"🛑 {self.perdas_consecutivas} perdas consecutivas!"
 
