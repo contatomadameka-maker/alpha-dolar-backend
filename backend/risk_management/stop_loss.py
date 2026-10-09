@@ -91,15 +91,12 @@ class StopLoss:
         if self.saldo_liquido >= self.lucro_alvo:
             return True, f"🎯 Lucro alvo atingido! ${self.saldo_liquido:.2f}"
 
-        # Verifica limite de perda por valor
-        if self.stop_loss_type == "value":
-            if abs(self.saldo_liquido) >= self.limite_perda:
-                return True, f"🛑 Limite de perda atingido! ${self.saldo_liquido:.2f}"
-
-        # Verifica limite de perdas consecutivas
-        elif self.stop_loss_type == "consecutive_losses":
-            if self.perdas_consecutivas >= self.max_consecutive_losses:
-                return True, f"🛑 {self.perdas_consecutivas} perdas consecutivas!"
+        # ADV-STOP-V1: limite pelo resultado LIQUIDO da sessao (antes abs() parava tambem no lucro)
+        tipo = str(self.stop_loss_type or "value")
+        if tipo in ("value", "both") and -self.saldo_liquido >= self.limite_perda:
+            return True, f"🛑 Limite de perda atingido! ${self.saldo_liquido:.2f}"
+        if tipo in ("consecutive_losses", "sequence", "both") and self.perdas_consecutivas >= self.max_consecutive_losses:
+            return True, f"🛑 {self.perdas_consecutivas} perdas consecutivas!"
 
         return False, ""
 

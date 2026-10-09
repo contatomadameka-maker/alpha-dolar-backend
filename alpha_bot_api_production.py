@@ -505,6 +505,7 @@ def start_bot():
             multi_strategies = config.get('multi_strategies', [])
             is_multi = strategy_id == 'multi' and multi_strategies
             stop_loss_type = config.get('stop_loss_type', 'value')
+            stop_loss_type = {'sequence': 'consecutive_losses', 'seq': 'consecutive_losses'}.get(str(stop_loss_type), stop_loss_type)  # ADV-STOP-V1
             max_losses     = int(config.get('max_losses', 5))
 
             BotConfig.STOP_LOSS_TYPE         = stop_loss_type
