@@ -1705,6 +1705,43 @@ import threading as _enx_thr
 _enx_thr.Thread(target=_enx_vigia, daemon=True).start()
 print('ENXAME-VIGIA-V1 ativo (para unidades sem a pagina ha 3 min)', flush=True)
 
+# DIAG-MEM-V1: raio-x da memoria do servidor (somente leitura, protegido pela ADMIN_SENHA)
+@app.route('/api/admin/diag')
+def _diag_mem():
+    import os, gc, sys, threading, collections
+    if not os.environ.get('ADMIN_SENHA') or request.args.get('senha') != os.environ.get('ADMIN_SENHA'):
+        return jsonify({'error': 'negado'}), 403
+    def _kb(campo):
+        try:
+            for l in open('/proc/self/status'):
+                if l.startswith(campo): return l.split()[1] + ' kB'
+        except Exception: return None
+    th = collections.Counter((t.name.split('-')[0] if t.name else '?') for t in threading.enumerate())
+    tipos = collections.Counter(type(o).__name__ for o in gc.get_objects())
+    tmp = []
+    try:
+        for f in os.listdir('/tmp'):
+            p = os.path.join('/tmp', f)
+            if os.path.isfile(p): tmp.append((f, os.path.getsize(p)))
+    except Exception: pass
+    grandes = []
+    for nome, v in list(globals().items()):
+        try:
+            if isinstance(v, (dict, list, set, tuple)) and len(v) > 50: grandes.append((nome, type(v).__name__, len(v)))
+        except Exception: pass
+    cg = None
+    for p in ('/sys/fs/cgroup/memory.current', '/sys/fs/cgroup/memory/memory.usage_in_bytes'):
+        try: cg = round(int(open(p).read().strip()) / 1048576, 1); break
+        except Exception: pass
+    return jsonify({
+        'rss_processo': _kb('VmRSS'), 'pico_processo': _kb('VmHWM'), 'memoria_container_mb': cg,
+        'threads_total': threading.active_count(), 'threads_por_nome': th.most_common(15),
+        'objetos_por_tipo': tipos.most_common(15),
+        'globais_grandes': sorted(grandes, key=lambda x: -x[2])[:20],
+        'arquivos_tmp': sorted(tmp, key=lambda x: -x[1])[:10],
+        'modulos': len(sys.modules),
+    })
+
 
 @app.route('/api/ia/analytics', methods=['GET'])
 def api_ia_analytics():
