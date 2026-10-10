@@ -403,6 +403,7 @@ def start_bot():
         account_type = data.get('account_type', 'demo')
         token        = data.get('token')
         deriv_id     = data.get('deriv_id', '') or data.get('loginid', '')
+        if str(bot_type).startswith('enxame-'): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake') or config.get('stake_inicial') or 0.35)
@@ -1164,6 +1165,7 @@ def enxame_ledger():
 @app.route('/api/bot/stats/<bot_type>')
 def get_bot_stats(bot_type):
     deriv_id = request.args.get('deriv_id', 'anonymous')
+    if bot_type.startswith('enxame-'): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1
     state = get_user_state(deriv_id, bot_type)
     bot   = state.get('instance')
     stats = {}
@@ -1672,6 +1674,36 @@ def auto_restart_bots():
 _robo_auto_start()  # Auto-inicia robô de sinais se estava ativo — causa conflito com múltiplos usuários
 # threading.Thread(target=auto_restart_bots, daemon=True).start()
 print('ℹ️ Auto-restart desabilitado')
+
+# ENXAME-VIGIA-V1: quem troca/elimina as unidades do Enxame e a pagina aberta. Sem a pagina
+# consultando ha 3 min, a unidade fica orfa (prende conexao e thread) -- o servidor desliga.
+_ENX_POLL = globals().setdefault('_ENX_POLL', {})
+_ENX_SEM_PAGINA = 180
+def _enx_vigia():
+    import time as _t
+    while True:
+        try:
+            _t.sleep(30)
+            agora = _t.time()
+            for (did, bt), ts in list(_ENX_POLL.items()):
+                if agora - ts < _ENX_SEM_PAGINA:
+                    continue
+                _ENX_POLL.pop((did, bt), None)
+                try:
+                    st = get_user_state(did, bt)
+                    inst = st.get('instance')
+                    if st.get('running') or (inst is not None and getattr(inst, 'is_running', False)):
+                        print(f'ENXAME-VIGIA: {bt} de {did} sem a pagina ha {int(agora - ts)}s -> parando', flush=True)
+                        with app.test_request_context('/api/bot/stop', method='POST', json={'bot_type': bt, 'deriv_id': did}):
+                            stop_bot()
+                        get_user_state(did, bt)['stop_reason'] = 'sem_pagina'
+                except Exception as e:
+                    print('ENXAME-VIGIA erro', bt, e, flush=True)
+        except Exception as e:
+            print('ENXAME-VIGIA loop erro', e, flush=True)
+import threading as _enx_thr
+_enx_thr.Thread(target=_enx_vigia, daemon=True).start()
+print('ENXAME-VIGIA-V1 ativo (para unidades sem a pagina ha 3 min)', flush=True)
 
 
 @app.route('/api/ia/analytics', methods=['GET'])
