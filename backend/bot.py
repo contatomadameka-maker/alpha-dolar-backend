@@ -1,3 +1,4 @@
+import os  # WATCHDOG-SEM-FORCAR-V1
 """
 ALPHA DOLAR 2.0 - Bot de Trading Automatizado
 Motor Principal do Bot
@@ -507,6 +508,18 @@ class AlphaDolar:
 
                 sem_trade = agora - self._ultimo_sinal_time
                 if sem_trade > TRADE_TIMEOUT:
+                    # WATCHDOG-SEM-FORCAR-V1: nao compra mais sem sinal da estrategia (risco em conta real).
+                    # Para voltar ao comportamento antigo: variavel de ambiente WATCHDOG_FORCAR_TRADE=1 no Render.
+                    if os.environ.get("WATCHDOG_FORCAR_TRADE") != "1":
+                        self.log(f"⏳ WATCHDOG: {sem_trade:.0f}s sem sinal — aguardando a estrategia (sem forcar trade)", "INFO")
+                        if hasattr(self.strategy, "reset_state"):
+                            try:
+                                self.strategy.reset_state()
+                            except Exception:
+                                pass
+                        self._ultimo_sinal_time = agora
+                        self._sem_sinal_streak = 0
+                        continue
                     self.log(f"⚠️ WATCHDOG: {sem_trade:.0f}s sem operar — forçando trade!", "WARNING")
 
                     if hasattr(self.strategy, 'reset_state'):

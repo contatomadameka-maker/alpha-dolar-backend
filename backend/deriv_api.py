@@ -336,6 +336,27 @@ class DerivAPI:
         self._send({"buy": proposal_id, "price": price})
         self.log(f"Comprando contrato ID: {proposal_id}", "TRADE")
 
+    def _compra_por_parametros(self, data):
+        """BUY-PARAMS-V1: chamado quando o buy volta com erro. Se for proposta desconhecida, refaz a compra
+        com {buy: 1, price, parameters}. Devolve True quando reenviou (o erro original nao segue adiante)."""
+        try:
+            err = data.get("error") or {}
+            if err.get("code") != "InvalidContractProposal" and "unknown contract proposal" not in str(err.get("message", "")).lower():
+                return False
+            echo = data.get("echo_req") or {}
+            pid = echo.get("buy")
+            req = (getattr(self, "_prop_params", {}) or {}).pop(pid, None) if isinstance(pid, str) else None
+            if not req:
+                return False
+            params = {k: v for k, v in req.items() if k not in ("proposal", "subscribe", "req_id", "passthrough")}
+            price = echo.get("price") or params.get("amount")
+            self.log("↻ Deriv nao achou a proposta: comprando direto pelos parametros", "TRADE")
+            self._send({"buy": 1, "price": price, "parameters": params})
+            return True
+        except Exception as e:
+            self.log(f"Erro na compra por parametros: {e}", "ERROR")
+            return False
+
     def sell_contract(self, contract_id, price=0):
         self._send({"sell": contract_id, "price": price})
 
@@ -366,6 +387,19 @@ class DerivAPI:
 
             if "error" in data:
                 self.log(f"⚠️ DEBUG erro Deriv [{msg_type}]: {data['error']}", "ERROR")
+            # BUY-PARAMS-V1: guarda os parametros de cada proposta e, se a Deriv nao achar a proposta na compra,
+            # compra de novo mandando os parametros (mesma correcao do Regente/Perfil no navegador)
+            if msg_type == "proposal" and "error" not in data:
+                try:
+                    _pid = (data.get("proposal") or {}).get("id")
+                    if _pid:
+                        if not hasattr(self, "_prop_params") or len(self._prop_params) > 200:
+                            self._prop_params = {}
+                        self._prop_params[_pid] = dict(data.get("echo_req") or {})
+                except Exception:
+                    pass
+            if msg_type == "buy" and "error" in data and self._compra_por_parametros(data):
+                return
 
             if msg_type == "ping":
                 pass  # resposta ao nosso ping; a Deriv nao tem pedido "pong"
