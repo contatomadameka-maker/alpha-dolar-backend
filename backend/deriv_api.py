@@ -471,6 +471,7 @@ class DerivAPI:
                 else:
                     buy_data    = data.get("buy", {})
                     contract_id = buy_data.get("contract_id")
+                    self._meus_ids = ((getattr(self, "_meus_ids", None) or []) + [str(contract_id)])[-300:]  # SO-MEUS-CONTRATOS-V1
                     self.log(f"✅ Compra realizada! ID: {contract_id}", "SUCCESS")
                     # ✅ Inicia timeout para este contrato
                     self._start_contract_timeout(contract_id)
@@ -480,7 +481,9 @@ class DerivAPI:
                 contract = data.get("proposal_open_contract", {})
                 status   = contract.get("status")
 
-                if self.on_contract_callback:
+                # SO-MEUS-CONTRATOS-V1: a Deriv pode mandar contratos de outros robos da mesma conta; so conta os comprados aqui
+                _alheio = contract.get("contract_id") is not None and str(contract.get("contract_id")) not in (getattr(self, "_meus_ids", None) or [])
+                if self.on_contract_callback and not _alheio:
                     _cid = contract.get("contract_id")
                     _liquidado = contract.get("status") in ("won", "lost")
                     if not hasattr(self, "_ids_liquidados"):
@@ -493,7 +496,7 @@ class DerivAPI:
                             self._ids_liquidados = self._ids_liquidados[-200:]
                         self.on_contract_callback(contract)
 
-                if status in ["won", "lost"]:
+                if status in ["won", "lost"] and not _alheio:
                     profit = float(contract.get("profit", 0))
                     emoji  = "🎉 VITÓRIA" if status == "won" else "😞 DERROTA"
                     self.log(f"{emoji}! Lucro: ${profit:.2f}", "TRADE")
