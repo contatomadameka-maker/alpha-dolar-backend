@@ -498,6 +498,32 @@ class AlphaDolar:
                 sem_tick = agora - self._ultimo_tick_time
                 if sem_tick > TICK_TIMEOUT:
                     self.log(f"⚠️ WATCHDOG: sem tick {sem_tick:.0f}s — reconectando WebSocket!", "WARNING")
+                    # WS-RECONECTA-OTP-V1: se a conexao caiu, abre uma nova (o connect() pede OTP nova; a antiga e de uso unico)
+                    if not getattr(self.api, 'is_connected', False):
+                        _lk = getattr(self.api, '_reconnect_lock', None)
+                        _pegou = _lk.acquire(blocking=False) if _lk else True
+                        if _pegou:
+                            try:
+                                try:
+                                    if getattr(self.api, 'ws', None):
+                                        self.api.ws.close()
+                                except Exception:
+                                    pass
+                                time.sleep(1.5)
+                                self.api.is_connected = False
+                                _ok = self.api.connect()
+                                self._wd_falhas = 0 if _ok else getattr(self, '_wd_falhas', 0) + 1
+                                self.log("🔌 WATCHDOG: reconectado com OTP nova" if _ok else f"❌ WATCHDOG: reconexao falhou ({self._wd_falhas}x)", "SUCCESS" if _ok else "ERROR")
+                            except Exception as e_rc:
+                                self._wd_falhas = getattr(self, '_wd_falhas', 0) + 1
+                                self.log(f"❌ WATCHDOG: erro ao reconectar: {e_rc}", "ERROR")
+                            finally:
+                                if _lk:
+                                    try: _lk.release()
+                                    except Exception: pass
+                        if not getattr(self.api, 'is_connected', False):
+                            self._ultimo_tick_time = agora
+                            continue
                     try:
                         self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
                         self._ultimo_tick_time  = agora
