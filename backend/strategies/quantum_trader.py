@@ -72,7 +72,7 @@ class QuantumTrader(BaseStrategy):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-30:]]
@@ -113,12 +113,12 @@ class QuantumTrader(BaseStrategy):
             if call_score >= self.min_score:
                 conf = 0.60 + (call_score / 10) * 0.30
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.92)
             if put_score >= self.min_score:
                 conf = 0.60 + (put_score / 10) * 0.30
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.92)
             return False, None, 0.0
         except Exception as e:

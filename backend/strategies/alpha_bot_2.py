@@ -66,7 +66,7 @@ class AlphaBot2(BaseStrategy):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-20:]]
@@ -106,13 +106,13 @@ class AlphaBot2(BaseStrategy):
             if call_score >= self.min_conditions:
                 confidence = 0.60 + (call_score / 4) * 0.30
                 if confidence >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", confidence
 
             if put_score >= self.min_conditions:
                 confidence = 0.60 + (put_score / 4) * 0.30
                 if confidence >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", confidence
 
             return False, None, 0.0

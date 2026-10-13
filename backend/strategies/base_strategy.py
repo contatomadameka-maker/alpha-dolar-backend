@@ -59,6 +59,7 @@ class BaseStrategy(ABC):
         Args:
             tick_data (dict): Dados do tick
         """
+        self._tick_seq_n = getattr(self, '_tick_seq_n', 0) + 1  # HISTORICO-V1
         self.ticks_history.append({
             'quote': float(tick_data.get('quote', 0)),
             'epoch': tick_data.get('epoch'),

@@ -93,7 +93,7 @@ class MegaAlpha1(_PremiumBase):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-40:]]
@@ -125,12 +125,12 @@ class MegaAlpha1(_PremiumBase):
             if cs >= self.min_conditions:
                 conf = 0.68 + (cs / 6) * 0.24
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.94)
             if ps >= self.min_conditions:
                 conf = 0.68 + (ps / 6) * 0.24
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.94)
             return False, None, 0.0
         except Exception as e:
@@ -153,7 +153,7 @@ class MegaAlpha2(_PremiumBase):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-40:]]
@@ -189,12 +189,12 @@ class MegaAlpha2(_PremiumBase):
             if call_score >= threshold:
                 conf = 0.70 + call_score * 0.20
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.95)
             if put_score >= threshold:
                 conf = 0.70 + put_score * 0.20
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.95)
             return False, None, 0.0
         except Exception as e:
@@ -215,7 +215,7 @@ class MegaAlpha3(_PremiumBase):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-40:]]
@@ -250,12 +250,12 @@ class MegaAlpha3(_PremiumBase):
             if cs >= self.min_conditions:
                 conf = 0.68 + (cs / 5) * 0.24
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.94)
             if ps >= self.min_conditions:
                 conf = 0.68 + (ps / 5) * 0.24
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.94)
             return False, None, 0.0
         except Exception as e:
@@ -287,7 +287,7 @@ class AlphaElite(_PremiumBase):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-40:]]
@@ -323,12 +323,12 @@ class AlphaElite(_PremiumBase):
             if cs >= self.min_conditions:
                 conf = 0.70 + (cs / 7) * 0.25
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.96)
             if ps >= self.min_conditions:
                 conf = 0.70 + (ps / 7) * 0.25
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.96)
             return False, None, 0.0
         except Exception as e:
@@ -349,7 +349,7 @@ class AlphaNexus(_PremiumBase):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-40:]]
@@ -396,12 +396,12 @@ class AlphaNexus(_PremiumBase):
             if votes_call >= min_votes:
                 conf = 0.68 + (votes_call / 5) * 0.26
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.95)
             if votes_put >= min_votes:
                 conf = 0.68 + (votes_put / 5) * 0.26
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.95)
             return False, None, 0.0
         except Exception as e:

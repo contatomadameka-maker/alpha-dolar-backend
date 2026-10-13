@@ -117,7 +117,7 @@ class _DigitBase(BaseStrategy):
         return barrier, direction, confidence
 
     def _cooldown_ok(self):
-        return (len(self.ticks_history) - self.last_signal_tick) >= self.cooldown_ticks
+        return ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) >= self.cooldown_ticks
 
     def get_contract_params(self, direction):
         return {
@@ -131,7 +131,7 @@ class _DigitBase(BaseStrategy):
     def _emit_signal(self, direction, barrier, confidence):
         self._last_barrier    = barrier
         self._last_direction  = direction
-        self.last_signal_tick = len(self.ticks_history)
+        self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
         contract = 'DIGITOVER' if direction == 'OVER' else 'DIGITUNDER'
         self.last_signal  = contract
         self.signal_count += 1

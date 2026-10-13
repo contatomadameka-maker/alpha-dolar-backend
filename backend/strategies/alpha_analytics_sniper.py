@@ -64,7 +64,7 @@ class AlphaAnalytics(BaseStrategy):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-30:]]
@@ -83,14 +83,14 @@ class AlphaAnalytics(BaseStrategy):
             if zscore < -self.zscore_threshold:
                 conf = min(0.62 + abs(zscore) * 0.06, 0.92)
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", conf
 
             # Z-score positivo extremo → PUT
             if zscore > self.zscore_threshold:
                 conf = min(0.62 + abs(zscore) * 0.06, 0.92)
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", conf
 
             return False, None, 0.0
@@ -179,7 +179,7 @@ class AlphaSniper(BaseStrategy):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-35:]]
@@ -218,12 +218,12 @@ class AlphaSniper(BaseStrategy):
             if cs >= self.min_conditions:
                 conf = 0.70 + (cs / 6) * 0.25
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", min(conf, 0.95)
             if ps >= self.min_conditions:
                 conf = 0.70 + (ps / 6) * 0.25
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", min(conf, 0.95)
             return False, None, 0.0
         except Exception as e:

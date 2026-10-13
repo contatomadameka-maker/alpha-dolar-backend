@@ -100,7 +100,7 @@ class AlphaBotBalanced(BaseStrategy):
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
 
-        ticks_since_last = len(self.ticks_history) - self.last_signal_tick
+        ticks_since_last = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick
         if ticks_since_last < self.cooldown_ticks:
             return False, None, 0.0
 
@@ -137,13 +137,13 @@ class AlphaBotBalanced(BaseStrategy):
             if call_score >= self.min_conditions:
                 confidence = (call_score / 4) * 0.85 + 0.15
                 if confidence >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", confidence
 
             if put_score >= self.min_conditions:
                 confidence = (put_score / 4) * 0.85 + 0.15
                 if confidence >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", confidence
 
             return False, None, 0.0

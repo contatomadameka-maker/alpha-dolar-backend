@@ -699,6 +699,14 @@ def start_bot():
                 if not won and is_multi and _get_next_strategy and get_user_state(deriv_id, bot_type).get('running'):
                     try:
                         nova_strategy = _get_next_strategy()
+                        try:  # HISTORICO-V1: nova estrategia herda os ticks da anterior
+                            _vh = list(getattr(bot.strategy, 'ticks_history', []) or [])[-60:]
+                            if _vh and nova_strategy is not bot.strategy and hasattr(nova_strategy, 'update_tick') and len(getattr(nova_strategy, 'ticks_history', []) or []) < 10:
+                                getattr(nova_strategy, 'ticks_history').clear()
+                                for _tk in _vh:
+                                    nova_strategy.update_tick(_tk)
+                        except Exception as _e_vh:
+                            print(f"Aviso historico multi: {_e_vh}")
                         bot.strategy = nova_strategy
                         nome_nova = type(nova_strategy).__name__
                         get_user_state(deriv_id, bot_type)['strategy_name'] = nome_nova

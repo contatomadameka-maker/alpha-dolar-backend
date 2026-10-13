@@ -422,6 +422,11 @@ class DerivAPI:
                 if self.on_balance_callback:
                     self.on_balance_callback(self.balance)
 
+            elif msg_type == "history":  # HISTORICO-V1
+                _cb = getattr(self, 'on_history_callback', None)
+                if _cb and "error" not in data:
+                    _cb(data.get("history") or {}, (data.get("echo_req") or {}).get("ticks_history"))
+
             elif msg_type == "tick":
                 if self.on_tick_callback:
                     self.on_tick_callback(data.get("tick", {}))

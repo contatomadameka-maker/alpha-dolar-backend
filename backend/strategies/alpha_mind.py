@@ -72,7 +72,7 @@ class AlphaMind(BaseStrategy):
         self.update_tick(tick_data)
         if len(self.ticks_history) < self.min_history:
             return False, None, 0.0
-        if (len(self.ticks_history) - self.last_signal_tick) < self.cooldown_ticks:
+        if ((getattr(self, '_tick_seq_n', 0) or len(self.ticks_history)) - self.last_signal_tick) < self.cooldown_ticks:
             return False, None, 0.0
         try:
             prices = [t['quote'] for t in list(self.ticks_history)[-25:]]
@@ -94,12 +94,12 @@ class AlphaMind(BaseStrategy):
             if cs >= self.min_conditions:
                 conf = 0.60 + (cs / 5) * 0.30
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "CALL", conf
             if ps >= self.min_conditions:
                 conf = 0.60 + (ps / 5) * 0.30
                 if conf >= self.min_confidence:
-                    self.last_signal_tick = len(self.ticks_history)
+                    self.last_signal_tick = (getattr(self, '_tick_seq_n', 0) or len(self.ticks_history))
                     return True, "PUT", conf
             return False, None, 0.0
         except Exception as e:

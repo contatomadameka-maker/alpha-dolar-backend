@@ -136,6 +136,30 @@ class AlphaDolar:
         else:
             self._sem_sinal_streak += 1
 
+    def _aquecer_historico(self, hist, sym=None):  # HISTORICO-V1
+        try:
+            if getattr(self, '_aquecido', False):
+                return
+            prices = [float(x) for x in (hist.get('prices') or [])][-60:]
+            times = list(hist.get('times') or [])[-60:]
+            if len(prices) < 5:
+                return
+            if len(times) != len(prices):
+                times = [None] * len(prices)
+            self._aquecido = True
+            sym = sym or self.config.DEFAULT_SYMBOL
+            # estrategias que leem a lista de precos do robo
+            self.tick_history[:] = prices
+            # estrategias que guardam os ticks nelas mesmas (should_enter)
+            st = self.strategy
+            if hasattr(st, 'update_tick') and hasattr(st, 'ticks_history') and len(st.ticks_history) < 10:
+                st.ticks_history.clear()
+                for p, t in zip(prices, times):
+                    st.update_tick({'quote': p, 'epoch': t, 'symbol': sym})
+            self.log(f"⚡ Historico carregado: {len(prices)} ticks de {sym} — estrategia pronta", "INFO")
+        except Exception as e:
+            self.log(f"Aviso: historico nao carregado ({e}) — aquecendo tick a tick", "WARNING")
+
     def analyze_strategy(self, tick_data):
         if hasattr(self.strategy, 'analyze'):
             if len(self.tick_history) > 0 and len(self.tick_history) < 30:
@@ -468,6 +492,11 @@ class AlphaDolar:
             self.api.set_balance_callback(self.on_balance_update)
 
             self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
+            try:  # HISTORICO-V1: estrategia ja comeca aquecida
+                self.api.on_history_callback = self._aquecer_historico
+                self.api._send({"ticks_history": self.config.DEFAULT_SYMBOL, "count": 60, "end": "latest", "style": "ticks"})
+            except Exception as _e_h:
+                self.log(f"Aviso: nao pedi historico ({_e_h})", "WARNING")
 
             self.is_running = True
             self.api._bot_ref = self
