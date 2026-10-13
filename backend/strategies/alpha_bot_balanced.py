@@ -114,6 +114,9 @@ class AlphaBotBalanced(BaseStrategy):
             momentum = (recent_10[-1] - recent_10[0]) / recent_10[0] * 100
             volatility = statistics.stdev(recent_10) if len(recent_10) > 1 else 0
             distance_from_ma = ((current_price - ma_20) / ma_20) * 100
+            _kv = self._k_vol([t['quote'] for t in list(self.ticks_history)[-40:]])  # ESCALA-VOL-V1
+            momentum *= _kv
+            distance_from_ma *= _kv
 
             # Sinal de CALL
             call_conditions = [

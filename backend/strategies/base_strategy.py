@@ -52,6 +52,17 @@ class BaseStrategy(ABC):
         """
         pass
 
+    def _k_vol(self, prices):  # ESCALA-VOL-V1: limites em % valem igual em qualquer Vol (Vol 100 = 1)
+        try:
+            import statistics as _st
+            r = [(prices[i]-prices[i-1])/prices[i-1]*100 for i in range(1, len(prices)) if prices[i-1]]
+            if len(r) < 10:
+                return 1.0
+            sd = _st.pstdev(r)
+            return max(1.0, min(12.0, 0.0178 / sd)) if sd > 0 else 1.0
+        except Exception:
+            return 1.0
+
     def update_tick(self, tick_data):
         """
         Atualiza histórico com novo tick
