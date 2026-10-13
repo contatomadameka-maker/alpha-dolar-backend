@@ -257,6 +257,27 @@ def get_user_state(deriv_id, bot_type):
         })
     return bots_state[deriv_id][bot_type]
 
+# TRAVA-RUNNING-V1: confere se existe robo vivo de verdade (nao so a marca)
+def _bot_vivo(deriv_id, bot_type):
+    try:
+        st = get_user_state(deriv_id, bot_type)
+        inst = st.get('instance')
+        if inst is None:
+            return False
+        for attr in ('is_running', 'running'):
+            if hasattr(inst, attr):
+                v = getattr(inst, attr)
+                if callable(v):
+                    v = v()
+                return bool(v)
+        th = st.get('thread')
+        if th is not None and hasattr(th, 'is_alive'):
+            return th.is_alive()
+        return True
+    except Exception as e:
+        print(f"[TRAVA] erro ao checar bot vivo: {e}")
+        return False
+
 # ==================== ROTAS ESTÁTICAS ====================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -453,7 +474,12 @@ def start_bot():
         # tipos diferentes agora podem rodar em paralelo (Alpha Esquadrao),
         # já que a configuracao de cada um é isolada por instancia (self.config).
         if get_user_state(deriv_id, bot_type).get('running', False):
-            return jsonify({'success': False, 'error': f'O bot {bot_type} já está em execução. Pare-o antes de reiniciar.'}), 400
+            if _bot_vivo(deriv_id, bot_type):
+                print(f"[TRAVA] start recusado: {bot_type} vivo em {deriv_id}")
+                return jsonify({'success': False, 'error': f'O bot {bot_type} já está em execução. Pare-o antes de reiniciar.'}), 400
+            print(f"[TRAVA] estado preso {bot_type} {deriv_id} sem robo vivo — liberando")
+            get_user_state(deriv_id, bot_type)['running'] = False
+            get_user_state(deriv_id, bot_type)['instance'] = None
 
         # ==================== BOT REAL ====================
         # Alpha Esquadrao: unidade-1 a unidade-4 tambem viram bots reais,
@@ -993,6 +1019,10 @@ def stop_bot():
                 get_user_state(deriv_id, bot_type)['stop_reason'] = 'manual'
                 return jsonify({'success': True, 'message': 'Bot parado!', 'stats': {}})
         except NameError: pass
+        print(f"[TRAVA] stop pedido {bot_type} {deriv_id} flag={get_user_state(deriv_id, bot_type).get('running', False)}")
+        if not get_user_state(deriv_id, bot_type).get('running', False) and _bot_vivo(deriv_id, bot_type):
+            print(f"[TRAVA] robo vivo com marca parada {bot_type} {deriv_id} — parando mesmo assim")
+            get_user_state(deriv_id, bot_type)['running'] = True
         if not get_user_state(deriv_id, bot_type).get('running', False):
             return jsonify({'success': False, 'error': f'Bot {bot_type} não está rodando'}), 400
 
