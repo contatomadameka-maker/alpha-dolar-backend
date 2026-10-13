@@ -498,6 +498,17 @@ class AlphaDolar:
                 sem_tick = agora - self._ultimo_tick_time
                 if sem_tick > TICK_TIMEOUT:
                     self.log(f"⚠️ WATCHDOG: sem tick {sem_tick:.0f}s — reconectando WebSocket!", "WARNING")
+                    # WS-RECONECTA-V2: conexao caiu -> reconexao normal (OTP nova), no maximo 1x por minuto
+                    if not getattr(self.api, 'is_connected', False):
+                        if agora - getattr(self, '_wd_ult_rc', 0) >= 60 and hasattr(self.api, '_reconnect'):
+                            self._wd_ult_rc = agora
+                            try:
+                                self.api._reconnect()
+                            except Exception as e_rc:
+                                self.log(f"❌ WATCHDOG: erro ao reconectar: {e_rc}", "ERROR")
+                        self._ultimo_tick_time = agora
+                        if not getattr(self.api, 'is_connected', False):
+                            continue
                     try:
                         self.api.subscribe_ticks(self.config.DEFAULT_SYMBOL)
                         self._ultimo_tick_time  = agora

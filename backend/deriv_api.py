@@ -68,7 +68,8 @@ class DerivAPI:
 
     # ─── KEEP-ALIVE ─────────────────────────────────────────────────────────
     def _keep_alive_loop(self):
-        while self.should_reconnect and self.ws:
+        meu_ws = self.ws  # WS-RECONECTA-V2: este keep-alive morre quando a conexao dele for trocada
+        while self.should_reconnect and self.ws is not None and self.ws is meu_ws:
             try:
                 if self.is_connected:
                     self._send({"ping": 1})
@@ -518,6 +519,10 @@ class DerivAPI:
         self.log(f"Erro WebSocket: {error}", "ERROR")
 
     def _on_close(self, ws, close_status_code, close_msg):
+        # WS-RECONECTA-V2: aviso de uma conexao antiga (ja substituida) nao mexe na conexao atual
+        if self.ws is not None and ws is not self.ws:
+            self.log("Conexão antiga fechada (ignorado)", "INFO")
+            return
         self.is_connected  = False
         self.is_authorized = False
         self.log(f"Conexão fechada: {close_status_code} - {close_msg}", "WARNING")
