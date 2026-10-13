@@ -102,6 +102,7 @@ class AlphaDolar:
         print(f"[{timestamp}] {emoji} {message}")
 
     def on_tick(self, tick_data):
+        self._ticks_lidos = getattr(self, '_ticks_lidos', 0) + 1  # ENXAME-FIM-V1
         self._ultimo_tick_time = time.time()
 
         if self.waiting_contract:

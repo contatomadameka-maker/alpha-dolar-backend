@@ -1224,6 +1224,8 @@ def get_bot_stats(bot_type):
             try:
                 stats['balance']  = bot.api.balance
                 stats['currency'] = bot.api.currency
+                stats['ticks_lidos'] = int(getattr(bot, '_ticks_lidos', 0) or 0)  # ENXAME-FIM-V1
+                stats['aquecido'] = bool(getattr(bot, '_aquecido', False))
             except: pass
 
     try:  # RETOMAR-V2: robo vivo no outro servidor durante a troca do deploy
