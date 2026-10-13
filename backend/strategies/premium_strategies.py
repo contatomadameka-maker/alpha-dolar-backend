@@ -10,6 +10,23 @@ import statistics
 # BASE PREMIUM — herança para todas as premium
 # ============================================================
 class _PremiumBase(BaseStrategy):
+    def _mov_pct(self, prices, n):  # PREMIUM-ESCALA-V2
+        """Movimento em % dos ultimos n ticks, na escala do Vol 100.
+        Vol 100 / R_100: fator 1 (igual a antes). Mercados calmos: ampliado
+        pela volatilidade real, para os limites valerem igual em qualquer Vol."""
+        raw = (prices[-1] - prices[-n]) / prices[-n] * 100
+        try:
+            r = [(prices[i]-prices[i-1])/prices[i-1]*100 for i in range(1, len(prices)) if prices[i-1]]
+            if len(r) < 10:
+                return raw
+            sd = statistics.pstdev(r)
+            if sd <= 0:
+                return raw
+            k = max(1.0, min(12.0, 0.0178 / sd))  # 0.0178% = desvio por tick do Vol 100 (1s)
+            return raw * k
+        except Exception:
+            return raw
+
     def _lim_pct(self, prices, n, base):  # PREMIUM-ESCALA-V1
         """Limite de movimento em %, medido pela volatilidade real do mercado.
         Nunca passa do valor original (Vol 100 fica igual), so desce em mercados calmos."""
@@ -117,7 +134,7 @@ class MegaAlpha1(_PremiumBase):
             ma40  = statistics.mean(prices)
             std   = statistics.stdev(prices)
             zscore = (current - ma40) / (std or 0.001)
-            mom   = (prices[-1]-prices[-8])/prices[-8]*100
+            mom   = self._mov_pct(prices, 8)
             vol   = statistics.stdev(prices[-10:])
 
             call_conditions = [
@@ -176,8 +193,8 @@ class MegaAlpha2(_PremiumBase):
             ma40  = statistics.mean(prices)
             std   = statistics.stdev(prices)
             zscore = (current - ma40) / (std or 0.001)
-            mom5  = (prices[-1]-prices[-5])/prices[-5]*100
-            mom10 = (prices[-1]-prices[-10])/prices[-10]*100
+            mom5  = self._mov_pct(prices, 5)
+            mom10 = self._mov_pct(prices, 10)
 
             # Score ponderado
             call_score = 0.0
@@ -250,10 +267,10 @@ class MegaAlpha3(_PremiumBase):
             c3_down = rsi > 60 and current > ma40
 
             call_conditions = [c1_up, c2_up, c3_up,
-                               (prices[-1]-prices[-6])/prices[-6]*100 < -0.08,
+                               self._mov_pct(prices, 6) < -0.08,
                                statistics.stdev(prices[-10:]) > 0.05]
             put_conditions  = [c1_down, c2_down, c3_down,
-                               (prices[-1]-prices[-6])/prices[-6]*100 > 0.08,
+                               self._mov_pct(prices, 6) > 0.08,
                                statistics.stdev(prices[-10:]) > 0.05]
 
             cs = sum(call_conditions)
@@ -312,8 +329,8 @@ class AlphaElite(_PremiumBase):
             ma40  = statistics.mean(prices)
             std   = statistics.stdev(prices)
             zscore = (current - ma40) / (std or 0.001)
-            mom3  = (prices[-1]-prices[-3])/prices[-3]*100
-            mom8  = (prices[-1]-prices[-8])/prices[-8]*100
+            mom3  = self._mov_pct(prices, 3)
+            mom8  = self._mov_pct(prices, 8)
             vol   = statistics.stdev(prices[-10:])
 
             call_conditions = [
@@ -390,8 +407,8 @@ class AlphaNexus(_PremiumBase):
             elif current > ma20 + 1.8*std: votes_put += 1
 
             # 4. Momentum duplo
-            m5  = (prices[-1]-prices[-5])/prices[-5]*100
-            m15 = (prices[-1]-prices[-15])/prices[-15]*100
+            m5  = self._mov_pct(prices, 5)
+            m15 = self._mov_pct(prices, 15)
             if m5 < -0.08 and m15 < -0.05: votes_call += 1
             elif m5 > 0.08 and m15 > 0.05: votes_put  += 1
 
