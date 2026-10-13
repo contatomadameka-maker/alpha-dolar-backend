@@ -83,6 +83,7 @@ try:
     from backend.strategies.premium_strategies import MegaAlpha1, MegaAlpha2, MegaAlpha3, AlphaElite, AlphaNexus
     from backend.strategies.alpha_perfil import AlphaPerfil
     from backend.strategies.alpha_regente import AlphaRegente
+    from backend.strategies.alpha_novas import AlphaElastico, AlphaRompimento, AlphaExaustao, AlphaFluxo, AlphaCalmaria  # ALPHA-NOVAS-V1
     BOTS_AVAILABLE = True
     print("✅ Todas as 15 estratégias carregadas!")
 except ImportError as e:
@@ -109,6 +110,11 @@ STRATEGY_MAP = {
     'alpha_nexus':        lambda tm, rm: AlphaNexus(tm, rm),
     'alpha_perfil':       lambda tm, rm: AlphaPerfil(tm, rm),
     'alpha_regente':      lambda tm, rm: AlphaRegente(tm, rm),
+    'alpha_elastico':     lambda tm, rm: AlphaElastico(tm, rm),
+    'alpha_rompimento':   lambda tm, rm: AlphaRompimento(tm, rm),
+    'alpha_exaustao':     lambda tm, rm: AlphaExaustao(tm, rm),
+    'alpha_fluxo':        lambda tm, rm: AlphaFluxo(tm, rm),
+    'alpha_calmaria':     lambda tm, rm: AlphaCalmaria(tm, rm),
 }
 
 SYMBOL_MAP = {
