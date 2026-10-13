@@ -10,6 +10,18 @@ import statistics
 # BASE PREMIUM — herança para todas as premium
 # ============================================================
 class _PremiumBase(BaseStrategy):
+    def _lim_pct(self, prices, n, base):  # PREMIUM-ESCALA-V1
+        """Limite de movimento em %, medido pela volatilidade real do mercado.
+        Nunca passa do valor original (Vol 100 fica igual), so desce em mercados calmos."""
+        try:
+            r = [(prices[i]-prices[i-1])/prices[i-1]*100 for i in range(1, len(prices)) if prices[i-1]]
+            if len(r) < 10:
+                return base
+            lim = 2.0 * statistics.pstdev(r) * (n ** 0.5)
+            return min(base, lim) if lim > 0 else base
+        except Exception:
+            return base
+
     TRADING_MODE_CONFIG = {
         'lowRisk':  {'min_confidence': 0.92, 'cooldown': 35, 'min_conditions': 6},
         'accurate': {'min_confidence': 0.86, 'cooldown': 25, 'min_conditions': 5},
