@@ -3710,13 +3710,15 @@ def mesa_ia():
     tf_txt = ', '.join('%s: %s (RSI %s)' % (s(t.get('tf'), 4), {'u': 'alta', 'd': 'baixa'}.get(t.get('d'), 'neutro'), s(t.get('rsi'), 4)) for t in tfs[:4] if isinstance(t, dict))
     dir_txt = 'COMPRA' if d.get('dir') == 'u' else 'VENDA'
     sistema = ('Voce simula uma mesa de 4 agentes que revisa UMA entrada sugerida por um sinal tecnico em Forex/metais/cripto (contrato Multiplicador da Deriv). '
+               'REGRA DO MULTIPLICADOR (MESA-MULT-V1): a perda maxima de cada operacao e o valor do STOP em dolares, porque o stop fecha a posicao; a ENTRADA so define o tamanho da exposicao e NAO e o risco. '
+               'A conta do risco/retorno vem pronta no pedido: use exatamente esses numeros e nunca recalcule. '
                'A direcao vem do sinal e NAO pode ser trocada: a mesa so decide entrar ou ficar fora. Seja conservador: tempos graficos discordando, RSI extremo a favor da entrada, '
                'stop ausente ou risco/retorno ruim = ficar fora. Nunca prometa lucro nem fale em certeza. Portugues do Brasil, frases curtas (ate 22 palavras cada). '
                'Responda SO com JSON valido, sem markdown.')
     pedido = ('Mercado: %s | preco %s | sinal %s com forca %s/100\nTempos graficos: %s\nEntrada $%s, multiplicador x%s, stop $%s, alvo $%s\n'
               'Sessao do dia: %s | stop do dia $%s | meta $%s | posicoes abertas: %s | conta: %s\n\n'
               'Formato:\n{"tendencia":{"voto":"entra|fora","fala":"..."},"contra":{"voto":"contra|ok","fala":"..."},'
-              '"risco":{"veto":true|false,"fala":"..."},"diretor":{"decisao":"entra|fora","fala":"..."}}') % (
+              '"risco":{"veto":true|false,"motivo":"noticia|volatilidade|spread|horario|outro|nenhum","fala":"..."},"diretor":{"decisao":"entra|fora","fala":"..."}}') % (
         s(d.get('nome'), 30), s(d.get('px'), 16), dir_txt, s(d.get('score'), 3), tf_txt or 'sem dados',
         s(d.get('stk'), 8), s(d.get('mult'), 5), s(d.get('sl'), 8), s(d.get('tp'), 8),
         s(d.get('sessao'), 10), s(d.get('stopD'), 8), s(d.get('meta'), 8), s(d.get('abertas'), 3), s(d.get('conta'), 5))
@@ -3747,7 +3749,7 @@ def mesa_ia():
         t, c, rk, di = ag('tendencia'), ag('contra'), ag('risco'), ag('diretor')
         res = {'tendencia': {'voto': 'entra' if t.get('voto') == 'entra' else 'fora', 'fala': s(t.get('fala'), 200)},
                'contra': {'voto': 'contra' if c.get('voto') == 'contra' else 'ok', 'fala': s(c.get('fala'), 200)},
-               'risco': {'veto': bool(rk.get('veto')), 'fala': s(rk.get('fala'), 200)},
+               'risco': {'veto': bool(rk.get('veto')), 'motivo': s(rk.get('motivo'), 20), 'fala': s(rk.get('fala'), 200)},
                'diretor': {'decisao': 'entra' if di.get('decisao') == 'entra' else 'fora', 'fala': s(di.get('fala'), 200)}}
         if not res['diretor']['fala']:
             return jsonify({'ok': False, 'erro': 'resposta da IA incompleta'}), 200
