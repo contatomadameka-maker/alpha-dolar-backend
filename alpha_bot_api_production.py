@@ -3658,7 +3658,7 @@ def admin_markup_auto():
     if c and time.time() - c[0] < 600 and request.args.get('novo') != '1':
         return jsonify(c[1])
     url = 'https://api.derivws.com/applications/v1/markup-statistics?date_from=%s&date_to=%s' % (a, b)
-    rq = _ur.Request(url, headers={'Authorization': 'Bearer ' + tk, 'Accept': 'application/json',
+    rq = _ur.Request(url, headers={'Authorization': 'Bearer ' + tk, 'Accept': 'application/json', 'User-Agent': 'AlphaDolar/1.0 (+https://alphadolar.online)',
                                    'Deriv-App-ID': os.environ.get('DERIV_MARKUP_APP_ID', '34lv1PuWzjElEuwWcDLyr')})
     try:
         with _ur.urlopen(rq, timeout=20) as r:
