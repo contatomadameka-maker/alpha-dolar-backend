@@ -3596,6 +3596,92 @@ def admin_markup_oficial():
     return jsonify({'ok': True, 'importadas': len(linhas)})
 print('📄 MARKUP-CSV-V1 ativo: /api/admin/markup-oficial', flush=True)
 
+# ═══ MARKUP-AUTO-V1: markup oficial direto da Deriv (GET /applications/v1/markup-statistics) ═══
+# Render > Environment: DERIV_MARKUP_TOKEN = token pessoal (PAT) com escopo application_read
+#                       DERIV_MARKUP_APP_ID = app id do Alpha Dolar (opcional, padrao abaixo)
+_MKA_CACHE = {}
+
+def _mka_achar(obj, cam=''):
+    """Lista (caminho, valor) de todos os numeros do JSON, para achar o markup sem depender do formato exato."""
+    out = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            out += _mka_achar(v, (cam + '.' if cam else '') + str(k))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            out += _mka_achar(v, cam + '[%d]' % i)
+    elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
+        out.append((cam, float(obj)))
+    elif isinstance(obj, str):
+        try:
+            if obj.strip() and obj.strip().replace('.', '', 1).replace('-', '', 1).isdigit():
+                out.append((cam, float(obj)))
+        except Exception:
+            pass
+    return out
+
+def _mka_total(dados):
+    nums = _mka_achar(dados)
+    def chave(c):
+        return c.split('.')[-1].split('[')[0].lower()
+    def eh_markup(c):
+        k = chave(c)
+        return ('markup' in k or 'commission' in k) and 'pct' not in k and 'percent' not in k and 'rate' not in k and 'count' not in k
+    tot = [(c, v) for c, v in nums if eh_markup(c) and '[' not in c and 'total' in c.lower()]
+    if tot:
+        return tot[0][1], tot[0][0]
+    soltos = [(c, v) for c, v in nums if eh_markup(c) and '[' not in c]
+    if soltos:
+        return soltos[0][1], soltos[0][0]
+    itens = {}
+    for c, v in nums:
+        if eh_markup(c) and '[' in c:
+            base = c[:c.rfind('[') + 1] + c[c.rfind('[') + 1:].split(']')[0]
+            itens.setdefault(base, v)
+    if itens:
+        return round(sum(itens.values()), 4), 'soma de %d itens' % len(itens)
+    return None, None
+
+@app.route('/api/admin/markup-auto', methods=['GET'])
+def admin_markup_auto():
+    if not _mk_admin_ok():
+        return jsonify({'ok': False, 'erro': 'nao autorizado'}), 401
+    import re as _re, json as _js, urllib.request as _ur, urllib.error as _ue
+    a, b = request.args.get('date_from', ''), request.args.get('date_to', '')
+    if not (_re.match(r'^\d{4}-\d{2}-\d{2}$', a) and _re.match(r'^\d{4}-\d{2}-\d{2}$', b)) or a > b:
+        return jsonify({'ok': False, 'erro': 'periodo invalido'}), 400
+    tk = os.environ.get('DERIV_MARKUP_TOKEN', '').strip()
+    if not tk:
+        return jsonify({'ok': False, 'sem_token': True, 'erro': 'falta DERIV_MARKUP_TOKEN no Render'}), 200
+    k = a + '|' + b
+    c = _MKA_CACHE.get(k)
+    if c and time.time() - c[0] < 600 and request.args.get('novo') != '1':
+        return jsonify(c[1])
+    url = 'https://api.derivws.com/applications/v1/markup-statistics?date_from=%s&date_to=%s' % (a, b)
+    rq = _ur.Request(url, headers={'Authorization': 'Bearer ' + tk, 'Accept': 'application/json',
+                                   'Deriv-App-ID': os.environ.get('DERIV_MARKUP_APP_ID', '34lv1PuWzjElEuwWcDLyr')})
+    try:
+        with _ur.urlopen(rq, timeout=20) as r:
+            dados = _js.loads(r.read().decode('utf-8') or '{}')
+    except _ue.HTTPError as e:
+        try:
+            corpo = e.read().decode('utf-8')[:400]
+        except Exception:
+            corpo = ''
+        return jsonify({'ok': False, 'erro': 'Deriv %s: %s' % (e.code, corpo)}), 200
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': 'Deriv fora do ar: %s' % e}), 200
+    total, onde = _mka_total(dados)
+    res = {'ok': total is not None, 'markup': total, 'campo': onde, 'date_from': a, 'date_to': b,
+           'resposta': dados if len(_js.dumps(dados)) < 20000 else 'grande demais'}
+    if total is None:
+        res['erro'] = 'a Deriv respondeu, mas nao achei o valor do markup na resposta'
+    else:
+        _MKA_CACHE[k] = (time.time(), res)
+    return jsonify(res)
+print('📈 MARKUP-AUTO-V1 ativo: /api/admin/markup-auto', flush=True)
+
+
 
 # ===== RETOMAR-V5: painel aberto renova o token dos robos ligados =====
 @app.route('/api/bot/token', methods=['POST'])
