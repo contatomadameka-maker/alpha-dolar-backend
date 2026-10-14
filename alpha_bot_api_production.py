@@ -3722,6 +3722,9 @@ def mesa_ia():
         s(d.get('sessao'), 10), s(d.get('stopD'), 8), s(d.get('meta'), 8), s(d.get('abertas'), 3), s(d.get('conta'), 5))
     nt = s(d.get('noticias'), 600)
     pedido = pedido.replace('\n\nFormato:', '\nCalendario economico das moedas deste mercado: ' + (nt or 'nada relevante nas proximas horas') + '\n\nFormato:')
+    rt = s(d.get('risco_txt'), 220)  # MESA-RISCO-CONTA
+    if rt:
+        pedido = pedido.replace('\n\nFormato:', '\nConta do risco ja calculada (use estes numeros, nao recalcule): ' + rt + '\n\nFormato:')
     body = _j.dumps({'model': os.environ.get('MESA_MODELO', 'claude-haiku-4-5-20251001'), 'max_tokens': 450, 'system': sistema,
                      'messages': [{'role': 'user', 'content': pedido}]}).encode()
     rq = _u.Request('https://api.anthropic.com/v1/messages', data=body, method='POST',
