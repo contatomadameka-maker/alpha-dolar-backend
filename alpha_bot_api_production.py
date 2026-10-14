@@ -3683,6 +3683,7 @@ print('📈 MARKUP-AUTO-V1 ativo: /api/admin/markup-auto', flush=True)
 
 # ═══ MESA-IA-V2: Mesa Alpha do Alpha Global (4 agentes numa chamada so ao Claude Haiku + calendario economico) ═══
 _MESA_RL = {'ip': {}, 'dia': '', 'n': 0}
+_MESA_USO = {}  # por dia: chamadas e tokens (zera quando o Render reinicia)
 _MESA_LOCK = threading.Lock()
 
 @app.route('/api/mesa-ia', methods=['POST'])
@@ -3727,7 +3728,14 @@ def mesa_ia():
                     headers={'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'})
     try:
         with _u.urlopen(rq, timeout=15) as r:
-            txt = (_j.loads(r.read()).get('content') or [{}])[0].get('text', '')
+            resp = _j.loads(r.read())
+        txt = (resp.get('content') or [{}])[0].get('text', '')
+        u = resp.get('usage') or {}
+        with _MESA_LOCK:
+            x = _MESA_USO.setdefault(hoje, {'n': 0, 'tin': 0, 'tout': 0})
+            x['n'] += 1; x['tin'] += int(u.get('input_tokens') or 0); x['tout'] += int(u.get('output_tokens') or 0)
+            for k in sorted(_MESA_USO)[:-7]:
+                _MESA_USO.pop(k, None)
         m = _r.search(r'\{.*\}', txt, _r.S)
         o = _j.loads(m.group(0)) if m else {}
         def ag(k):
@@ -3773,7 +3781,14 @@ def mesa_noticias():
     agora = time.time()
     lista = [x for x in _MESA_NEWS['d'] if agora - 3 * 3600 <= x['t'] <= agora + 36 * 3600]
     return jsonify({'ok': bool(_MESA_NEWS['d']), 'eventos': lista, 'erro': _MESA_NEWS['erro'], 'fonte': 'calendario economico (Forex Factory)'})
-print('🪑 MESA-IA-V2 ativo: /api/mesa-ia e /api/mesa-noticias', flush=True)
+@app.route('/api/admin/mesa-uso', methods=['GET'])
+def admin_mesa_uso():
+    if not _mk_admin_ok():
+        return jsonify({'ok': False, 'erro': 'nao autorizado'}), 401
+    pin, pout = float(os.environ.get('MESA_PRECO_IN', '1')), float(os.environ.get('MESA_PRECO_OUT', '5'))  # US$ por milhao de tokens (Haiku 4.5)
+    dias = [{'dia': k, 'chamadas': v['n'], 'tokens_in': v['tin'], 'tokens_out': v['tout'], 'custo_usd': round(v['tin'] / 1e6 * pin + v['tout'] / 1e6 * pout, 4)} for k, v in sorted(_MESA_USO.items(), reverse=True)]
+    return jsonify({'ok': True, 'dias': dias, 'limite_dia': int(os.environ.get('MESA_LIMITE_DIA', '800')), 'pedidos_hoje': _MESA_RL['n'] if _MESA_RL['dia'] == time.strftime('%Y-%m-%d') else 0})
+print('🪑 MESA-IA-V2 ativo: /api/mesa-ia, /api/mesa-noticias e /api/admin/mesa-uso', flush=True)
 
 
 
