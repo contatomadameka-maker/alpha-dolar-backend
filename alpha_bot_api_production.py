@@ -3681,6 +3681,69 @@ def admin_markup_auto():
     return jsonify(res)
 print('📈 MARKUP-AUTO-V1 ativo: /api/admin/markup-auto', flush=True)
 
+# ═══ MESA-IA-V1: Mesa Alpha do Alpha Global (4 agentes numa chamada so ao Claude Haiku) ═══
+_MESA_RL = {'ip': {}, 'dia': '', 'n': 0}
+_MESA_LOCK = threading.Lock()
+
+@app.route('/api/mesa-ia', methods=['POST'])
+def mesa_ia():
+    import urllib.request as _u, json as _j, re as _r
+    d = request.get_json(silent=True) or {}
+    ip = (request.headers.get('X-Forwarded-For', '') or request.remote_addr or '?').split(',')[0].strip()
+    hoje = time.strftime('%Y-%m-%d')
+    with _MESA_LOCK:
+        if _MESA_RL['dia'] != hoje:
+            _MESA_RL.update({'dia': hoje, 'n': 0, 'ip': {}})
+        if time.time() - _MESA_RL['ip'].get(ip, 0) < 8:
+            return jsonify({'ok': False, 'erro': 'aguarde alguns segundos'}), 200
+        if _MESA_RL['n'] >= int(os.environ.get('MESA_LIMITE_DIA', '800')):
+            return jsonify({'ok': False, 'erro': 'limite diario da mesa atingido'}), 200
+        _MESA_RL['ip'][ip] = time.time()
+        _MESA_RL['n'] += 1
+    key = os.environ.get('ANTHROPIC_API_KEY', '')
+    if not key:
+        return jsonify({'ok': False, 'erro': 'ANTHROPIC_API_KEY ausente'}), 200
+    def s(v, n=60):
+        return _r.sub(r'[^\w\s.,:/%+\-()·]', '', str(v if v is not None else ''))[:n]
+    tfs = d.get('tfs') or []
+    tf_txt = ', '.join('%s: %s (RSI %s)' % (s(t.get('tf'), 4), {'u': 'alta', 'd': 'baixa'}.get(t.get('d'), 'neutro'), s(t.get('rsi'), 4)) for t in tfs[:4] if isinstance(t, dict))
+    dir_txt = 'COMPRA' if d.get('dir') == 'u' else 'VENDA'
+    sistema = ('Voce simula uma mesa de 4 agentes que revisa UMA entrada sugerida por um sinal tecnico em Forex/metais/cripto (contrato Multiplicador da Deriv). '
+               'A direcao vem do sinal e NAO pode ser trocada: a mesa so decide entrar ou ficar fora. Seja conservador: tempos graficos discordando, RSI extremo a favor da entrada, '
+               'stop ausente ou risco/retorno ruim = ficar fora. Nunca prometa lucro nem fale em certeza. Portugues do Brasil, frases curtas (ate 22 palavras cada). '
+               'Responda SO com JSON valido, sem markdown.')
+    pedido = ('Mercado: %s | preco %s | sinal %s com forca %s/100\nTempos graficos: %s\nEntrada $%s, multiplicador x%s, stop $%s, alvo $%s\n'
+              'Sessao do dia: %s | stop do dia $%s | meta $%s | posicoes abertas: %s | conta: %s\n\n'
+              'Formato:\n{"tendencia":{"voto":"entra|fora","fala":"..."},"contra":{"voto":"contra|ok","fala":"..."},'
+              '"risco":{"veto":true|false,"fala":"..."},"diretor":{"decisao":"entra|fora","fala":"..."}}') % (
+        s(d.get('nome'), 30), s(d.get('px'), 16), dir_txt, s(d.get('score'), 3), tf_txt or 'sem dados',
+        s(d.get('stk'), 8), s(d.get('mult'), 5), s(d.get('sl'), 8), s(d.get('tp'), 8),
+        s(d.get('sessao'), 10), s(d.get('stopD'), 8), s(d.get('meta'), 8), s(d.get('abertas'), 3), s(d.get('conta'), 5))
+    body = _j.dumps({'model': os.environ.get('MESA_MODELO', 'claude-haiku-4-5-20251001'), 'max_tokens': 450, 'system': sistema,
+                     'messages': [{'role': 'user', 'content': pedido}]}).encode()
+    rq = _u.Request('https://api.anthropic.com/v1/messages', data=body, method='POST',
+                    headers={'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01'})
+    try:
+        with _u.urlopen(rq, timeout=15) as r:
+            txt = (_j.loads(r.read()).get('content') or [{}])[0].get('text', '')
+        m = _r.search(r'\{.*\}', txt, _r.S)
+        o = _j.loads(m.group(0)) if m else {}
+        def ag(k):
+            x = o.get(k) if isinstance(o.get(k), dict) else {}
+            return x
+        t, c, rk, di = ag('tendencia'), ag('contra'), ag('risco'), ag('diretor')
+        res = {'tendencia': {'voto': 'entra' if t.get('voto') == 'entra' else 'fora', 'fala': s(t.get('fala'), 200)},
+               'contra': {'voto': 'contra' if c.get('voto') == 'contra' else 'ok', 'fala': s(c.get('fala'), 200)},
+               'risco': {'veto': bool(rk.get('veto')), 'fala': s(rk.get('fala'), 200)},
+               'diretor': {'decisao': 'entra' if di.get('decisao') == 'entra' else 'fora', 'fala': s(di.get('fala'), 200)}}
+        if not res['diretor']['fala']:
+            return jsonify({'ok': False, 'erro': 'resposta da IA incompleta'}), 200
+        return jsonify({'ok': True, 'mesa': res})
+    except Exception as e:
+        return jsonify({'ok': False, 'erro': 'IA indisponivel: %s' % str(e)[:120]}), 200
+print('🪑 MESA-IA-V1 ativo: /api/mesa-ia', flush=True)
+
+
 
 
 # ===== RETOMAR-V5: painel aberto renova o token dos robos ligados =====
