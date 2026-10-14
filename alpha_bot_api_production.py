@@ -3681,7 +3681,7 @@ def admin_markup_auto():
     return jsonify(res)
 print('📈 MARKUP-AUTO-V1 ativo: /api/admin/markup-auto', flush=True)
 
-# ═══ MESA-IA-V1: Mesa Alpha do Alpha Global (4 agentes numa chamada so ao Claude Haiku) ═══
+# ═══ MESA-IA-V2: Mesa Alpha do Alpha Global (4 agentes numa chamada so ao Claude Haiku + calendario economico) ═══
 _MESA_RL = {'ip': {}, 'dia': '', 'n': 0}
 _MESA_LOCK = threading.Lock()
 
@@ -3719,6 +3719,8 @@ def mesa_ia():
         s(d.get('nome'), 30), s(d.get('px'), 16), dir_txt, s(d.get('score'), 3), tf_txt or 'sem dados',
         s(d.get('stk'), 8), s(d.get('mult'), 5), s(d.get('sl'), 8), s(d.get('tp'), 8),
         s(d.get('sessao'), 10), s(d.get('stopD'), 8), s(d.get('meta'), 8), s(d.get('abertas'), 3), s(d.get('conta'), 5))
+    nt = s(d.get('noticias'), 600)
+    pedido = pedido.replace('\n\nFormato:', '\nCalendario economico das moedas deste mercado: ' + (nt or 'nada relevante nas proximas horas') + '\n\nFormato:')
     body = _j.dumps({'model': os.environ.get('MESA_MODELO', 'claude-haiku-4-5-20251001'), 'max_tokens': 450, 'system': sistema,
                      'messages': [{'role': 'user', 'content': pedido}]}).encode()
     rq = _u.Request('https://api.anthropic.com/v1/messages', data=body, method='POST',
@@ -3741,7 +3743,37 @@ def mesa_ia():
         return jsonify({'ok': True, 'mesa': res})
     except Exception as e:
         return jsonify({'ok': False, 'erro': 'IA indisponivel: %s' % str(e)[:120]}), 200
-print('🪑 MESA-IA-V1 ativo: /api/mesa-ia', flush=True)
+
+_MESA_NEWS = {'t': 0, 'd': [], 'erro': ''}
+
+@app.route('/api/mesa-noticias', methods=['GET'])
+def mesa_noticias():
+    import urllib.request as _u, json as _j
+    from datetime import datetime as _dt, timezone as _tz
+    if time.time() - _MESA_NEWS['t'] > 1800 or not _MESA_NEWS['d']:
+        try:
+            rq = _u.Request('https://nfs.faireconomy.media/ff_calendar_thisweek.json', headers={'User-Agent': 'Mozilla/5.0 AlphaDolar'})
+            with _u.urlopen(rq, timeout=10) as r:
+                bruto = _j.loads(r.read().decode('utf-8'))
+            ev = []
+            for e in bruto:
+                imp = str(e.get('impact', ''))
+                if imp not in ('High', 'Medium'):
+                    continue
+                try:
+                    t = int(_dt.fromisoformat(str(e.get('date'))).astimezone(_tz.utc).timestamp())
+                except Exception:
+                    continue
+                ev.append({'t': t, 'moeda': str(e.get('country', ''))[:4], 'titulo': str(e.get('title', ''))[:80], 'impacto': 'alto' if imp == 'High' else 'medio',
+                           'previsao': str(e.get('forecast', '') or '')[:12], 'anterior': str(e.get('previous', '') or '')[:12]})
+            _MESA_NEWS.update({'t': time.time(), 'd': sorted(ev, key=lambda x: x['t']), 'erro': ''})
+        except Exception as e:
+            _MESA_NEWS['erro'] = str(e)[:120]
+            _MESA_NEWS['t'] = time.time() - 1500
+    agora = time.time()
+    lista = [x for x in _MESA_NEWS['d'] if agora - 3 * 3600 <= x['t'] <= agora + 36 * 3600]
+    return jsonify({'ok': bool(_MESA_NEWS['d']), 'eventos': lista, 'erro': _MESA_NEWS['erro'], 'fonte': 'calendario economico (Forex Factory)'})
+print('🪑 MESA-IA-V2 ativo: /api/mesa-ia e /api/mesa-noticias', flush=True)
 
 
 
