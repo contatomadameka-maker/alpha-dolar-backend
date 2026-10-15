@@ -21,6 +21,27 @@ from flask import request, jsonify
 
 logger = logging.getLogger(__name__)
 
+# TELEGRAM-VENDA-V1: avisos pessoais do admin (robo Alpha Avisos), separado do canal
+try:
+    from telegram_admin import avisar as _avisar_admin
+except Exception:
+    def _avisar_admin(*a, **k):
+        return False
+
+
+def _admin(msg, chave=None, intervalo=0):
+    try:
+        _avisar_admin(msg, chave=chave, intervalo=intervalo)
+    except Exception:
+        pass
+
+
+def _rs(v):
+    try:
+        return ('R$ %.2f' % float(v)).replace('.', ',')
+    except Exception:
+        return 'R$ ' + str(v)
+
 # nomes antigos (ferramentas avulsas) -> chave em produtos_liberados
 PRODUTOS_MAP = {
     "Alpha Bank": "alpha-bank",
@@ -140,6 +161,7 @@ def register_cakto_webhook(app, supabase_client):
                     ok = hmac.compare_digest(assin, esperado)
             if not ok:
                 print("[CAKTO] chave secreta diferente — confira CAKTO_SECRET no Render e na Cakto")
+                _admin("⚠️ Cakto: aviso de compra RECUSADO (chave secreta diferente).\nConfira CAKTO_SECRET no Render e na Cakto, senão as vendas não liberam.", "cakto-secret", 600)
                 _log(supabase_client, dados.get("event"), None, None, None, "recusado: chave secreta", dados)
                 return jsonify({"erro": "Chave secreta inválida"}), 401
 
@@ -162,12 +184,14 @@ def register_cakto_webhook(app, supabase_client):
             return jsonify({"status": "ignorado", "evento": evento}), 200
         if not email:
             _log(supabase_client, evento, None, produto_raw, None, "erro: sem email", dados)
+            _admin("⚠️ Cakto: compra sem e-mail (" + evento + ").\n📦 " + (produto_raw or "?") + "\nLibere manualmente no admin.")
             return jsonify({"erro": "Email não encontrado"}), 400
 
         chave = _produto_chave(produto_raw, oferta_nome, oferta_id)
         if not chave:
             print(f"[CAKTO] produto NAO mapeado: '{produto_raw}' / oferta '{oferta_nome}' ({oferta_id})")
             _log(supabase_client, evento, email, produto_raw, None, "pendente: produto nao mapeado", dados)
+            _admin("🟡 VENDA PENDENTE — produto não reconhecido\n📦 " + produto_raw + (" / " + oferta_nome if oferta_nome else "") + "\n👤 " + (nome or "-") + "\n📧 " + email + "\n💵 " + _rs(valor) + "\n👉 Libere no admin: aba Vendas → Liberar agora.")
             return jsonify({"status": "pendente", "erro": f"Produto não reconhecido: {produto_raw}"}), 200
 
         tb = supabase_client.table("produtos_liberados")
@@ -181,6 +205,7 @@ def register_cakto_webhook(app, supabase_client):
                     tb.update({"ativo": False, "origem": "cakto-" + evento}).eq("id", r["id"]).execute()
                 print(f"[CAKTO] acesso '{chave}' DESLIGADO para {email} ({evento})")
                 _log(supabase_client, evento, email, produto_raw, chave, "desligado", dados)
+                _admin("↩️ " + ("REEMBOLSO" if "refund" in evento else "CHARGEBACK") + " — acesso desligado\n📦 " + produto_raw + " (" + chave + ")\n📧 " + email + "\n💵 " + _rs(valor))
                 _telegram(email, nome, produto_raw, chave, oferta_nome or "-", valor, "desligado (" + evento + ")", None)
                 return jsonify({"status": "ok", "acao": "desligado", "produto": chave}), 200
 
@@ -212,9 +237,11 @@ def register_cakto_webhook(app, supabase_client):
             _log(supabase_client, evento, email, produto_raw, chave, acao, dados)
         except Exception as e:
             print(f"[CAKTO] ERRO Supabase: {e}")
+            _admin("🔴 VENDA COM ERRO — o acesso NÃO foi liberado\n📦 " + produto_raw + " (" + chave + ")\n📧 " + email + "\n💵 " + _rs(valor) + "\nErro: " + str(e)[:200] + "\n👉 Libere no admin: aba Vendas → Liberar agora.")
             _log(supabase_client, evento, email, produto_raw, chave, f"erro: {e}"[:300], dados)
             return jsonify({"erro": "Erro interno ao salvar acesso"}), 500
 
+        _admin(("💰 VENDA APROVADA" if acao == "liberado" else "🔁 RENOVAÇÃO") + "\n👤 " + (nome or "-") + "\n📧 " + email + "\n📦 " + produto_raw + (" · " + oferta_nome if oferta_nome else "") + "\n💵 " + _rs(valor) + "\n✅ " + chave + " liberado até " + (exp.strftime("%d/%m/%Y") if exp else "vitalício"))
         _telegram(email, nome, produto_raw, chave, oferta_nome or tipo, valor, acao, exp)
         return jsonify({"status": "ok", "acao": acao, "produto": chave, "email": email}), 200
 

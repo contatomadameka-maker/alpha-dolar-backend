@@ -64,7 +64,10 @@ def register_telegram_admin(app):
         if not senha or dado != senha:
             return jsonify({'ok': False, 'erro': 'senha do admin errada'}), 403
         tok, chat = _cfg()
-        ok, erro = enviar_agora('✅ Alpha Avisos ligado.\nDaqui pra frente os avisos do sistema chegam aqui.')
+        if request.args.get('exemplo') == 'venda':
+            ok, erro = enviar_agora('💰 VENDA APROVADA (EXEMPLO, não é venda real)\n👤 Cliente Teste\n📧 cliente@exemplo.com\n📦 Alpha Dolar Plano Pro · Mensal\n💵 R$ 97,00\n✅ plano-pro liberado até 14/11/2026')
+        else:
+            ok, erro = enviar_agora('✅ Alpha Avisos ligado.\nDaqui pra frente os avisos do sistema chegam aqui.')
         return jsonify({'ok': ok, 'erro': erro, 'tem_token': bool(tok), 'tem_chat': bool(chat)})
 
     app.config['ALPHA_AVISAR'] = avisar
