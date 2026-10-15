@@ -64,6 +64,11 @@ try:
     register_agenda_admin(app)
 except Exception as _e_ag:
     print("AGENDA: falhou ao registrar:", _e_ag)
+try:
+    from noticias_reais import register_noticias_reais  # NOTICIAS-REAIS-V1
+    register_noticias_reais(app)
+except Exception as _e_nr:
+    print("NOTICIAS-REAIS: falhou ao registrar:", _e_nr)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
