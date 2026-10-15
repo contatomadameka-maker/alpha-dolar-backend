@@ -54,6 +54,11 @@ try:
     register_telegram_admin(app)
 except Exception as _e_tg:
     print("TELEGRAM-ADMIN: falhou ao registrar:", _e_tg)
+try:
+    from resumo_admin import register_resumo_admin  # RESUMO-DIA-V1
+    register_resumo_admin(app)
+except Exception as _e_rs:
+    print("RESUMO-DIA: falhou ao registrar:", _e_rs)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
