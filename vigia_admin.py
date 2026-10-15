@@ -94,15 +94,22 @@ def iniciar_vigia(registro):
         return
 
     def _loop():
+        _ESTADO['iniciado'] = time.time()
         time.sleep(90)  # deixa o servidor terminar de subir
         n = 0
         while True:
+            _ESTADO['loop_ult'] = time.time()  # VIGIA-ADMIN-V3: o painel ve se o vigia esta rodando
             try:
                 _checa_robos(avisar, registro)
+            except Exception as e:
+                _ESTADO['erro'] = 'robos: %s' % e
+                print('VIGIA-ADMIN erro robos:', e, flush=True)
+            try:
                 if n % 5 == 0:
                     _checa_site(avisar)
             except Exception as e:
-                print('VIGIA-ADMIN erro:', e, flush=True)
+                _ESTADO['erro'] = 'site: %s' % e
+                print('VIGIA-ADMIN erro site:', e, flush=True)
             n += 1
             time.sleep(60)
     threading.Thread(target=_loop, daemon=True).start()

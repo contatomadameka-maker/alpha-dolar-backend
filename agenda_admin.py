@@ -162,7 +162,11 @@ def register_agenda_admin(app):
         try:
             import vigia_admin
             e = vigia_admin._ESTADO
-            vg = {'site_ult': e.get('site_ult'), 'site_ok': e.get('site_ok'), 'site_info': e.get('site_info'), 'site_fora': e.get('site_fora'), 'robos_ult': e.get('robos_ult')}
+            if not e.get('site_ult') or time.time() - e['site_ult'] > 420:  # AGENDA-AVISOS-V2: confere na hora se estiver velho
+                ok_s, info_s = vigia_admin._site_ok()
+                e['site_ult'], e['site_ok'], e['site_info'] = time.time(), ok_s, info_s
+            vg = {'site_ult': e.get('site_ult'), 'site_ok': e.get('site_ok'), 'site_info': e.get('site_info'), 'site_fora': e.get('site_fora'),
+                  'robos_ult': e.get('robos_ult'), 'loop_ult': e.get('loop_ult'), 'iniciado': e.get('iniciado'), 'erro': e.get('erro')}
         except Exception:
             pass
         try:
