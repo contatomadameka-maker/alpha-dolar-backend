@@ -1755,6 +1755,11 @@ def _enx_vigia():
 import threading as _enx_thr
 _enx_thr.Thread(target=_enx_vigia, daemon=True).start()
 print('ENXAME-VIGIA-V1 ativo (para unidades sem a pagina ha 3 min)', flush=True)
+try:
+    from vigia_admin import iniciar_vigia  # VIGIA-ADMIN-V1
+    iniciar_vigia(lambda: globals().get('_REGISTRO', {}))
+except Exception as _e_vg:
+    print('VIGIA-ADMIN: falhou ao iniciar:', _e_vg, flush=True)
 
 # DIAG-MEM-V1: raio-x da memoria do servidor (somente leitura, protegido pela ADMIN_SENHA)
 @app.route('/api/admin/diag')
