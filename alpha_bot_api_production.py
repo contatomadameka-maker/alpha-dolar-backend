@@ -59,6 +59,11 @@ try:
     register_resumo_admin(app)
 except Exception as _e_rs:
     print("RESUMO-DIA: falhou ao registrar:", _e_rs)
+try:
+    from agenda_admin import register_agenda_admin  # AGENDA-AVISOS-V1
+    register_agenda_admin(app)
+except Exception as _e_ag:
+    print("AGENDA: falhou ao registrar:", _e_ag)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 

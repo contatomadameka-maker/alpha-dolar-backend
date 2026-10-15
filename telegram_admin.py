@@ -1,4 +1,4 @@
-"""TELEGRAM-ADMIN-V1 — avisos pessoais do Dirlei no Telegram (robo separado do robo de sinais dos clientes).
+"""TELEGRAM-ADMIN-V1 + AVISOS-LOG-V1 — avisos pessoais do Dirlei no Telegram (robo separado do robo de sinais dos clientes).
 Variaveis no Render: TELEGRAM_ADMIN_TOKEN (token do BotFather) e TELEGRAM_ADMIN_CHAT (id do chat).
 Sem as duas, nada e enviado e nada quebra.
 Uso no resto do servidor: from telegram_admin import avisar; avisar('texto', chave='venda', intervalo=60)
@@ -11,6 +11,70 @@ import urllib.request
 
 _ULTIMO = {}
 _TRAVA = threading.Lock()
+# AVISOS-LOG-V1: historico dos envios (memoria + Redis, para o painel do admin)
+import json as _json
+from collections import deque as _deque
+_LOG = _deque(maxlen=200)
+_RKEY = 'alpha:avisos_log'
+_REDIS = {'c': None, 't': 0}
+
+
+def _redis():
+    if _REDIS['c'] is not None or time.time() - _REDIS['t'] < 60:
+        return _REDIS['c']
+    _REDIS['t'] = time.time()
+    try:
+        import redis
+        url = os.environ.get('REDIS_URL', '')
+        if url:
+            _REDIS['c'] = redis.from_url(url, decode_responses=True, socket_timeout=3)
+    except Exception as e:
+        print('AVISOS-LOG: sem Redis', e)
+    return _REDIS['c']
+
+
+def _tipo(texto):
+    t = str(texto)
+    if 'EXEMPLO' in t or t.startswith('✅ Alpha Avisos'):
+        return 'teste'
+    if t.startswith(('💰', '🔁', '🟡', '↩️', '🔴 VENDA', '⚠️ Cakto')):
+        return 'venda'
+    if 'SITE' in t[:20] or t.startswith('✅ Site'):
+        return 'site'
+    if t.startswith('⚠️ ROBÔ'):
+        return 'robo'
+    if t.startswith('📊'):
+        return 'resumo'
+    if t.startswith(('📅', '⏰', '🔔')):
+        return 'agenda'
+    return 'aviso'
+
+
+def _registra(texto, ok, erro):
+    item = {'t': int(time.time()), 'tipo': _tipo(texto), 'texto': str(texto)[:600], 'ok': bool(ok), 'erro': str(erro or '')[:200]}
+    _LOG.appendleft(item)
+    try:
+        r = _redis()
+        if r is not None:
+            r.lpush(_RKEY, _json.dumps(item, ensure_ascii=False))
+            r.ltrim(_RKEY, 0, 299)
+    except Exception as e:
+        print('AVISOS-LOG: nao gravou no Redis', e)
+
+
+def historico(n=80):
+    try:
+        r = _redis()
+        if r is not None:
+            return [_json.loads(x) for x in r.lrange(_RKEY, 0, n - 1)], 'redis'
+    except Exception:
+        pass
+    return list(_LOG)[:n], 'memoria'
+
+
+def configurado():
+    tok, chat = _cfg()
+    return bool(tok), bool(chat)
 
 
 def _cfg():
@@ -26,11 +90,13 @@ def enviar_agora(texto):
         dados = urllib.parse.urlencode({'chat_id': chat, 'text': str(texto)[:4000], 'disable_web_page_preview': 'true'}).encode()
         req = urllib.request.Request('https://api.telegram.org/bot%s/sendMessage' % tok, data=dados)
         urllib.request.urlopen(req, timeout=12).read()
+        _registra(texto, True, '')
         return True, ''
     except Exception as e:
         msg = str(e)
         if tok in msg:
             msg = msg.replace(tok, '***')
+        _registra(texto, False, msg)
         return False, msg[:200]
 
 

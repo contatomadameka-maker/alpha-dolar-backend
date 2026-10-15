@@ -32,6 +32,7 @@ def _site_ok():
 
 def _checa_site(avisar):
     ok, info = _site_ok()
+    _ESTADO['site_ult'], _ESTADO['site_ok'], _ESTADO['site_info'] = time.time(), ok, info  # VIGIA-ADMIN-V2: status para o painel
     if ok:
         if _ESTADO['site_fora']:
             avisar('✅ Site voltou: alphadolar.online está no ar de novo.')
@@ -46,6 +47,7 @@ def _checa_site(avisar):
 
 def _checa_robos(avisar, registro):
     agora = time.time()
+    _ESTADO['robos_ult'] = agora
     linhas = []
     try:
         itens = list((registro() or {}).items())
