@@ -115,8 +115,8 @@ def _dias(produto_nome, oferta_nome, tipo_produto):
 
 def _telegram(email, nome, produto_raw, chave, plano_txt, valor, acao, exp):
     token = os.environ.get("TELEGRAM_TOKEN", "")
-    canal = os.environ.get("TELEGRAM_CANAL_ID", "-1003524534332")
-    if not token:
+    canal = os.environ.get("TELEGRAM_VENDAS_CANAL", "").strip()  # VENDA-CANAL-OFF-V1: vendas so vao para um canal se voce configurar
+    if not token or not canal:
         return
     exp_txt = exp.strftime("%d/%m/%Y") if exp else "Vitalício ♾️"
     msg = (f"{EMOJI.get(chave, '🎉')} *Venda Alpha Dolar — {acao.upper()}*\n\n"
