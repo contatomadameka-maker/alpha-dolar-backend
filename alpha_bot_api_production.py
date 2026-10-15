@@ -49,6 +49,11 @@ try:
     register_plano_api(app, supabase_client)
 except Exception as _e_pl:
     print("PLANO-API: falhou ao registrar:", _e_pl)
+try:
+    from telegram_admin import register_telegram_admin  # TELEGRAM-ADMIN-V1
+    register_telegram_admin(app)
+except Exception as _e_tg:
+    print("TELEGRAM-ADMIN: falhou ao registrar:", _e_tg)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 
