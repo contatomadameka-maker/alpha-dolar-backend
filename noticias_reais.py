@@ -12,6 +12,35 @@ import urllib.request
 from datetime import datetime, timezone
 
 ACTOR = os.environ.get('NOTICIAS_ACTOR', 'xtracto~forexfactory-calendar')
+PT_D = {'Non-Farm Employment Change': 'Payroll (criação de empregos)', 'ADP Non-Farm Employment Change': 'Empregos privados (ADP)', 'Unemployment Claims': 'Pedidos de seguro-desemprego', 'Unemployment Rate': 'Taxa de desemprego', 'Employment Change': 'Variação de empregos', 'Claimant Count Change': 'Pedidos de auxílio-desemprego', 'Average Hourly Earnings': 'Salário médio por hora', 'Average Earnings Index 3m/y': 'Índice de salários (3m/a)', 'JOLTS Job Openings': 'Vagas de emprego (JOLTS)', 'Core CPI': 'Inflação núcleo (CPI)', 'CPI': 'Inflação ao consumidor (CPI)', 'Trimmed Mean CPI': 'Inflação média aparada (CPI)', 'Median CPI': 'Inflação mediana (CPI)', 'Core PCE Price Index': 'Inflação PCE núcleo', 'PCE Price Index': 'Inflação PCE', 'Core PPI': 'Inflação ao produtor núcleo (PPI)', 'PPI': 'Inflação ao produtor (PPI)', 'Core Retail Sales': 'Vendas no varejo núcleo', 'Retail Sales': 'Vendas no varejo', 'GDP': 'PIB', 'Advance GDP': 'PIB (prévia)', 'Prelim GDP': 'PIB (prévia)', 'Final GDP': 'PIB (final)', 'Federal Funds Rate': 'Decisão de juros do Fed', 'FOMC Statement': 'Comunicado do Fed (FOMC)', 'FOMC Meeting Minutes': 'Ata do Fed (FOMC)', 'FOMC Press Conference': 'Coletiva do Fed', 'FOMC Economic Projections': 'Projeções do Fed', 'Official Bank Rate': 'Decisão de juros do BoE', 'Main Refinancing Rate': 'Decisão de juros do BCE', 'Monetary Policy Statement': 'Comunicado de política monetária', 'ECB Press Conference': 'Coletiva do BCE', 'Overnight Rate': 'Decisão de juros do BoC', 'BOC Rate Statement': 'Comunicado do BoC', 'Cash Rate': 'Decisão de juros do RBA', 'RBA Rate Statement': 'Comunicado do RBA', 'Official Cash Rate': 'Decisão de juros do RBNZ', 'RBNZ Rate Statement': 'Comunicado do RBNZ', 'BOJ Policy Rate': 'Decisão de juros do BoJ', 'BOJ Press Conference': 'Coletiva do BoJ', 'SNB Policy Rate': 'Decisão de juros do SNB', 'ISM Manufacturing PMI': 'PMI industrial (ISM)', 'ISM Services PMI': 'PMI de serviços (ISM)', 'Manufacturing PMI': 'PMI industrial', 'Services PMI': 'PMI de serviços', 'Composite PMI': 'PMI composto', 'Trade Balance': 'Balança comercial', 'Industrial Production': 'Produção industrial', 'Manufacturing Production': 'Produção da indústria', 'CB Consumer Confidence': 'Confiança do consumidor (CB)', 'UoM Consumer Sentiment': 'Sentimento do consumidor (Michigan)', 'Prelim UoM Consumer Sentiment': 'Sentimento do consumidor (Michigan, prévia)', 'Consumer Confidence': 'Confiança do consumidor', 'Building Permits': 'Licenças de construção', 'Housing Starts': 'Início de obras', 'New Home Sales': 'Venda de casas novas', 'Existing Home Sales': 'Venda de casas usadas', 'Pending Home Sales': 'Vendas pendentes de casas', 'Durable Goods Orders': 'Encomendas de bens duráveis', 'Core Durable Goods Orders': 'Encomendas de bens duráveis núcleo', 'Empire State Manufacturing Index': 'Índice industrial Empire State', 'Philly Fed Manufacturing Index': 'Índice industrial Fed Filadélfia', 'Ifo Business Climate': 'Clima de negócios Ifo', 'ZEW Economic Sentiment': 'Sentimento econômico ZEW', 'Bank Holiday': 'Feriado bancário', 'Treasury Currency Report': 'Relatório de câmbio do Tesouro', 'Crude Oil Inventories': 'Estoques de petróleo', 'Natural Gas Storage': 'Estoques de gás natural', 'Current Account': 'Conta corrente'}
+PT_S = [(' m/m', ' (mensal)'), (' q/q', ' (trimestral)'), (' y/y', ' (anual)')]
+PT_P = [('German ', 'Alemanha: '), ('French ', 'França: '), ('Italian ', 'Itália: '), ('Spanish ', 'Espanha: ')]
+
+
+def pt_titulo(t):  # NOTICIAS-PT-V1
+    import re
+    t = str(t or '').strip()
+    m = re.match(r'^(.+?)\s+(Gov|Governor|Chairman|Chair|President|Pres)\s+(.+?)\s+Speaks$', t, re.I)
+    if m:
+        return 'Fala de %s (presidente do %s)' % (m.group(3), m.group(1))
+    m = re.match(r'^(.+?)\s+Member\s+(.+?)\s+Speaks$', t, re.I)
+    if m:
+        return 'Fala de %s (membro do %s)' % (m.group(2), m.group(1))
+    m = re.match(r'^(.+?)\s+Speaks$', t, re.I)
+    if m:
+        return 'Fala: ' + m.group(1)
+    suf = pre = fl = ''
+    for a, b in PT_S:
+        if t.endswith(a):
+            t, suf = t[:-len(a)], b
+    for a, b in PT_P:
+        if t.startswith(a):
+            t, pre = t[len(a):], b
+    f = re.match(r'^(Flash|Prelim|Final|Revised)\s+(.+)$', t)
+    if f and t not in PT_D:
+        t, fl = f.group(2), {'Flash': ' (prévia)', 'Prelim': ' (prévia)', 'Final': ' (final)', 'Revised': ' (revisado)'}[f.group(1)]
+    return pre + PT_D.get(t, t) + fl + suf
+
 _REAL = {}
 _ST = {'dia': '', 'runs': 0, 'erro': '', 'ult': 0, 'tent': {}, 'avisados': set()}
 
@@ -61,7 +90,7 @@ def _consulta(dia):
 def _texto(ev):
     efeito = {1: 'mais forte para o ' + ev['moeda'], -1: 'mais fraco para o ' + ev['moeda']}.get(ev['bw'], 'em linha com o esperado')
     return '📰 Saiu %s · %s: %s (previsto %s, anterior %s) → %s' % (
-        datetime.fromtimestamp(ev['t'], timezone.utc).strftime('%H:%M UTC'), ev['moeda'] + ' ' + ev['titulo'],
+        datetime.fromtimestamp(ev['t'], timezone.utc).strftime('%H:%M UTC'), ev['moeda'] + ' ' + pt_titulo(ev['titulo']),
         ev['atual'], ev['previsao'] or '—', ev['anterior'] or '—', efeito)
 
 
