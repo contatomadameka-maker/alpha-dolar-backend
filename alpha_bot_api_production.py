@@ -695,8 +695,8 @@ def start_bot():
                 except Exception as _e_feed:
                     print(f"Erro feed: {_e_feed}")
                 try:
-                    if bot_type.startswith('enxame-'):
-                        _registrar_ledger({
+                    if bot_type.startswith('enxame-') or bot_type.startswith('unidade-'):  # ESQ-LEDGER-V1
+                        _registrar_ledger({'origem': 'esquadrao' if bot_type.startswith('unidade-') else 'enxame',
                             't': time.time(), 'hora': datetime.now().strftime('%H:%M:%S'),
                             'slot': bot_type,
                             'gen_atual': get_user_state(deriv_id, bot_type).get('_gen') == _my_gen,
@@ -1191,6 +1191,7 @@ def enxame_ledger():
                     pass
     except FileNotFoundError:
         pass
+    linhas = [i for i in linhas if i.get('origem', 'enxame') == 'enxame']  # ESQ-LEDGER-V1: so o Enxame aqui
 
     def resumo(itens):
         n = len(itens)
@@ -1225,6 +1226,74 @@ def enxame_ledger():
         'por_mercado': agrupar('simbolo'),
         'por_direcao': agrupar('direcao'),
     })
+
+# ═══ ESQ-RANKING-V1: ranking honesto de estrategia x mercado a partir do livro de operacoes ═══
+# Junta Enxame + Esquadrao. Mostra quantas operacoes, acerto, empate e um selo de confianca
+# (intervalo de Wilson 90%). Ordem: lucro medio por operacao "encolhido" para amostras pequenas.
+_RANK_CACHE = {}
+def _rank_wilson(w, n, z=1.645):
+    if not n: return 0.0, 1.0
+    import math
+    p = w / n; d = 1 + z * z / n
+    m = (p + z * z / (2 * n)) / d
+    e = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
+    return max(0.0, m - e), min(1.0, m + e)
+
+@app.route('/api/estrategias/ranking')
+def estrategias_ranking():
+    import json
+    try: horas = max(0.0, min(24 * 60.0, float(request.args.get('horas', 24))))
+    except Exception: horas = 24.0
+    origem = request.args.get('origem', '')
+    chave = (horas, origem)
+    agora = time.time()
+    if chave in _RANK_CACHE and agora - _RANK_CACHE[chave][0] < 60:
+        return jsonify(_RANK_CACHE[chave][1])
+    linhas = []
+    try:
+        with open(_ledger_path(), 'r', encoding='utf-8') as f:
+            for l in f:
+                try: i = json.loads(l)
+                except Exception: continue
+                if horas and agora - float(i.get('t') or 0) > horas * 3600: continue
+                if origem and i.get('origem', 'enxame') != origem: continue
+                if not i.get('estrategia') or not i.get('simbolo') or not i.get('stake'): continue
+                linhas.append(i)
+    except FileNotFoundError:
+        pass
+    pays = [i['profit'] / i['stake'] for i in linhas if i.get('won') and i.get('stake')]
+    pay_g = (sum(pays) / len(pays)) if pays else 0.8
+
+    def resumo(itens, **extra):
+        n = len(itens); w = sum(1 for i in itens if i.get('won'))
+        pw = [i['profit'] / i['stake'] for i in itens if i.get('won') and i.get('stake')]
+        pay = (sum(pw) / len(pw)) if len(pw) >= 5 else pay_g
+        be = 1.0 / (1.0 + pay) if pay > 0 else 0.56
+        lo, hi = _rank_wilson(w, n)
+        ev = sum((i.get('profit') or 0) / i['stake'] for i in itens) / (n + 30.0)
+        if n < 20: selo = 'poucos'
+        elif lo > be: selo = 'comprovada'
+        elif hi < be: selo = 'abaixo'
+        elif w / n >= be: selo = 'promissora'
+        else: selo = 'neutra'
+        d = {'n': n, 'wins': w, 'wr': round(100.0 * w / n, 1) if n else 0, 'lucro': round(sum(i.get('profit') or 0 for i in itens), 2),
+             'payout': round(pay, 3), 'empate': round(100 * be, 1), 'lo': round(100 * lo, 1), 'hi': round(100 * hi, 1),
+             'ev': round(ev, 4), 'selo': selo,
+             'ultima': max((float(i.get('t') or 0) for i in itens), default=0)}
+        d.update(extra); return d
+
+    def grupos(fn):
+        g = {}
+        for i in linhas: g.setdefault(fn(i), []).append(i)
+        return g
+    combos = [resumo(v, estrategia=k[0], simbolo=k[1]) for k, v in grupos(lambda i: (i['estrategia'], i['simbolo'])).items()]
+    ests = [resumo(v, estrategia=k) for k, v in grupos(lambda i: i['estrategia']).items()]
+    mercs = [resumo(v, simbolo=k) for k, v in grupos(lambda i: i['simbolo']).items()]
+    for L in (combos, ests, mercs): L.sort(key=lambda d: -d['ev'])
+    out = {'success': True, 'horas': horas, 'origem': origem or 'todas', 'atualizado': agora,
+           'base': resumo(linhas), 'combos': combos[:120], 'estrategias': ests, 'mercados': mercs}
+    _RANK_CACHE[chave] = (agora, out)
+    return jsonify(out)
 
 @app.route('/api/bot/stats/<bot_type>')
 def get_bot_stats(bot_type):
