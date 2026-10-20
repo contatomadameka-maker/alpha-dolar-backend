@@ -3,6 +3,19 @@ import os
 import threading
 import time
 import traceback as _tb
+# REQ-TIMEOUT-V1: nenhuma chamada HTTP do servidor fica pendurada para sempre
+# (Supabase lento segurava as 16 threads e o servidor inteiro parava de responder)
+try:
+    import requests as _rq_t
+    _rq_orig = _rq_t.Session.request
+    def _rq_com_timeout(self, method, url, **kw):
+        if kw.get('timeout') is None:
+            kw['timeout'] = 20
+        return _rq_orig(self, method, url, **kw)
+    _rq_t.Session.request = _rq_com_timeout
+    print('REQ-TIMEOUT-V1 ativo: chamadas HTTP com limite de 20s')
+except Exception as _e_rq:
+    print('REQ-TIMEOUT-V1 falhou:', _e_rq)
 from webhook_cakto import register_cakto_webhook
 try:
     from supabase import create_client
