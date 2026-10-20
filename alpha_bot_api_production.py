@@ -11,6 +11,9 @@ try:
     def _rq_com_timeout(self, method, url, **kw):
         if kw.get('timeout') is None:
             kw['timeout'] = 20
+        # REQ-UTF8-V1: texto vira bytes UTF-8 (senao o tamanho sai errado e o Supabase recebe o JSON cortado)
+        if isinstance(kw.get('data'), str):
+            kw['data'] = kw['data'].encode('utf-8')
         return _rq_orig(self, method, url, **kw)
     _rq_t.Session.request = _rq_com_timeout
     print('REQ-TIMEOUT-V1 ativo: chamadas HTTP com limite de 20s')
