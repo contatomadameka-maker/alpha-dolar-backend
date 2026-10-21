@@ -225,6 +225,26 @@ def register_plano_api(app, supabase_client=None):
         if not r.ok:
             print('[OPS] supabase', r.status_code, r.text[:300])
             return jsonify({'ok': False, 'erro': 'supabase %s' % r.status_code}), 502
+        # FEED-REAL-V1: ganho na conta real de qualquer robo do navegador entra no feed de ganhos
+        try:
+            import sys as _sys
+            _fr = None
+            for _mn in ('alpha_bot_api_production', '__main__'):
+                _fr = getattr(_sys.modules.get(_mn), '_feed_registrar', None)
+                if _fr: break
+            if _fr:
+                _NM = {'prisma': 'Alpha Prisma', 'pulso': 'Alpha Pulso', 'global': 'Alpha Global', 'touch': 'Alpha Touch',
+                       'sinais': 'Alpha Sinais', 'sentinelas': 'Alpha Sentinelas', 'automacao': 'Alpha Automação',
+                       'ia-pro': 'Alpha IA Pro', 'ia-avancado': 'Alpha IA Avançado', 'ia-contextual': 'Alpha IA Contextual',
+                       'ia-simples': 'Alpha IA', 'digitos': 'Alpha Dígitos', 'enxame': 'Alpha Enxame', 'esquadrao': 'Alpha Esquadrão',
+                       'manual': 'Operação manual', 'grafico': 'Operação manual'}
+                for _l in linhas:
+                    if _l['conta'] == 'real' and _l['lucro'] > 0:
+                        _f = _l.get('ferramenta') or ''
+                        _fr(_l.get('deriv_id'), '', _NM.get(_f, ('Alpha ' + _f.replace('-', ' ').title()) if _f else 'Alpha Dolar'),
+                            _l.get('symbol'), _l['lucro'], _l['stake'], 'real', _l.get('contract_id'))
+        except Exception as _e_feed:
+            print('[OPS] feed', _e_feed)
         return jsonify({'ok': True, 'gravadas': len(linhas)})
 
     @app.before_request

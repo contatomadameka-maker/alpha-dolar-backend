@@ -1131,6 +1131,11 @@ def _feed_nome_curto(nome):
     return curto
 
 def _feed_registrar(deriv_id, nome, bot, mercado, lucro, stake, conta, contract_id=None):
+    # FEED-REAL-V1: o feed publico so mostra conta real; nao repete o mesmo contrato
+    if conta != 'real':
+        return False
+    if contract_id and any(str(x.get('contract_id')) == str(contract_id) for x in _FEED_MEM):
+        return False
     try:
         lucro = round(float(lucro), 2)
         stake = round(float(stake or 0), 2)
@@ -1162,17 +1167,17 @@ def feed_ganhos_get():
     rows = None
     if supabase_client:
         try:
-            r = supabase_client.table('feed_ganhos').select('nome,bot,mercado,lucro,conta,created_at') \
+            r = supabase_client.table('feed_ganhos').select('nome,bot,mercado,lucro,conta,created_at').eq('conta', 'real') \
                 .order('created_at', desc=True).limit(limit).execute()
             rows = r.data
         except Exception as e:
             print(f"Feed: erro ao ler do Supabase: {e}")
     if not rows:
-        rows = _FEED_MEM[:limit]
+        rows = [x for x in _FEED_MEM if x.get('conta') == 'real'][:limit]
     itens = [{
         'nome': _feed_nome_curto(x.get('nome')), 'bot': x.get('bot') or '', 'mercado': x.get('mercado') or '',
         'lucro': float(x.get('lucro') or 0), 'conta': x.get('conta') or 'demo', 'quando': x.get('created_at'),
-    } for x in rows if float(x.get('lucro') or 0) > 0]
+    } for x in rows if float(x.get('lucro') or 0) > 0 and x.get('conta') == 'real']
     return jsonify({'ok': True, 'itens': itens})
 
 @app.route('/api/feed/ganho', methods=['POST'])
