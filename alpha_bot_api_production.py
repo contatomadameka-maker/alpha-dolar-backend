@@ -466,7 +466,7 @@ def start_bot():
         account_type = data.get('account_type', 'demo')
         token        = data.get('token')
         deriv_id     = data.get('deriv_id', '') or data.get('loginid', '')
-        if str(bot_type).startswith('enxame-'): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1
+        if str(bot_type).startswith(('enxame-', 'auto-')): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1 + AUTOMACAO-SRV-V1
 
         symbol        = resolve_symbol(config.get('symbol', 'R_100'))
         stake_inicial = float(config.get('stake') or config.get('stake_inicial') or 0.35)
@@ -523,7 +523,7 @@ def start_bot():
         # por conta, alem dos paineis ia/ia_simples que ja existiam.
         ESQUADRAO_SLOTS = [f'unidade-{i}' for i in range(1, 5)]
         ENXAME_SLOTS_TESTE = [f'enxame-{i}' for i in range(1, 21)]  # temporario, so para teste de carga (ate 20)
-        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil', 'regente'] + ESQUADRAO_SLOTS + ENXAME_SLOTS_TESTE:
+        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil', 'regente'] + ESQUADRAO_SLOTS + ENXAME_SLOTS_TESTE + [f'auto-{i}' for i in range(1, 6)]:  # AUTOMACAO-SRV-V1
             print("🤖 Iniciando BOT PYTHON REAL...")
 
             _cfg_ok = _CFG_LOCK.acquire(timeout=15)  # TRAVA-CONFIG-V1
@@ -636,7 +636,7 @@ def start_bot():
                 bot.enxame_stop_estrito = bot_type.startswith('enxame-')
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
                 bot.limite_tentativas = False  # SEM-TRAVA-V1: recuperacao livre, quem limita e o stop loss do usuario
-                bot.stop_estrito = bot_type in ('ia', 'ia_simples') or bot_type.startswith('unidade-')  # SEM-TRAVA-V1 + ESQ-STOP-V1: Esquadrao tambem nunca passa do stop
+                bot.stop_estrito = bot_type in ('ia', 'ia_simples') or bot_type.startswith(('unidade-', 'auto-'))  # SEM-TRAVA-V1 + ESQ-STOP-V1: Esquadrao tambem nunca passa do stop
                 bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
                 if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
@@ -706,13 +706,13 @@ def start_bot():
                     if won and float(profit) > 0:
                         _st_feed = get_user_state(deriv_id, bot_type)
                         _feed_registrar(deriv_id, _st_feed.get('nome') or _st_feed.get('user_name') or '',
-                                        'Alpha Enxame' if bot_type.startswith('enxame-') else _st_feed.get('bot_name', bot_type),
+                                        'Alpha Enxame' if bot_type.startswith('enxame-') else ('Alpha Automação' if bot_type.startswith('auto-') else _st_feed.get('bot_name', bot_type)),
                                         symbol_used, profit, stake, _st_feed.get('account_type', 'demo'))
                 except Exception as _e_feed:
                     print(f"Erro feed: {_e_feed}")
                 try:
-                    if bot_type.startswith('enxame-') or bot_type.startswith('unidade-'):  # ESQ-LEDGER-V1
-                        _registrar_ledger({'origem': 'esquadrao' if bot_type.startswith('unidade-') else 'enxame',
+                    if bot_type.startswith(('enxame-', 'unidade-', 'auto-')):  # ESQ-LEDGER-V1 + AUTOMACAO-SRV-V1
+                        _registrar_ledger({'origem': 'esquadrao' if bot_type.startswith('unidade-') else ('automacao' if bot_type.startswith('auto-') else 'enxame'),
                             't': time.time(), 'hora': datetime.now().strftime('%H:%M:%S'),
                             'slot': bot_type,
                             'gen_atual': get_user_state(deriv_id, bot_type).get('_gen') == _my_gen,
@@ -1314,7 +1314,7 @@ def estrategias_ranking():
 @app.route('/api/bot/stats/<bot_type>')
 def get_bot_stats(bot_type):
     deriv_id = request.args.get('deriv_id', 'anonymous')
-    if bot_type.startswith('enxame-'): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1
+    if bot_type.startswith(('enxame-', 'auto-')): globals().setdefault('_ENX_POLL', {})[(deriv_id, bot_type)] = time.time()  # ENXAME-VIGIA-V1 + AUTOMACAO-SRV-V1
     state = get_user_state(deriv_id, bot_type)
     bot   = state.get('instance')
     stats = {}
@@ -3628,7 +3628,7 @@ def admin_ao_vivo():
             partes = k.split(':')
             did = st.get('deriv_id') or (partes[1] if len(partes) > 2 else '')
             tipo = partes[-1] if len(partes) > 2 else 'servidor'
-            nome = {'ia': 'IA Simples', 'ia_simples': 'IA Simples', 'perfil': 'Perfil', 'regente': 'Regente'}.get(tipo, 'Enxame' if tipo.startswith('enxame') else 'Esquadrão' if tipo.startswith('unidade') else tipo)
+            nome = {'ia': 'IA Simples', 'ia_simples': 'IA Simples', 'perfil': 'Perfil', 'regente': 'Regente'}.get(tipo, 'Enxame' if tipo.startswith('enxame') else 'Esquadrão' if tipo.startswith('unidade') else 'Automação' if tipo.startswith('auto-') else tipo)
             marca(did, st.get('bot_name'), st.get('account_type'), nome)
     except Exception as e:
         print('AO-VIVO redis:', e)
