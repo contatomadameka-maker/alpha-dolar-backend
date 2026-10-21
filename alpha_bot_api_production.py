@@ -3639,7 +3639,7 @@ def admin_ao_vivo():
     except Exception as e:
         print('AO-VIVO redis:', e)
     try:
-        desde = (_dt.utcnow() - _td(minutes=3))  # AOVIVO-CONTA-V2.strftime('%Y-%m-%dT%H:%M:%S')
+        desde = (_dt.utcnow() - _td(minutes=3)).strftime('%Y-%m-%dT%H:%M:%S')  # AOVIVO-CONTA-V3: ultimos 3 min
         ops = _ledger_supa_req('operacoes?select=deriv_id,cliente_id,bot_name,ferramenta,conta&criado_em=gte.' + desde + '&limit=1000') or []
         for o in ops:
             marca(str(o.get('deriv_id') or o.get('cliente_id') or ''), o.get('bot_name'), o.get('conta'), o.get('ferramenta') or 'navegador')
