@@ -523,7 +523,7 @@ def start_bot():
         # por conta, alem dos paineis ia/ia_simples que ja existiam.
         ESQUADRAO_SLOTS = [f'unidade-{i}' for i in range(1, 5)]
         ENXAME_SLOTS_TESTE = [f'enxame-{i}' for i in range(1, 21)]  # temporario, so para teste de carga (ate 20)
-        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil', 'regente'] + ESQUADRAO_SLOTS + ENXAME_SLOTS_TESTE + [f'auto-{i}' for i in range(1, 6)]:  # AUTOMACAO-SRV-V1
+        if BOTS_AVAILABLE and bot_type in ['ia', 'ia_simples', 'perfil', 'regente'] + ESQUADRAO_SLOTS + ENXAME_SLOTS_TESTE + [f'auto-{i}' for i in range(1, 11)]:  # AUTOMACAO-SRV-V1
             print("🤖 Iniciando BOT PYTHON REAL...")
 
             _cfg_ok = _CFG_LOCK.acquire(timeout=15)  # TRAVA-CONFIG-V1
