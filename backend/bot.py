@@ -267,6 +267,22 @@ class AlphaDolar:
 
         if getattr(self, 'enxame_stop_estrito', False) or getattr(self, 'stop_estrito', False):  # SEM-TRAVA-V1
             perda_sessao = max(0.0, -self.stop_loss.saldo_liquido)
+            # AUTO-VOLTA-ENTRADA-V1: no Alpha Automacao a recuperacao que nao cabe vira entrada inicial
+            _base = float(getattr(self.config, 'STAKE_INICIAL', 0.35) or 0.35)
+            if (getattr(self, 'auto_volta_entrada', False) and perda_sessao + stake > self.config.LIMITE_PERDA
+                    and stake > _base + 1e-9 and perda_sessao + _base <= self.config.LIMITE_PERDA + 1e-9):
+                self.log(f"🛡 A recuperacao de ${stake:.2f} passaria do stop -- perda de ${self.perda_acumulada:.2f} aceita, voltando para a entrada de ${_base:.2f}", "WARNING")
+                stake = _base
+                self.perda_acumulada = 0.0
+                self._rec_tent = 0
+                if self.martingale:
+                    self.martingale.reset()
+                if hasattr(self.strategy, 'stake_atual'):
+                    try: self.strategy.stake_atual = _base
+                    except Exception: pass
+                if hasattr(self.strategy, 'martingale_step'):
+                    try: self.strategy.martingale_step = 0
+                    except Exception: pass
             if perda_sessao + stake > self.config.LIMITE_PERDA:
                 self.log(
                     f"🛑 Enxame: aposta de ${stake:.2f} com perda atual ${perda_sessao:.2f} passaria do limite "

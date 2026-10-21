@@ -637,6 +637,7 @@ def start_bot():
                 bot.config.MULTIPLICADOR_ACELERADOR = risk_mode.get('multiplicador') if isinstance(risk_mode, dict) else None
                 bot.limite_tentativas = False  # SEM-TRAVA-V1: recuperacao livre, quem limita e o stop loss do usuario
                 bot.stop_estrito = bot_type in ('ia', 'ia_simples') or bot_type.startswith(('unidade-', 'auto-'))  # SEM-TRAVA-V1 + ESQ-STOP-V1: Esquadrao tambem nunca passa do stop
+                bot.auto_volta_entrada = bot_type.startswith('auto-')  # AUTO-VOLTA-ENTRADA-V1: so o Alpha Automacao
                 bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
                 if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
