@@ -342,7 +342,7 @@ class AlphaDolar:
             # MERCADO-TICK-V1: Forex e metais (frx...) nao aceitam contrato em ticks na Deriv
             _sb = str(params.get("symbol", self.config.DEFAULT_SYMBOL) or '')
             self._mercado_atual = _sb
-            if _sb.startswith('frx') and params.get("duration_unit", "t") == "t":
+            if _sb.startswith(('frx', 'cry')) and params.get("duration_unit", "t") == "t":  # MERCADO-TICK-V2
                 self._parar_mercado(_sb)
                 return
             proposal_params = {
