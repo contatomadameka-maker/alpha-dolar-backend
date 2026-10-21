@@ -449,6 +449,13 @@ class DerivAPI:
             elif msg_type == "proposal":
                 if "error" in data:
                     self.log(f"Erro proposta: {data['error']['message']}", "ERROR")
+                    # MERCADO-TICK-V1: libera o robo na hora e conta o motivo
+                    self._clear_contract()
+                    if self.on_contract_callback:
+                        self.on_contract_callback({
+                            "status": "lost", "profit": 0, "contract_id": None, "_proposal_error": True,
+                            "_code": (data.get("error") or {}).get("code"), "_msg": (data.get("error") or {}).get("message")
+                        })
                 else:
                     proposal    = data.get("proposal", {})
                     proposal_id = proposal.get("id")

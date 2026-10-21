@@ -339,6 +339,12 @@ class AlphaDolar:
                 take_profit=params.get("take_profit"),
             )
         else:
+            # MERCADO-TICK-V1: Forex e metais (frx...) nao aceitam contrato em ticks na Deriv
+            _sb = str(params.get("symbol", self.config.DEFAULT_SYMBOL) or '')
+            self._mercado_atual = _sb
+            if _sb.startswith('frx') and params.get("duration_unit", "t") == "t":
+                self._parar_mercado(_sb)
+                return
             proposal_params = {
                 'contract_type': contract_type,
                 'symbol': params.get("symbol", self.config.DEFAULT_SYMBOL),
@@ -359,6 +365,15 @@ class AlphaDolar:
     def on_contract_update(self, contract_data):
         status = contract_data.get("status")
 
+        if contract_data.get("_proposal_error"):  # MERCADO-TICK-V1
+            self._erros_prop = getattr(self, '_erros_prop', 0) + 1
+            if contract_data.get("_code") == "TradingDurationNotAllowed" or self._erros_prop >= 5:
+                self.waiting_contract = False
+                self.current_contract_id = None
+                self._parar_mercado(getattr(self, '_mercado_atual', None) or getattr(self.config, 'DEFAULT_SYMBOL', ''), contract_data.get("_msg"), contract_data.get("_code") != "TradingDurationNotAllowed")
+                return
+        else:
+            self._erros_prop = 0
         if (contract_data.get("_timeout") or contract_data.get("_reconnect") or
                 contract_data.get("_buy_error") or contract_data.get("_proposal_error")):
             self.log("⚠️ Operação interrompida — liberando bot para próximo sinal", "WARNING")
@@ -621,6 +636,21 @@ class AlphaDolar:
             import traceback
             traceback.print_exc()
             return False
+
+    def _parar_mercado(self, simbolo, motivo=None, generico=False):  # MERCADO-TICK-V1
+        if generico:
+            txt = "A Deriv recusou 5 pedidos seguidos em %s. Robo parado por seguranca." % (simbolo or '')
+        else:
+            txt = ("O mercado %s nao aceita este tipo de contrato neste robo. Escolha um indice sintetico (Volatility, Step, Jump)." % (simbolo or ''))
+        if motivo: txt += " Deriv: " + str(motivo)
+        self.log("🛑 " + txt, "ERROR")
+        self.waiting_contract = False
+        self.stop_reason = 'mercado_invalido'
+        self.stop_message = txt
+        try:
+            self.stop()
+        except Exception as _e:
+            self.is_running = False
 
     def stop(self):
         self.is_running = False
