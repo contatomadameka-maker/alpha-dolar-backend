@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -104,9 +104,22 @@ class KV(object):
 
     def _r(self):
         try:
-            return self._g() if self._g else None
+            r = self._g() if self._g else None
         except Exception:
-            return None
+            r = None
+        if r is not None:
+            return r
+        # SALA-DIGITOS-V3.1: o app principal nao tem redis_client global; usa o REDIS_URL direto (como o resto do backend)
+        if not hasattr(self, '_proprio'):
+            self._proprio = None
+            url = os.environ.get('REDIS_URL', '').strip()
+            if url:
+                try:
+                    import redis as _redis
+                    self._proprio = _redis.from_url(url, decode_responses=True, socket_timeout=3)
+                except Exception as e:
+                    print('[SalaDigitos] Redis indisponivel: %s' % e)
+        return self._proprio
 
     @staticmethod
     def _s(v):
@@ -265,6 +278,8 @@ class Sala(object):
         self.fila = deque()
         self.fila_ev = threading.Event()
         self.fila_thread = None
+        self.sup_thread = None
+        self.diag = {'pid': os.getpid(), 'sup_inicio': 0, 'sup_volta': 0, 'voltas': 0, 'sup_erro': '', 'dono': False}
 
     # ---------- config / dia ----------
     def _cfg_load(self):
@@ -304,7 +319,8 @@ class Sala(object):
         self.fila_ev.set()
 
     def post(self, chave, texto, img=None, botao=True):
-        self._fila({'op': 'post', 'k': chave, 't': texto, 'img': img, 'b': botao})
+        self._fila({'op': 'post', 'k': chave, 't': texto, 'img': 
+img, 'b': botao})
 
     def edita(self, chave, texto, img=None, botao=True):
         self._fila({'op': 'edit', 'k': chave, 't': texto, 'img': img, 'b': botao})
@@ -534,11 +550,13 @@ class Sala(object):
                 if self.desde_parcial > 0:
                     self.manda(self.texto_parcial(agora), None, True)
                 self.ult_parcial, self.desde_parcial = agora, 0
-            snap = {'fase': self.st.get('fase'), 'sym': self.st.get('sym'), 'lado': self.st.get('lado'),
-                    'passo': self.st.get('passo', 0), 'seq': self.st.get('seq', 0),
-                    'pausa_ate': int(self.cool), 'ws': self.ws, 'envio': self.envio, 'dono': self.id,
-                    't': int(agora)}
-        self.kv.set(K_SNAP, json.dumps(snap), ex=60)
+        self.kv.set(K_SNAP, json.dumps(self.snap(agora)), ex=60)
+
+    def snap(self, agora=None):
+        return {'fase': self.st.get('fase'), 'sym': self.st.get('sym'), 'lado': self.st.get('lado'),
+                'passo': self.st.get('passo', 0), 'seq': self.st.get('seq', 0),
+                'pausa_ate': int(self.cool), 'ws': dict(self.ws), 'envio': dict(self.envio), 'dono': self.id,
+                't': int(agora or time.time())}
 
     # ---------- leitura de ticks ----------
     def _ws_loop(self):
@@ -593,14 +611,18 @@ class Sala(object):
                 time.sleep(espera)
                 espera = min(60, espera * 2)
 
-    def supervisor(self):
-        time.sleep(8)
+    def supervisor(self, atraso=8):
+        self.diag['sup_inicio'] = int(time.time())
+        time.sleep(atraso)
         while True:
+            self.diag['sup_volta'] = int(time.time())
+            self.diag['voltas'] += 1
             try:
                 on = self.kv.get(K_ON) == '1'
                 if on and self.parar_antigo:
                     self.parar_antigo()
                 dono = on and self.kv.trava(K_LOCK, self.id, 30)
+                self.diag['dono'] = bool(dono)
                 if dono and not self.rodando:
                     self.rodando = True
                     self.cfg = self._cfg_load()
@@ -619,8 +641,22 @@ class Sala(object):
                 if self.rodando:
                     self.tarefas()
             except Exception as e:
-                print('[SalaDigitos] supervisor: %s' % e)
+                import traceback
+                self.diag['sup_erro'] = ('%s: %s' % (type(e).__name__, e))[:300]
+                print('[SalaDigitos] supervisor: %s' % traceback.format_exc())
             time.sleep(5)
+
+    def garante_supervisor(self, atraso=0):
+        """Religa o supervisor se a thread morreu ou nunca rodou neste processo."""
+        vivo = self.sup_thread is not None and self.sup_thread.is_alive()
+        parado = self.diag['sup_volta'] and time.time() - self.diag['sup_volta'] > 60
+        if not vivo or self.diag['pid'] != os.getpid() or parado:
+            self.diag['pid'] = os.getpid()
+            self.sup_thread = threading.Thread(target=self.supervisor, args=(atraso,), daemon=True)
+            self.sup_thread.start()
+            print('[SalaDigitos] supervisor (re)iniciado no processo %s' % os.getpid())
+            return True
+        return False
 
 
 def register_sala_digitos(app, get_redis=None, parar_antigo=None):
@@ -656,8 +692,26 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             snap = json.loads(raw) if raw else None
         except Exception:
             snap = None
+        religou = sala.garante_supervisor()
+        if not snap and sala.rodando:
+            snap = sala.snap()
+        r = kv._r()
+        if r is None:
+            modo = 'memoria (sem Redis)'
+        else:
+            try:
+                r.ping()
+                modo = 'redis ok'
+            except Exception as e:
+                modo = 'redis com erro: %s' % str(e)[:80]
+        agora = int(time.time())
+        diag = dict(sala.diag, rodando=sala.rodando, religou=religou, kv=modo, pid_agora=os.getpid(),
+                    sup_vivo=bool(sala.sup_thread and sala.sup_thread.is_alive()),
+                    ws_vivo=bool(sala.ws_thread and sala.ws_thread.is_alive()),
+                    seg_desde_volta=(agora - sala.diag['sup_volta']) if sala.diag['sup_volta'] else None,
+                    ws=dict(sala.ws), envio=dict(sala.envio), fila=len(sala.fila), fase=sala.st.get('fase'))
         return jsonify({'ok': True, 'ligado': kv.get(K_ON) == '1', 'cfg': sala._cfg_load(), 'hoje': _hoje(),
-                        'snap': snap, 'nomes': NOMES, 'agora': int(time.time())})
+                        'snap': snap, 'diag': diag, 'nomes': NOMES, 'agora': agora})
 
     @app.route('/api/admin/sala-digitos/ligar', methods=['POST'])
     def _sd_ligar():
@@ -665,6 +719,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             return negado()
         ja = kv.get(K_ON) == '1'
         kv.set(K_ON, '1')
+        sala.garante_supervisor(atraso=1)
         if parar_antigo:
             parar_antigo()
         if not ja:
@@ -699,6 +754,6 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         kv.set(K_CFG, json.dumps(c))
         return jsonify({'ok': True, 'cfg': c})
 
-    threading.Thread(target=sala.supervisor, daemon=True).start()
-    print('[SalaDigitos] SALA-DIGITOS-V1 registrada')
+    sala.garante_supervisor(atraso=8)
+    print('[SalaDigitos] SALA-DIGITOS-V3.1 registrada (processo %s)' % os.getpid())
     return sala
