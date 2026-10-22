@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -26,7 +26,12 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 
 BRT = timezone(timedelta(hours=-3))
-WS_URL = os.environ.get('SALA_WS_URL', 'wss://ws.binaryws.com/websockets/v3?app_id=1089')
+# SALA-DIGITOS-V3.3: tenta varios enderecos publicos de ticks (o binaryws respondia 520)
+WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
+                       'wss://ws.derivws.com/websockets/v3?app_id=1089',
+                       'wss://api.derivws.com/trading/v1/options/ws/public',
+                       'wss://ws.binaryws.com/websockets/v3?app_id=1089'] if u]
+WS_URL = WS_URLS[0]
 # SALA-DIGITOS-V2: cada sinal sai como foto + texto + botao para o robo
 LINK_ROBO = os.environ.get('SALA_LINK', 'https://alphadolar.online/bot-digitos.html')
 IMG_BASE = os.environ.get('SALA_IMG_BASE', 'https://alphadolar.online/img/sala/')
@@ -564,20 +569,32 @@ class Sala(object):
         except Exception as e:
             self.ws['erro'] = 'biblioteca websocket ausente: %s' % e
             return
-        espera = 2
+        espera, idx = 2, 0
         while self.rodando:
             ws = None
+            url = WS_URLS[idx % len(WS_URLS)]
+            novo = 'api.derivws.com' in url
+            mapa = {}
             try:
-                ws = websocket.create_connection(WS_URL, timeout=15)
-                for s in SIMBOLOS:
-                    ws.send(json.dumps({'ticks': s, 'subscribe': 1}))
+                ws = websocket.create_connection(url, timeout=15, origin='https://alphadolar.online',
+                                                 header=['User-Agent: Mozilla/5.0 (AlphaDigitos sala)'])
+                for i, s in enumerate(SIMBOLOS):
+                    mapa[i + 1] = s
+                    if novo:
+                        ws.send(json.dumps({'ticks_history': s, 'underlying_symbol': s, 'end': 'latest', 'count': 1,
+                                            'style': 'ticks', 'subscribe': 1, 'req_id': i + 1}))
+                    else:
+                        ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
                 ws.settimeout(10)
-                self.ws.update(conectado=True, erro='')
+                self.ws.update(conectado=True, erro='', url=url)
+                sem_tick = time.time()
                 espera, ult_ping = 2, time.time()
                 while self.rodando:
                     if time.time() - ult_ping > 25:
                         ws.send('{"ping": 1}')
                         ult_ping = time.time()
+                    if time.time() - sem_tick > 45:
+                        raise Exception('conectou mas nenhum tick chegou em 45 s')
                     try:
                         raw = ws.recv()
                     except websocket.WebSocketTimeoutException:
@@ -591,14 +608,19 @@ class Sala(object):
                     t = m.get('tick')
                     if not t or t.get('quote') is None:
                         continue
+                    sym = t.get('symbol') or t.get('underlying_symbol') or mapa.get(m.get('req_id'))
+                    if sym not in NOMES:
+                        continue
+                    sem_tick = time.time()
                     dec = int(t.get('pip_size') or 2)
                     d = int(('%.*f' % (dec, float(t['quote'])))[-1])
-                    self.on_tick(t.get('symbol'), d, int(t.get('epoch') or time.time()))
+                    self.on_tick(sym, d, int(t.get('epoch') or time.time()))
                     self.ws['ultimo_tick'] = int(time.time())
                     self.ws['ticks'] += 1
             except Exception as e:
-                self.ws.update(conectado=False, erro=str(e)[:200])
-                print('[SalaDigitos] WS: %s' % e)
+                self.ws.update(conectado=False, erro=('%s -> %s' % (url.split('/')[2], e))[:200])
+                print('[SalaDigitos] WS %s: %s' % (url, e))
+                idx += 1   # proxima tentativa usa o proximo endereco
             finally:
                 try:
                     if ws:
@@ -608,7 +630,7 @@ class Sala(object):
             self.ws['conectado'] = False
             if self.rodando:
                 time.sleep(espera)
-                espera = min(60, espera * 2)
+                espera = min(30, espera * 2) if idx % len(WS_URLS) == 0 else 2
 
     def supervisor(self, atraso=8):
         self.diag['sup_inicio'] = int(time.time())
@@ -717,7 +739,8 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             snap = sala.snap()
         r = kv._r()
         if r is None:
-            modo = 'memoria (sem Redis)'
+            modo = 'memo
+ria (sem Redis)'
         else:
             try:
                 r.ping()
@@ -775,5 +798,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         return jsonify({'ok': True, 'cfg': c})
 
     sala.garante_supervisor(atraso=8)
-    print('[SalaDigitos] SALA-DIGITOS-V3.2 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V3.3 registrada (processo %s)' % os.getpid())
     return sala
