@@ -739,8 +739,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             snap = sala.snap()
         r = kv._r()
         if r is None:
-            modo = 'memo
-ria (sem Redis)'
+            modo = 'memoria (sem Redis)'
         else:
             try:
                 r.ping()
