@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -319,8 +319,7 @@ class Sala(object):
         self.fila_ev.set()
 
     def post(self, chave, texto, img=None, botao=True):
-        self._fila({'op': 'post', 'k': chave, 't': texto, 'img': 
-img, 'b': botao})
+        self._fila({'op': 'post', 'k': chave, 't': texto, 'img': img, 'b': botao})
 
     def edita(self, chave, texto, img=None, botao=True):
         self._fila({'op': 'edit', 'k': chave, 't': texto, 'img': img, 'b': botao})
@@ -622,6 +621,27 @@ img, 'b': botao})
                 if on and self.parar_antigo:
                     self.parar_antigo()
                 dono = on and self.kv.trava(K_LOCK, self.id, 30)
+                if on and not dono:
+                    # SALA-DIGITOS-V3.2: dono da trava sem sinal de vida (snapshot velho ou de outro dono) -> assume
+                    atual = self.kv.get(K_LOCK)
+                    try:
+                        sn = json.loads(self.kv.get(K_SNAP) or 'null') or {}
+                    except Exception:
+                        sn = {}
+                    vivo = sn.get('dono') == atual and time.time() - (sn.get('t') or 0) < 20
+                    self.diag['lock_dono'] = atual
+                    self.diag['lock_vivo'] = bool(vivo)
+                    if not vivo:
+                        self.diag['espera_lock'] = self.diag.get('espera_lock', 0) + 1
+                        if self.diag['espera_lock'] >= 4:   # ~20 s sem sinal de vida do outro dono
+                            self.kv.set(K_LOCK, self.id, ex=30)
+                            dono = True
+                            self.diag['assumiu'] = int(time.time())
+                            print('[SalaDigitos] trava de %s sem sinal de vida; assumindo (%s)' % (atual, self.id))
+                    else:
+                        self.diag['espera_lock'] = 0
+                else:
+                    self.diag['espera_lock'] = 0
                 self.diag['dono'] = bool(dono)
                 if dono and not self.rodando:
                     self.rodando = True
@@ -755,5 +775,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         return jsonify({'ok': True, 'cfg': c})
 
     sala.garante_supervisor(atraso=8)
-    print('[SalaDigitos] SALA-DIGITOS-V3.1 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V3.2 registrada (processo %s)' % os.getpid())
     return sala
