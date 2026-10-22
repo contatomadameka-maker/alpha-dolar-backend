@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V1 (+V2 imagens e botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -30,7 +30,8 @@ WS_URL = os.environ.get('SALA_WS_URL', 'wss://ws.binaryws.com/websockets/v3?app_
 # SALA-DIGITOS-V2: cada sinal sai como foto + texto + botao para o robo
 LINK_ROBO = os.environ.get('SALA_LINK', 'https://alphadolar.online/bot-digitos.html')
 IMG_BASE = os.environ.get('SALA_IMG_BASE', 'https://alphadolar.online/img/sala/')
-IMG_VER = '1'
+IMG_VER = '3'
+ESTRATEGIA = 'ALPHA VIRADA'
 BOTAO = {'inline_keyboard': [[{'text': '🎲 Abrir Alpha Dígitos', 'url': LINK_ROBO}]]}
 _FILE_IDS = {}
 
@@ -161,7 +162,18 @@ class KV(object):
             return True
 
 
-def _tg(tok, metodo, dados):
+def _tg_http(metodo, dados):
+    """Chamada ao Telegram com o bot/canal do robo antigo. Devolve (ok, erro, json)."""
+    try:
+        import backend.telegram_signals as ts
+        tok = getattr(ts, 'TELEGRAM_TOKEN', '') or os.environ.get('TELEGRAM_TOKEN', '')
+        chat = getattr(ts, 'CHANNEL_ID', '')
+    except Exception as e:
+        return False, 'telegram_signals: %s' % e, {}
+    if not tok or not chat:
+        return False, 'TELEGRAM_TOKEN ou CHANNEL_ID vazio no servidor', {}
+    dados = dict(dados)
+    dados['chat_id'] = chat
     body = json.dumps(dados).encode('utf-8')
     req = urllib.request.Request('https://api.telegram.org/bot%s/%s' % (tok, metodo), data=body,
                                  headers={'Content-Type': 'application/json'})
@@ -178,42 +190,60 @@ def _tg(tok, metodo, dados):
         return False, str(e), {}
 
 
-def enviar_canal(texto, img=None, botao=False):
-    """Envia no mesmo bot/canal do robo antigo. Com img: foto + legenda; se a foto falhar, vai so o texto."""
+def _foto(img):
+    return _FILE_IDS.get(img) or (IMG_BASE + img + '.jpg?v=' + IMG_VER)
+
+
+def _guarda_foto(img, j):
     try:
-        import backend.telegram_signals as ts
-        tok = getattr(ts, 'TELEGRAM_TOKEN', '') or os.environ.get('TELEGRAM_TOKEN', '')
-        chat = getattr(ts, 'CHANNEL_ID', '')
-    except Exception as e:
-        return False, 'telegram_signals: %s' % e
-    if not tok or not chat:
-        return False, 'TELEGRAM_TOKEN ou CHANNEL_ID vazio no servidor'
+        _FILE_IDS[img] = j['result']['photo'][-1]['file_id']
+    except Exception:
+        pass
+
+
+def postar(tg, texto, img=None, botao=True):
+    """Posta (foto+legenda, ou so texto se a foto falhar). Devolve (ok, erro, message_id, tipo)."""
     extra = {'reply_markup': BOTAO} if botao else {}
     erro_foto = ''
     if img:
-        foto = _FILE_IDS.get(img) or (IMG_BASE + img + '.jpg?v=' + IMG_VER)
-        d = {'chat_id': chat, 'photo': foto, 'caption': texto[:1024], 'parse_mode': 'HTML'}
+        d = {'photo': _foto(img), 'caption': texto[:1024], 'parse_mode': 'HTML'}
         d.update(extra)
-        ok, erro, j = _tg(tok, 'sendPhoto', d)
+        ok, erro, j = tg('sendPhoto', d)
         if ok:
-            try:
-                _FILE_IDS[img] = j['result']['photo'][-1]['file_id']
-            except Exception:
-                pass
-            return True, ''
+            _guarda_foto(img, j)
+            return True, '', (j.get('result') or {}).get('message_id'), 'foto'
         _FILE_IDS.pop(img, None)
         erro_foto = 'foto %s: %s' % (img, erro)
         print('[SalaDigitos] foto falhou, mandando so texto: %s' % erro)
-    d = {'chat_id': chat, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    d = {'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
     d.update(extra)
-    ok, erro, j = _tg(tok, 'sendMessage', d)
-    return ok, (erro or erro_foto)
+    ok, erro, j = tg('sendMessage', d)
+    return ok, (erro or erro_foto), (j.get('result') or {}).get('message_id'), 'texto'
+
+
+def enviar_canal(texto, img=None, botao=True):
+    ok, erro, _mid, _t = postar(_tg_http, texto, img, botao)
+    return ok, erro
+
+
+def _par(d):
+    return 'PAR' if d % 2 == 0 else 'IMPAR'
+
+
+def _lado_txt(l):
+    return 'PAR' if l == 'PAR' else 'ÍMPAR'
+
+
+def _tick_s(sym):
+    return 1 if str(sym).startswith('1HZ') else 2
 
 
 class Sala(object):
-    def __init__(self, kv, enviar=enviar_canal, parar_antigo=None, fila_sincrona=False):
+    """SALA-DIGITOS-V3: 1 postagem por sinal (ATENCAO -> apaga; CONFIRMADA -> editada no GAIN/LOSS)."""
+
+    def __init__(self, kv, tg=_tg_http, parar_antigo=None, fila_sincrona=False):
         self.kv = kv
-        self._enviar = enviar
+        self.tg = tg
         self.parar_antigo = parar_antigo
         self.fila_sincrona = fila_sincrona   # testes: envia na hora
         self.id = uuid.uuid4().hex[:10]
@@ -222,6 +252,8 @@ class Sala(object):
         self.dig = {}
         self.st = {'fase': 'livre'}
         self.cool = 0
+        self.ciclo = 0
+        self.msgs = {}
         self.dia = None
         self.hoje = None
         self.desde_parcial = 0
@@ -260,58 +292,120 @@ class Sala(object):
         if self.dia and self.hoje is not None:
             self.kv.set('sala_dig:dia:' + self.dia, json.dumps(self.hoje), ex=86400 * 8)
 
-    # ---------- envio em fila (nao trava a leitura de ticks) ----------
-    def manda(self, texto, img=None, botao=False):
+    # ---------- fila de envio (nao trava a leitura de ticks) ----------
+    def _fila(self, item):
         if self.fila_sincrona:
-            self._manda_ja((texto, img, botao))
+            self._exec(item)
             return
-        self.fila.append((texto, img, botao))
+        self.fila.append(item)
         if not self.fila_thread or not self.fila_thread.is_alive():
             self.fila_thread = threading.Thread(target=self._fila_loop, daemon=True)
             self.fila_thread.start()
         self.fila_ev.set()
 
-    def _manda_ja(self, item):
-        texto, img, botao = item
-        ok, erro = self._enviar(texto, img, botao)
+    def post(self, chave, texto, img=None, botao=True):
+        self._fila({'op': 'post', 'k': chave, 't': texto, 'img': img, 'b': botao})
+
+    def edita(self, chave, texto, img=None, botao=True):
+        self._fila({'op': 'edit', 'k': chave, 't': texto, 'img': img, 'b': botao})
+
+    def apaga(self, chave):
+        self._fila({'op': 'del', 'k': chave})
+
+    def manda(self, texto, img=None, botao=True):   # postagem avulsa (parcial, abertura)
+        self.post(None, texto, img, botao)
+
+    def _conta(self, ok, erro, texto=''):
         if ok:
             self.envio['ok'] += 1
-            self.envio['ultimo'] = texto.split('\n')[0][:80]
+            self.envio['ultimo'] = (texto or '').split('\n')[0][:80]
         else:
             self.envio['falhas'] += 1
             self.envio['ultimo_erro'] = (erro or '')[:200]
             print('[SalaDigitos] Telegram recusou: %s' % erro)
+
+    def _exec(self, it):
+        op, k = it['op'], it.get('k')
+        try:
+            if op == 'post' or (op == 'edit' and k not in self.msgs):
+                ok, erro, mid, tipo = postar(self.tg, it['t'], it['img'], it['b'])
+                self._conta(ok, erro, it['t'])
+                if ok and k and mid:
+                    self.msgs[k] = (mid, tipo)
+                    if len(self.msgs) > 40:
+                        for velho in list(self.msgs)[:-40]:
+                            self.msgs.pop(velho, None)
+                return
+            if op == 'del':
+                m = self.msgs.pop(k, None)
+                if m:
+                    self.tg('deleteMessage', {'message_id': m[0]})
+                return
+            mid, tipo = self.msgs[k]
+            extra = {'reply_markup': BOTAO} if it['b'] else {}
+            if tipo == 'foto':
+                ok, erro = False, ''
+                if it['img']:
+                    d = {'message_id': mid, 'media': {'type': 'photo', 'media': _foto(it['img']),
+                                                      'caption': it['t'][:1024], 'parse_mode': 'HTML'}}
+                    d.update(extra)
+                    ok, erro, j = self.tg('editMessageMedia', d)
+                    if ok:
+                        _guarda_foto(it['img'], j)
+                if not ok:
+                    d = {'message_id': mid, 'caption': it['t'][:1024], 'parse_mode': 'HTML'}
+                    d.update(extra)
+                    ok, erro, j = self.tg('editMessageCaption', d)
+            else:
+                d = {'message_id': mid, 'text': it['t'], 'parse_mode': 'HTML', 'disable_web_page_preview': True}
+                d.update(extra)
+                ok, erro, j = self.tg('editMessageText', d)
+            if not ok and 'not modified' in (erro or ''):
+                ok = True
+            self._conta(ok, erro, it['t'])
+        except Exception as e:
+            self._conta(False, 'erro interno: %s' % e)
 
     def _fila_loop(self):
         while True:
             self.fila_ev.wait(30)
             self.fila_ev.clear()
             while self.fila:
-                self._manda_ja(self.fila.popleft())
-                time.sleep(0.4)
+                self._exec(self.fila.popleft())
+                time.sleep(0.35)
 
     # ---------- textos ----------
-    @staticmethod
-    def _lado(l):
-        return '🔵 PAR' if l == 'PAR' else '🟣 ÍMPAR'
-
     def _pct(self, h):
         t = h['win'] + h['loss']
         return round(h['win'] * 100.0 / t, 1) if t else 0.0
-
-    def _placar_curto(self, h):
-        return '✅ %d   ❌ %d   🎯 %s%%' % (h['win'], h['loss'], _num(self._pct(h)))
 
     def texto_parcial(self, ep=None):
         ep = ep or time.time()
         h = self._dia(ep)
         g = h['gale']
         dt = datetime.fromtimestamp(ep, BRT)
-        return ('📊 <b>PARCIAL — ALPHA DÍGITOS</b>\n📅 %s • até %s\n\n'
-                '✅ Win: <b>%d</b>\n❌ Loss: <b>%d</b>\n🎯 Assertividade: <b>%s%%</b>\n\n'
-                '🥇 SG: %d\n1️⃣ G1: %d\n2️⃣ G2: %d\n3️⃣ G3: %d\n\n%s') % (
-            dt.strftime('%d/%m'), dt.strftime('%H:%M'), h['win'], h['loss'], _num(self._pct(h)),
+        return ('📊 <b>PARCIAL ALPHA DÍGITOS</b>\n📅 %s · %s\n━━━━━━━━━━━━━━\n'
+                '✅ Win: <b>%d</b>    ❌ Loss: <b>%d</b>\n🎯 Assertividade: <b>%s%%</b>\n'
+                '🥇 Wins por gale: SG: %d · G1: %d · G2: %d · G3: %d\n━━━━━━━━━━━━━━\n%s') % (
+            dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M'), h['win'], h['loss'], _num(self._pct(h)),
             g[0], g[1], g[2], g[3], RODAPE)
+
+    def _cab(self, st):
+        c = self.cfg
+        return ('📊 Mercado: <b>%s</b>\n🧠 Estratégia: %s\n🧩 Padrão: %s +%d = %s ATÉ %d GALE\n🎯 Sinal: <b>%s</b>'
+                % (NOMES[st['sym']], ESTRATEGIA, ' · '.join(st['pad']), st['n'], _lado_txt(st['lado']).upper(),
+                   c['gales'], _lado_txt(st['lado'])))
+
+    def _txt_confirmada(self, st, indo=None):
+        c = self.cfg
+        t = ('🎯 <b>ENTRADA CONFIRMADA</b> 🎯\n\n%s\n⏱ Entrar: depois de <b>%d tick%s</b> · contrato de 1 tick\n'
+             '🔁 Até %d gale (x%s)\n⏰ %s') % (self._cab(st), st['n'], '' if st['n'] == 1 else 's', c['gales'],
+                                              _num(c['mult']), _hora(st['t_conf']))
+        if st['linhas']:
+            t += '\n\n' + '\n'.join(st['linhas'])
+        if indo:
+            t += '\n➡️ Faça o <b>G%d</b> agora (x%s)' % (indo, _num(c['mult'] ** indo))
+        return t
 
     # ---------- motor ----------
     @staticmethod
@@ -324,6 +418,9 @@ class Sala(object):
                 break
             n += 1
         return n
+
+    def _n(self, sym):
+        return max(1, int(round(self.cfg['espera'] / float(_tick_s(sym)))))
 
     def on_tick(self, sym, d, ep):
         with self.lock:
@@ -339,45 +436,56 @@ class Sala(object):
                     return
                 s = self._seq(q)
                 if s == c['atencao']:
+                    self.ciclo += 1
                     lado = 'PAR' if d % 2 == 1 else 'IMPAR'   # contra a sequencia
                     self.st = {'fase': 'atencao', 'sym': sym, 'lado': lado, 'seq': s, 'ini': ep,
-                               'hist': list(q)[-s:]}
-                    self.manda('⚠️ <b>ATENÇÃO — ALPHA DÍGITOS</b>\n\n📊 <b>%s</b>\n🎲 Par / Ímpar\n'
-                               '🔎 Padrão em formação: %s\n\n⏳ Abra o mercado e aguarde a confirmação…'
-                               % (NOMES[sym], ' '.join(str(x) for x in self.st['hist'])), 'atencao', True)
+                               'k': 'c%d' % self.ciclo, 'linhas': []}
+                    pad = ['P' if x % 2 == 0 else 'I' for x in list(q)[-s:]]
+                    self.post(self.st['k'] + 'a',
+                              '⚠️ <b>ATENÇÃO</b> ⚠️\n\n📊 Mercado: <b>%s</b>\n🧠 Estratégia: %s\n'
+                              '🧩 Padrão em formação: %s\n\n⏳ Abra o Alpha Dígitos neste mercado e aguarde a confirmação.'
+                              % (NOMES[sym], ESTRATEGIA, ' · '.join(pad)), 'atencao')
             elif f == 'atencao' and sym == st['sym']:
                 seq_impar = st['lado'] == 'PAR'
                 if (d % 2 == 1) == seq_impar:
                     st['seq'] += 1
-                    st['hist'].append(d)
                     if st['seq'] >= c['confirma']:
-                        st.update(fase='entrada', passo=0, quando=ep + c['espera'], res=[])
-                        self.manda('✅ <b>ENTRADA CONFIRMADA</b>\n\n📊 <b>%s</b>\n🎯 Entrada: <b>%s</b>\n'
-                                   '⏱ Duração: 1 tick\n🔁 Até %d gale%s (x%s)\n🕒 %s\n\n🌐 alphadolar.online'
-                                   % (NOMES[sym], self._lado(st['lado']), c['gales'],
-                                      '' if c['gales'] == 1 else 's', _num(c['mult']), _hora(ep)), 'confirmada', True)
+                        st.update(fase='entrada', passo=0, n=self._n(sym), falta=self._n(sym), t_conf=ep, res=[],
+                                  pad=['P' if x % 2 == 0 else 'I' for x in list(q)[-6:]])
+                        self.apaga(st['k'] + 'a')
+                        self.post(st['k'], self._txt_confirmada(st), 'confirmada')
                 else:
                     self._abortar(ep, 'O padrão se desfez antes da confirmação')
-            elif f == 'entrada' and sym == st['sym'] and ep >= st['quando']:
+            elif f == 'entrada' and sym == st['sym']:
+                st['falta'] -= 1
+                if st['falta'] > 0:
+                    return
                 st['res'].append(d)
-                ganhou = (d % 2 == 0) == (st['lado'] == 'PAR')
+                rot = 'SG' if st['passo'] == 0 else 'G%d' % st['passo']
+                ganhou = _par(d) == st['lado']
+                st['linhas'].append('%s: %s → %d %s' % (rot, _lado_txt(_par(d)), d, '✅' if ganhou else '❌'))
                 if ganhou:
                     self._fim(ep, True)
                 elif st['passo'] >= c['gales']:
                     self._fim(ep, False)
                 else:
                     st['passo'] += 1
-                    st['quando'] = ep + c['espera']
-                    self.manda('🔁 <b>GALE %d</b> — %s • entrada x%s'
-                               % (st['passo'], self._lado(st['lado']), _num(c['mult'] ** st['passo'])))
+                    st['falta'] = st['n']
+                    self.edita(st['k'], self._txt_confirmada(st, indo=st['passo']), None)
 
     def _abortar(self, ep, motivo):
         h = self._dia(ep)
         h['abort'] += 1
         self._salva_dia()
-        sym = self.st.get('sym')
-        self.manda('🚫 <b>ENTRADA ABORTADA</b>\n\n📊 %s\n%s. Aguarde o próximo sinal.'
-                   % (NOMES.get(sym, sym or ''), motivo))
+        st = self.st
+        sym = st.get('sym')
+        k = st.get('k')
+        txt = ('🚫 <b>ENTRADA ABORTADA</b> 🚫\n\n📊 Mercado: %s\n%s. Aguarde o próximo sinal.'
+               % (NOMES.get(sym, sym or ''), motivo))
+        if st.get('fase') == 'entrada' and k:
+            self.edita(k, txt, 'abortada')
+        elif k:
+            self.apaga(k + 'a')   # padrao desfeito: some do canal (fica so a contagem no admin)
         self.st = {'fase': 'livre'}
         self.cool = ep + min(60, self.cfg['intervalo'] * 60)
 
@@ -398,14 +506,14 @@ class Sala(object):
                                'passo': p, 'dig': st['res'], 'un': round(un, 3)})
         h['ciclos'] = h['ciclos'][:30]
         self._salva_dia()
-        dig = ' '.join(str(x) for x in st['res'])
+        d = st['res'][-1]
+        corpo = '%s\n🎲 Resultado: %s · dígito %d\n%s\n⏰ %s' % (
+            self._cab(st), _lado_txt(_par(d)), d, '\n'.join(st['linhas']), _hora(ep))
         if ganhou:
-            self.manda('💰 <b>GAIN %s</b> ✅\n\n📊 %s • %s\n🎲 Dígitos: %s\n\n%s'
-                       % ('SG' if p == 0 else 'G%d' % p, NOMES[st['sym']], self._lado(st['lado']), dig,
-                          self._placar_curto(h)), 'gain', True)
+            tit = '✅ <b>WIN DE PRIMEIRA (SG)</b> ✅' if p == 0 else '✅ <b>WIN NO %dº GALE (G%d)</b> ✅' % (p, p)
+            self.edita(st['k'], tit + '\n\n' + corpo, 'gain')
         else:
-            self.manda('❌ <b>LOSS</b>\n\n📊 %s • %s\n🎲 Dígitos: %s\n\nFaz parte. Respeite seu stop e sua gestão.\n\n%s'
-                       % (NOMES[st['sym']], self._lado(st['lado']), dig, self._placar_curto(h)), 'loss', True)
+            self.edita(st['k'], '❌ <b>LOSS</b> ❌\n\n' + corpo + '\n\nFaz parte. Respeite seu stop e sua gestão.', 'loss')
         self.desde_parcial += 1
         self.st = {'fase': 'livre'}
         self.cool = ep + c['intervalo'] * 60
@@ -420,11 +528,11 @@ class Sala(object):
             cmd = self.kv.get(K_CMD)
             if cmd == 'parcial':
                 self.kv.delete(K_CMD)
-                self.manda(self.texto_parcial(agora), 'parcial', True)
+                self.manda(self.texto_parcial(agora), None, True)
                 self.ult_parcial, self.desde_parcial = agora, 0
             elif agora - self.ult_parcial >= self.cfg['parcial'] * 60:
                 if self.desde_parcial > 0:
-                    self.manda(self.texto_parcial(agora), 'parcial', True)
+                    self.manda(self.texto_parcial(agora), None, True)
                 self.ult_parcial, self.desde_parcial = agora, 0
             snap = {'fase': self.st.get('fase'), 'sym': self.st.get('sym'), 'lado': self.st.get('lado'),
                     'passo': self.st.get('passo', 0), 'seq': self.st.get('seq', 0),
@@ -580,7 +688,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         if kv.get(K_ON) == '1':
             kv.set(K_CMD, 'parcial', ex=120)
             return jsonify({'ok': True, 'msg': 'parcial na fila (sai em até 5 s)'})
-        ok, erro = enviar_canal(sala.texto_parcial(), 'parcial', True)
+        ok, erro = enviar_canal(sala.texto_parcial(), None, True)
         return jsonify({'ok': ok, 'erro': erro})
 
     @app.route('/api/admin/sala-digitos/config', methods=['POST'])
