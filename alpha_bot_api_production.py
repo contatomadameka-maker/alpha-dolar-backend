@@ -2003,6 +2003,26 @@ def _autostart_robo_sinais():
 _autostart_thread = threading.Thread(target=_autostart_robo_sinais, daemon=True)
 _autostart_thread.start()
 
+# SALA-DIGITOS-V1: sala de sinais Alpha Digitos (mesmo bot/canal do robo antigo; desliga o loop antigo quando ligada)
+def _sala_parar_antigo():
+    try:
+        if robo_sinais_state.get('running'):
+            robo_sinais_state['running'] = False
+            print("[SalaDigitos] robo de sinais antigo desligado")
+    except Exception:
+        pass
+    try:
+        if redis_client is not None:
+            redis_client.set('robo_sinais_running', '0')
+    except Exception:
+        pass
+
+try:
+    from sala_digitos import register_sala_digitos
+    register_sala_digitos(app, get_redis=lambda: globals().get('redis_client'), parar_antigo=_sala_parar_antigo)
+except Exception as _e_sala:
+    print(f"[SalaDigitos] nao registrou: {_e_sala}")
+
 
 @app.route('/api/mult-ia', methods=['POST'])
 def mult_ia():
