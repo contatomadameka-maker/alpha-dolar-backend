@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V1 - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V1 (+V2 imagens e botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -27,6 +27,12 @@ from datetime import datetime, timedelta, timezone
 
 BRT = timezone(timedelta(hours=-3))
 WS_URL = os.environ.get('SALA_WS_URL', 'wss://ws.binaryws.com/websockets/v3?app_id=1089')
+# SALA-DIGITOS-V2: cada sinal sai como foto + texto + botao para o robo
+LINK_ROBO = os.environ.get('SALA_LINK', 'https://alphadolar.online/bot-digitos.html')
+IMG_BASE = os.environ.get('SALA_IMG_BASE', 'https://alphadolar.online/img/sala/')
+IMG_VER = '1'
+BOTAO = {'inline_keyboard': [[{'text': '🎲 Abrir Alpha Dígitos', 'url': LINK_ROBO}]]}
+_FILE_IDS = {}
 
 NOMES = {
     'R_10': 'Volatility 10 Index', 'R_25': 'Volatility 25 Index', 'R_50': 'Volatility 50 Index',
@@ -155,8 +161,25 @@ class KV(object):
             return True
 
 
-def enviar_canal(texto):
-    """Envia no mesmo bot/canal do robo antigo. Devolve (ok, erro)."""
+def _tg(tok, metodo, dados):
+    body = json.dumps(dados).encode('utf-8')
+    req = urllib.request.Request('https://api.telegram.org/bot%s/%s' % (tok, metodo), data=body,
+                                 headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            j = json.loads(r.read().decode('utf-8'))
+        return bool(j.get('ok')), (j.get('description') or ''), j
+    except urllib.error.HTTPError as e:
+        try:
+            return False, json.loads(e.read().decode('utf-8')).get('description', str(e)), {}
+        except Exception:
+            return False, str(e), {}
+    except Exception as e:
+        return False, str(e), {}
+
+
+def enviar_canal(texto, img=None, botao=False):
+    """Envia no mesmo bot/canal do robo antigo. Com img: foto + legenda; se a foto falhar, vai so o texto."""
     try:
         import backend.telegram_signals as ts
         tok = getattr(ts, 'TELEGRAM_TOKEN', '') or os.environ.get('TELEGRAM_TOKEN', '')
@@ -165,21 +188,26 @@ def enviar_canal(texto):
         return False, 'telegram_signals: %s' % e
     if not tok or not chat:
         return False, 'TELEGRAM_TOKEN ou CHANNEL_ID vazio no servidor'
-    body = json.dumps({'chat_id': chat, 'text': texto, 'parse_mode': 'HTML',
-                       'disable_web_page_preview': True}).encode('utf-8')
-    req = urllib.request.Request('https://api.telegram.org/bot%s/sendMessage' % tok, data=body,
-                                 headers={'Content-Type': 'application/json'})
-    try:
-        with urllib.request.urlopen(req, timeout=12) as r:
-            j = json.loads(r.read().decode('utf-8'))
-        return bool(j.get('ok')), (j.get('description') or '')
-    except urllib.error.HTTPError as e:
-        try:
-            return False, json.loads(e.read().decode('utf-8')).get('description', str(e))
-        except Exception:
-            return False, str(e)
-    except Exception as e:
-        return False, str(e)
+    extra = {'reply_markup': BOTAO} if botao else {}
+    erro_foto = ''
+    if img:
+        foto = _FILE_IDS.get(img) or (IMG_BASE + img + '.jpg?v=' + IMG_VER)
+        d = {'chat_id': chat, 'photo': foto, 'caption': texto[:1024], 'parse_mode': 'HTML'}
+        d.update(extra)
+        ok, erro, j = _tg(tok, 'sendPhoto', d)
+        if ok:
+            try:
+                _FILE_IDS[img] = j['result']['photo'][-1]['file_id']
+            except Exception:
+                pass
+            return True, ''
+        _FILE_IDS.pop(img, None)
+        erro_foto = 'foto %s: %s' % (img, erro)
+        print('[SalaDigitos] foto falhou, mandando so texto: %s' % erro)
+    d = {'chat_id': chat, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True}
+    d.update(extra)
+    ok, erro, j = _tg(tok, 'sendMessage', d)
+    return ok, (erro or erro_foto)
 
 
 class Sala(object):
@@ -233,18 +261,19 @@ class Sala(object):
             self.kv.set('sala_dig:dia:' + self.dia, json.dumps(self.hoje), ex=86400 * 8)
 
     # ---------- envio em fila (nao trava a leitura de ticks) ----------
-    def manda(self, texto):
+    def manda(self, texto, img=None, botao=False):
         if self.fila_sincrona:
-            self._manda_ja(texto)
+            self._manda_ja((texto, img, botao))
             return
-        self.fila.append(texto)
+        self.fila.append((texto, img, botao))
         if not self.fila_thread or not self.fila_thread.is_alive():
             self.fila_thread = threading.Thread(target=self._fila_loop, daemon=True)
             self.fila_thread.start()
         self.fila_ev.set()
 
-    def _manda_ja(self, texto):
-        ok, erro = self._enviar(texto)
+    def _manda_ja(self, item):
+        texto, img, botao = item
+        ok, erro = self._enviar(texto, img, botao)
         if ok:
             self.envio['ok'] += 1
             self.envio['ultimo'] = texto.split('\n')[0][:80]
@@ -315,7 +344,7 @@ class Sala(object):
                                'hist': list(q)[-s:]}
                     self.manda('⚠️ <b>ATENÇÃO — ALPHA DÍGITOS</b>\n\n📊 <b>%s</b>\n🎲 Par / Ímpar\n'
                                '🔎 Padrão em formação: %s\n\n⏳ Abra o mercado e aguarde a confirmação…'
-                               % (NOMES[sym], ' '.join(str(x) for x in self.st['hist'])))
+                               % (NOMES[sym], ' '.join(str(x) for x in self.st['hist'])), 'atencao', True)
             elif f == 'atencao' and sym == st['sym']:
                 seq_impar = st['lado'] == 'PAR'
                 if (d % 2 == 1) == seq_impar:
@@ -326,7 +355,7 @@ class Sala(object):
                         self.manda('✅ <b>ENTRADA CONFIRMADA</b>\n\n📊 <b>%s</b>\n🎯 Entrada: <b>%s</b>\n'
                                    '⏱ Duração: 1 tick\n🔁 Até %d gale%s (x%s)\n🕒 %s\n\n🌐 alphadolar.online'
                                    % (NOMES[sym], self._lado(st['lado']), c['gales'],
-                                      '' if c['gales'] == 1 else 's', _num(c['mult']), _hora(ep)))
+                                      '' if c['gales'] == 1 else 's', _num(c['mult']), _hora(ep)), 'confirmada', True)
                 else:
                     self._abortar(ep, 'O padrão se desfez antes da confirmação')
             elif f == 'entrada' and sym == st['sym'] and ep >= st['quando']:
@@ -373,10 +402,10 @@ class Sala(object):
         if ganhou:
             self.manda('💰 <b>GAIN %s</b> ✅\n\n📊 %s • %s\n🎲 Dígitos: %s\n\n%s'
                        % ('SG' if p == 0 else 'G%d' % p, NOMES[st['sym']], self._lado(st['lado']), dig,
-                          self._placar_curto(h)))
+                          self._placar_curto(h)), 'gain', True)
         else:
             self.manda('❌ <b>LOSS</b>\n\n📊 %s • %s\n🎲 Dígitos: %s\n\nFaz parte. Respeite seu stop e sua gestão.\n\n%s'
-                       % (NOMES[st['sym']], self._lado(st['lado']), dig, self._placar_curto(h)))
+                       % (NOMES[st['sym']], self._lado(st['lado']), dig, self._placar_curto(h)), 'loss', True)
         self.desde_parcial += 1
         self.st = {'fase': 'livre'}
         self.cool = ep + c['intervalo'] * 60
@@ -391,11 +420,11 @@ class Sala(object):
             cmd = self.kv.get(K_CMD)
             if cmd == 'parcial':
                 self.kv.delete(K_CMD)
-                self.manda(self.texto_parcial(agora))
+                self.manda(self.texto_parcial(agora), 'parcial', True)
                 self.ult_parcial, self.desde_parcial = agora, 0
             elif agora - self.ult_parcial >= self.cfg['parcial'] * 60:
                 if self.desde_parcial > 0:
-                    self.manda(self.texto_parcial(agora))
+                    self.manda(self.texto_parcial(agora), 'parcial', True)
                 self.ult_parcial, self.desde_parcial = agora, 0
             snap = {'fase': self.st.get('fase'), 'sym': self.st.get('sym'), 'lado': self.st.get('lado'),
                     'passo': self.st.get('passo', 0), 'seq': self.st.get('seq', 0),
@@ -534,7 +563,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             threading.Thread(target=enviar_canal, daemon=True, args=(
                 '🟢 <b>SALA ALPHA DÍGITOS ABERTA</b>\n\n🎲 Sinais de Par / Ímpar\n🔁 Até %d gales\n\n'
                 'Fique atento ao ⚠️ ATENÇÃO e entre só no ✅ ENTRADA CONFIRMADA.\n\n%s'
-                % (sala._cfg_load()['gales'], RODAPE),)).start()
+                % (sala._cfg_load()['gales'], RODAPE), 'aberta', True)).start()
         return jsonify({'ok': True, 'ligado': True})
 
     @app.route('/api/admin/sala-digitos/desligar', methods=['POST'])
@@ -551,7 +580,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         if kv.get(K_ON) == '1':
             kv.set(K_CMD, 'parcial', ex=120)
             return jsonify({'ok': True, 'msg': 'parcial na fila (sai em até 5 s)'})
-        ok, erro = enviar_canal(sala.texto_parcial())
+        ok, erro = enviar_canal(sala.texto_parcial(), 'parcial', True)
         return jsonify({'ok': ok, 'erro': erro})
 
     @app.route('/api/admin/sala-digitos/config', methods=['POST'])
