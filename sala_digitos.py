@@ -643,7 +643,7 @@ class Sala(object):
         h['un'] = round(h['un'] + un, 4)
         h['ciclos'].insert(0, {'t': int(ep), 'sym': st['sym'], 'lado': st['lado'], 'res': 'win' if ganhou else 'loss',
                                'passo': p, 'dig': st['res'], 'un': round(un, 3)})
-        h['ciclos'] = h['ciclos'][:30]
+        h['ciclos'] = h['ciclos'][:1000]  # SALA-HIST-V1
         self._salva_dia()
         d = st['res'][-1]
         corpo = '%s\n🎲 Resultado: %s · dígito %d\n%s\n⏰ %s' % (
