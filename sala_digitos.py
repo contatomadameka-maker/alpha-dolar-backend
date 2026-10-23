@@ -453,7 +453,10 @@ class Sala(object):
 
     def _salva_dia(self):
         if self.dia and self.hoje is not None:
-            self.kv.set('sala_dig:dia:' + self.dia, json.dumps(self.hoje), ex=86400 * 8)
+            self.kv.set('sala_dig:dia:' + self.dia, json.dumps(self.hoje), ex=86400 * 31)   # SALA-HIST-V2: detalhe 31 dias
+            h = self.hoje
+            self.kv.set('sala_dig:res:' + self.dia, json.dumps({'win': h['win'], 'loss': h['loss'], 'abort': h['abort'],
+                                                                 'gale': h['gale'], 'un': h['un']}))   # resumo do dia: sem prazo
 
     # ---------- fila de envio (nao trava a leitura de ticks) ----------
     def _fila(self, item):
@@ -667,7 +670,7 @@ class Sala(object):
         h['un'] = round(h['un'] + un, 4)
         h['ciclos'].insert(0, {'t': int(ep), 'sym': st['sym'], 'lado': st['lado'], 'res': 'win' if ganhou else 'loss',
                                'passo': p, 'dig': st['res'], 'un': round(un, 3)})
-        h['ciclos'] = h['ciclos'][:30]
+        h['ciclos'] = h['ciclos'][:1000]  # SALA-HIST-V1
         self._salva_dia()
         d = st['res'][-1]
         corpo = '%s\n🎲 Resultado: %s · dígito %d\n%s\n⏰ %s' % (
@@ -872,6 +875,63 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         h['pct'] = round(h['win'] * 100.0 / t, 1) if t else 0.0
         return h
 
+    def _resumo_dia(d):
+        try:
+            r = json.loads(kv.get('sala_dig:res:' + d) or 'null')
+        except Exception:
+            r = None
+        if not r:
+            try:
+                h = json.loads(kv.get('sala_dig:dia:' + d) or 'null')
+            except Exception:
+                h = None
+            if h:
+                r = {'win': h.get('win', 0), 'loss': h.get('loss', 0), 'abort': h.get('abort', 0),
+                     'gale': h.get('gale', [0, 0, 0, 0]), 'un': h.get('un', 0.0)}
+        if r:
+            t = r['win'] + r['loss']
+            r['pct'] = round(r['win'] * 100.0 / t, 1) if t else 0.0
+            r['dia'] = d
+        return r
+
+    @app.route('/api/admin/sala-digitos/historico', methods=['GET'])
+    def _sd_historico():
+        # SALA-HIST-V2: ?dia=AAAA-MM-DD (sinais de um dia) ou ?dias=N (resumo de N dias, ate 365)
+        if not ok_admin():
+            return negado()
+        import re as _re2
+        dia = (request.args.get('dia') or '').strip()
+        if dia:
+            if not _re2.match(r'^\d{4}-\d{2}-\d{2}$', dia):
+                return jsonify({'ok': False, 'erro': 'data invalida'}), 400
+            try:
+                h = json.loads(kv.get('sala_dig:dia:' + dia) or 'null')
+            except Exception:
+                h = None
+            h = h or {'win': 0, 'loss': 0, 'abort': 0, 'gale': [0, 0, 0, 0], 'un': 0.0, 'ciclos': []}
+            t = h['win'] + h['loss']
+            h['pct'] = round(h['win'] * 100.0 / t, 1) if t else 0.0
+            return jsonify({'ok': True, 'dia': dia, 'hoje': h})
+        try:
+            n = max(1, min(365, int(request.args.get('dias', 7))))
+        except Exception:
+            n = 7
+        hoje = datetime.now(BRT).date()
+        dias, tot = [], {'win': 0, 'loss': 0, 'abort': 0, 'gale': [0, 0, 0, 0], 'un': 0.0}
+        for i in range(n):
+            r = _resumo_dia((hoje - timedelta(days=i)).strftime('%Y-%m-%d'))
+            if not r:
+                continue
+            dias.append(r)
+            for k in ('win', 'loss', 'abort'):
+                tot[k] += r.get(k, 0)
+            tot['gale'] = [a + b for a, b in zip(tot['gale'], (r.get('gale') or [0, 0, 0, 0]) + [0] * 4)]
+            tot['un'] = round(tot['un'] + float(r.get('un') or 0), 4)
+        t = tot['win'] + tot['loss']
+        tot['pct'] = round(tot['win'] * 100.0 / t, 1) if t else 0.0
+        tot['dias_com_sinal'] = len(tot) and len(dias)
+        return jsonify({'ok': True, 'dias': dias, 'total': tot, 'n': n})
+
     @app.route('/api/admin/sala-digitos/status', methods=['GET'])
     def _sd_status():
         if not ok_admin():
@@ -993,5 +1053,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             kv.set('sala_dig:tgf:' + p, '1', ex=8)
         lig, mem = ponte.membro(p, forca=forca)
         return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
-    print('[SalaDigitos] SALA-DIGITOS-V4.1 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V4.2 registrada (processo %s)' % os.getpid())
     return sala
