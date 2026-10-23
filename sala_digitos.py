@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -28,8 +28,8 @@ from datetime import datetime, timedelta, timezone
 BRT = timezone(timedelta(hours=-3))
 # SALA-DIGITOS-V3.3: tenta varios enderecos publicos de ticks (o binaryws respondia 520)
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
-                       'wss://ws.derivws.com/websockets/v3?app_id=1089',
                        'wss://api.derivws.com/trading/v1/options/ws/public',
+                       'wss://ws.derivws.com/websockets/v3?app_id=1089',
                        'wss://ws.binaryws.com/websockets/v3?app_id=1089'] if u]
 WS_URL = WS_URLS[0]
 # SALA-DIGITOS-V2: cada sinal sai como foto + texto + botao para o robo
@@ -580,11 +580,8 @@ class Sala(object):
                                                  header=['User-Agent: Mozilla/5.0 (AlphaDigitos sala)'])
                 for i, s in enumerate(SIMBOLOS):
                     mapa[i + 1] = s
-                    if novo:
-                        ws.send(json.dumps({'ticks_history': s, 'underlying_symbol': s, 'end': 'latest', 'count': 1,
-                                            'style': 'ticks', 'subscribe': 1, 'req_id': i + 1}))
-                    else:
-                        ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
+                    # SALA-DIGITOS-V3.4: o endpoint publico novo aceita so {ticks, subscribe, req_id} (schema da Deriv)
+                    ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
                 ws.settimeout(10)
                 self.ws.update(conectado=True, erro='', url=url)
                 sem_tick = time.time()
@@ -603,7 +600,7 @@ class Sala(object):
                         raise Exception('conexão fechada pela Deriv')
                     m = json.loads(raw)
                     if m.get('error'):
-                        self.ws['erro'] = (m['error'].get('message') or '')[:200]
+                        self.ws['erro'] = ('%s (%s)' % (m['error'].get('message') or '', mapa.get(m.get('req_id'), '?')))[:200]
                         continue
                     t = m.get('tick')
                     if not t or t.get('quote') is None:
@@ -797,5 +794,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         return jsonify({'ok': True, 'cfg': c})
 
     sala.garante_supervisor(atraso=8)
-    print('[SalaDigitos] SALA-DIGITOS-V3.3 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V3.4 registrada (processo %s)' % os.getpid())
     return sala
