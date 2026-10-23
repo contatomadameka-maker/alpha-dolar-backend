@@ -64,6 +64,7 @@ LIMITES = {'atencao': (2, 8), 'confirma': (3, 10), 'gales': (0, 3), 'espera': (1
            'intervalo': (0, 120), 'parcial': (15, 480)}
 
 K_ON, K_CFG, K_LOCK, K_SNAP, K_CMD = 'sala_dig:on', 'sala_dig:cfg', 'sala_dig:lock', 'sala_dig:snap', 'sala_dig:cmd'
+K_LIVE, K_TGATIVO = 'sala_dig:live', 'sala_dig:tgativo'   # SALA-DIGITOS-V4.3: estado ao vivo compartilhado entre servidores
 RODAPE = '<i>Análise estatística — não é garantia de resultado.</i>\n🌐 alphadolar.online'
 
 
@@ -325,6 +326,10 @@ class Ponte(object):
                 for p in list(self.pend)[:5]:          # conferencias pedidas pelo site
                     self.pend.discard(p)
                     self._confere(p)
+                try:
+                    self.ativo_ate = max(self.ativo_ate, float(self.kv.get(K_TGATIVO) or 0))   # V4.3
+                except Exception:
+                    pass
                 if time.time() > self.ativo_ate:       # ninguem pediu link: nao le o bot
                     self.info['ativo'] = False
                     time.sleep(3)
@@ -847,8 +852,42 @@ class Sala(object):
             self.sup_thread = threading.Thread(target=self.supervisor, args=(atraso,), daemon=True)
             self.sup_thread.start()
             print('[SalaDigitos] supervisor (re)iniciado no processo %s' % os.getpid())
+            if not getattr(self, 'ao_vivo_th', None) or not self.ao_vivo_th.is_alive() or getattr(self, 'ao_vivo_pid', None) != os.getpid():
+                self.ao_vivo_pid = os.getpid()
+                self.ao_vivo_th = threading.Thread(target=self._ao_vivo_loop, daemon=True)
+                self.ao_vivo_th.start()
             return True
         return False
+
+    # ---------- SALA-DIGITOS-V4.3: varios servidores (Render pago mantem 2 no ar) ----------
+    def estado_vivo(self):
+        st = self.st
+        return {'fase': st.get('fase'), 'sym': st.get('sym'), 'lado': st.get('lado'), 'passo': st.get('passo', 0),
+                'k': st.get('k'), 'pausa_ate': int(self.cool), 'dono': self.id, 'tp': time.time()}
+
+    def _ao_vivo_loop(self):
+        """Dono: publica o estado no Redis (0,5 s). Os outros: copiam o estado do dono para a memoria (1 s)."""
+        self.remoto, ult, ult_pub = None, None, 0
+        while True:
+            try:
+                if self.rodando:
+                    ev = self.estado_vivo()
+                    chave = json.dumps({k: ev[k] for k in ('fase', 'sym', 'lado', 'passo', 'k', 'pausa_ate')})
+                    if chave != ult or time.time() - ult_pub > 3:
+                        self.kv.set(K_LIVE, json.dumps(ev), ex=15)
+                        ult, ult_pub = chave, time.time()
+                    time.sleep(0.5)
+                else:
+                    raw = self.kv.get(K_LIVE)
+                    try:
+                        r = json.loads(raw) if raw else None
+                    except Exception:
+                        r = None
+                    self.remoto = r if (r and time.time() - (r.get('tp') or 0) < 10) else None
+                    time.sleep(1)
+            except Exception as e:
+                self.diag['vivo_erro'] = str(e)[:150]
+                time.sleep(2)
 
 
 def register_sala_digitos(app, get_redis=None, parar_antigo=None):
@@ -959,7 +998,8 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
                     ws_vivo=bool(sala.ws_thread and sala.ws_thread.is_alive()),
                     seg_desde_volta=(agora - sala.diag['sup_volta']) if sala.diag['sup_volta'] else None,
                     ws=dict(sala.ws), envio=dict(sala.envio), fila=len(sala.fila), fase=sala.st.get('fase'),
-                    ponte=dict(getattr(sala, 'ponte', None).info) if getattr(sala, 'ponte', None) else None)
+                    ponte=dict(getattr(sala, 'ponte', None).info) if getattr(sala, 'ponte', None) else None,
+                    servidor=os.environ.get('RENDER_INSTANCE_ID') or __import__('socket').gethostname(), motor_outro=bool(getattr(sala, 'remoto', None)))
         return jsonify({'ok': True, 'ligado': kv.get(K_ON) == '1', 'cfg': sala._cfg_load(), 'hoje': _hoje(),
                         'snap': snap, 'diag': diag, 'nomes': NOMES, 'agora': agora})
 
@@ -1024,10 +1064,16 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
     @app.route('/api/sala-digitos/agora', methods=['GET'])
     def _sd_agora():
         # SALA-DIGITOS-V4: estado ao vivo da sala para o robo do Alpha Digitos seguir o mesmo sinal
-        st = sala.st   # V4.1: so memoria, nunca Redis
-        d = {'fase': st.get('fase'), 'sym': st.get('sym'), 'lado': st.get('lado'), 'passo': st.get('passo', 0),
-             'k': st.get('k'), 'pausa_ate': int(sala.cool)}
-        d.update(ok=True, ligada=bool(sala.diag.get('ligada')), rodando=bool(sala.rodando), t=time.time(), mercados=list(sala.cfg.get('mercados') or []))
+        # V4.3: so memoria (nunca Redis no pedido); se o motor roda em OUTRO servidor, usa a copia do estado dele
+        rem = getattr(sala, 'remoto', None)
+        if sala.rodando:
+            d, rodando, onde = sala.estado_vivo(), True, 'local'
+        elif rem:
+            d, rodando, onde = dict(rem), True, 'outro servidor'
+        else:
+            d, rodando, onde = sala.estado_vivo(), False, '-'
+        d.pop('dono', None)
+        d.update(ok=True, ligada=bool(sala.diag.get('ligada')), rodando=rodando, motor=onde, t=time.time(), mercados=list(sala.cfg.get('mercados') or []))
         return jsonify(d)
 
     @app.route('/api/sala-digitos/tg/codigo', methods=['POST'])
@@ -1036,6 +1082,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         if not p:
             return jsonify({'ok': False, 'erro': 'conta invalida'}), 400
         ponte.ativo_ate = time.time() + 900      # V4.1: liga a leitura do bot por 15 min
+        kv.set(K_TGATIVO, str(int(ponte.ativo_ate)), ex=900)   # V4.3: vale para o servidor que le o bot
         bu = _BOT.get('u')
         if not bu:
             return jsonify({'ok': False, 'erro': 'preparando o bot, tente de novo em alguns segundos'}), 503
@@ -1053,5 +1100,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             kv.set('sala_dig:tgf:' + p, '1', ex=8)
         lig, mem = ponte.membro(p, forca=forca)
         return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
-    print('[SalaDigitos] SALA-DIGITOS-V4.2 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V4.3 registrada (processo %s)' % os.getpid())
     return sala
