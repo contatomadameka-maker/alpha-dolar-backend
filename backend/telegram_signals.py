@@ -21,6 +21,10 @@ def agora_br():
     return datetime.now(BR_TZ).strftime("%H:%M:%S")
 
 def enviar_telegram(texto):
+    # SINAIS-ANTIGOS-OFF-V1: sistema antigo desligado (a Sala Alpha Digitos usa o proprio envio).
+    # Para religar: variavel SINAIS_ANTIGOS_ON=1 no Render.
+    if not os.environ.get('SINAIS_ANTIGOS_ON'):
+        return None
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
@@ -33,6 +37,10 @@ def enviar_telegram(texto):
         return False
 
 def enviar_foto_telegram(url_foto, legenda):
+    # SINAIS-ANTIGOS-OFF-V1: sistema antigo desligado (a Sala Alpha Digitos usa o proprio envio).
+    # Para religar: variavel SINAIS_ANTIGOS_ON=1 no Render.
+    if not os.environ.get('SINAIS_ANTIGOS_ON'):
+        return None
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
