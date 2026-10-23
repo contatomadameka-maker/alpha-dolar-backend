@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V3.5 (1 processo so, log das respostas) / V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -578,7 +578,8 @@ class Sala(object):
             try:
                 ws = websocket.create_connection(url, timeout=15, origin='https://alphadolar.online',
                                                  header=['User-Agent: Mozilla/5.0 (AlphaDigitos sala)'])
-                for i, s in enumerate(SIMBOLOS):
+                vistos = 0
+                for i, s in enumerate([x for x in SIMBOLOS if x in self.cfg['mercados']] or SIMBOLOS[:5]):
                     mapa[i + 1] = s
                     # SALA-DIGITOS-V3.4: o endpoint publico novo aceita so {ticks, subscribe, req_id} (schema da Deriv)
                     ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
@@ -598,6 +599,9 @@ class Sala(object):
                         continue
                     if not raw:
                         raise Exception('conexão fechada pela Deriv')
+                    if vistos < 4:   # SALA-DIGITOS-V3.5: mostra no log as 1as respostas da Deriv
+                        vistos += 1
+                        print('[SalaDigitos] resposta %d de %s: %s' % (vistos, url.split('/')[2], str(raw)[:300]))
                     m = json.loads(raw)
                     if m.get('error'):
                         self.ws['erro'] = ('%s (%s)' % (m['error'].get('message') or '', mapa.get(m.get('req_id'), '?')))[:200]
@@ -687,9 +691,11 @@ class Sala(object):
 
     def garante_supervisor(self, atraso=0):
         """Religa o supervisor se a thread morreu ou nunca rodou neste processo."""
-        vivo = self.sup_thread is not None and self.sup_thread.is_alive()
-        parado = self.diag['sup_volta'] and time.time() - self.diag['sup_volta'] > 60
-        if not vivo or self.diag['pid'] != os.getpid() or parado:
+        vivo = self.sup_thread is not None and self.sup_thread.is_alive() and self.diag.get('pid') == os.getpid()
+        if not vivo:
+            if self.diag['pid'] != os.getpid():
+                self.id = uuid.uuid4().hex[:10]   # processo novo = dono novo
+                self.rodando = False
             self.diag['pid'] = os.getpid()
             self.sup_thread = threading.Thread(target=self.supervisor, args=(atraso,), daemon=True)
             self.sup_thread.start()
@@ -793,6 +799,11 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         kv.set(K_CFG, json.dumps(c))
         return jsonify({'ok': True, 'cfg': c})
 
-    sala.garante_supervisor(atraso=8)
-    print('[SalaDigitos] SALA-DIGITOS-V3.4 registrada (processo %s)' % os.getpid())
+    # SALA-DIGITOS-V3.5: o motor so liga dentro do processo que atende o site (o gunicorn carrega o app
+    # no processo mestre e depois copia; antes a sala rodava 2x, uma em cada processo)
+    @app.before_request
+    def _sd_garante():
+        if sala.diag.get('pid') != os.getpid() or sala.sup_thread is None:
+            sala.garante_supervisor(atraso=3)
+    print('[SalaDigitos] SALA-DIGITOS-V3.5 registrada (processo %s)' % os.getpid())
     return sala
