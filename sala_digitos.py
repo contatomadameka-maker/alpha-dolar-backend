@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V3.5 (1 processo so, log das respostas) / V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V4 (robo segue o sinal do servidor; Telegram obrigatorio) / V3.5 (1 processo so, log das respostas) / V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -180,23 +180,28 @@ class KV(object):
             return True
 
 
-def _tg_http(metodo, dados):
-    """Chamada ao Telegram com o bot/canal do robo antigo. Devolve (ok, erro, json)."""
+def _cred():
     try:
         import backend.telegram_signals as ts
         tok = getattr(ts, 'TELEGRAM_TOKEN', '') or os.environ.get('TELEGRAM_TOKEN', '')
         chat = getattr(ts, 'CHANNEL_ID', '')
     except Exception as e:
-        return False, 'telegram_signals: %s' % e, {}
+        return '', '', 'telegram_signals: %s' % e
     if not tok or not chat:
-        return False, 'TELEGRAM_TOKEN ou CHANNEL_ID vazio no servidor', {}
-    dados = dict(dados)
-    dados['chat_id'] = chat
+        return '', '', 'TELEGRAM_TOKEN ou CHANNEL_ID vazio no servidor'
+    return tok, chat, ''
+
+
+def _tg_raw(metodo, dados, timeout=15):
+    """Chamada crua ao Telegram (sem chat_id automatico). Devolve (ok, erro, json)."""
+    tok, _chat, erro = _cred()
+    if erro:
+        return False, erro, {}
     body = json.dumps(dados).encode('utf-8')
     req = urllib.request.Request('https://api.telegram.org/bot%s/%s' % (tok, metodo), data=body,
                                  headers={'Content-Type': 'application/json'})
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
             j = json.loads(r.read().decode('utf-8'))
         return bool(j.get('ok')), (j.get('description') or ''), j
     except urllib.error.HTTPError as e:
@@ -206,6 +211,120 @@ def _tg_http(metodo, dados):
             return False, str(e), {}
     except Exception as e:
         return False, str(e), {}
+
+
+def _tg_http(metodo, dados):
+    """Chamada ao Telegram no canal do robo antigo (poe o chat_id do canal)."""
+    _tok, chat, erro = _cred()
+    if erro:
+        return False, erro, {}
+    dados = dict(dados)
+    dados['chat_id'] = chat
+    return _tg_raw(metodo, dados)
+
+
+# ---------- SALA-DIGITOS-V4: liberar o "Seguir a Sala" so para quem esta no canal ----------
+CANAL_LINK = os.environ.get('SALA_CANAL_LINK', 'https://t.me/+YHItYk9rqLAxZjRh')
+_BOT = {}
+
+
+def bot_usuario():
+    if not _BOT.get('u'):
+        ok, _e, j = _tg_raw('getMe', {})
+        if ok:
+            _BOT['u'] = (j.get('result') or {}).get('username') or ''
+    return _BOT.get('u') or ''
+
+
+class Ponte(object):
+    """Liga a pessoa do site ao Telegram dela: /start <codigo> no bot -> confere se e membro do canal."""
+
+    def __init__(self, kv):
+        self.kv = kv
+        self.id = uuid.uuid4().hex[:10]
+        self.pid = None
+        self.th = None
+        self.info = {'ativo': False, 'erro': '', 'ligados': 0, 'volta': 0}
+
+    def garante(self):
+        if self.th is not None and self.th.is_alive() and self.pid == os.getpid():
+            return
+        self.pid = os.getpid()
+        self.id = uuid.uuid4().hex[:10]
+        self.th = threading.Thread(target=self.loop, daemon=True)
+        self.th.start()
+
+    def membro(self, pessoa, forca=False):
+        uid = self.kv.get('sala_dig:tguser:' + pessoa)
+        if not uid:
+            return False, False
+        if not forca:
+            cache = self.kv.get('sala_dig:tgmem:' + pessoa)
+            if cache in ('1', '0'):
+                return True, cache == '1'
+        ok, _e, j = _tg_http('getChatMember', {'user_id': int(uid)})
+        st = ((j.get('result') or {}).get('status') or '') if ok else ''
+        mem = st in ('creator', 'administrator', 'member') or (st == 'restricted' and (j.get('result') or {}).get('is_member'))
+        self.kv.set('sala_dig:tgmem:' + pessoa, '1' if mem else '0', ex=600 if mem else 20)
+        return True, bool(mem)
+
+    def _responde(self, uid, texto):
+        _tg_raw('sendMessage', {'chat_id': uid, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True,
+                                'reply_markup': {'inline_keyboard': [[{'text': '📣 Entrar no canal da Sala', 'url': CANAL_LINK}],
+                                                                     [{'text': '🎲 Voltar ao Alpha Dígitos', 'url': LINK_ROBO}]]}})
+
+    def _trata(self, u):
+        m = u.get('message') or {}
+        txt = (m.get('text') or '').strip()
+        uid = (m.get('from') or {}).get('id')
+        if not uid or not txt.startswith('/start'):
+            return
+        partes = txt.split()
+        cod = partes[1] if len(partes) > 1 else ''
+        pessoa = self.kv.get('sala_dig:tgcod:' + cod) if cod else None
+        if not pessoa:
+            self._responde(uid, '👋 Olá! Para liberar o <b>Seguir a Sala</b> no Alpha Dígitos, toque em '
+                                '<b>Conectar meu Telegram</b> dentro do robô.')
+            return
+        self.kv.delete('sala_dig:tgcod:' + cod)
+        self.kv.set('sala_dig:tguser:' + pessoa, str(uid))
+        self.info['ligados'] += 1
+        _lig, mem = self.membro(pessoa, forca=True)
+        if mem:
+            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nVocê já está no canal da Sala. Volte ao Alpha Dígitos e toque em '
+                                '<b>Seguir a Sala de Sinais</b>.')
+        else:
+            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nFalta só um passo: entre no canal da Sala de Sinais no botão abaixo. '
+                                'Depois volte ao Alpha Dígitos e toque em <b>Seguir a Sala de Sinais</b>.')
+
+    def loop(self):
+        meu = self.id
+        while meu == self.id:
+            try:
+                self.info['volta'] = int(time.time())
+                if not self.kv.trava('sala_dig:tglock', meu, 60):
+                    self.info['ativo'] = False
+                    time.sleep(20)
+                    continue
+                self.info['ativo'] = True
+                off = int(self.kv.get('sala_dig:tgoff') or 0)
+                ok, erro, j = _tg_raw('getUpdates', {'offset': off, 'timeout': 25, 'allowed_updates': ['message']}, timeout=40)
+                if not ok:
+                    self.info['erro'] = erro[:200]
+                    print('[SalaDigitos] ponte Telegram: %s' % erro)
+                    time.sleep(60 if 'onflict' in erro else 10)
+                    continue
+                self.info['erro'] = ''
+                for u in j.get('result') or []:
+                    off = max(off, int(u.get('update_id', 0)) + 1)
+                    try:
+                        self._trata(u)
+                    except Exception as e:
+                        print('[SalaDigitos] ponte /start: %s' % e)
+                self.kv.set('sala_dig:tgoff', str(off))
+            except Exception as e:
+                self.info['erro'] = str(e)[:200]
+                time.sleep(10)
 
 
 def _foto(img):
@@ -754,7 +873,8 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
                     sup_vivo=bool(sala.sup_thread and sala.sup_thread.is_alive()),
                     ws_vivo=bool(sala.ws_thread and sala.ws_thread.is_alive()),
                     seg_desde_volta=(agora - sala.diag['sup_volta']) if sala.diag['sup_volta'] else None,
-                    ws=dict(sala.ws), envio=dict(sala.envio), fila=len(sala.fila), fase=sala.st.get('fase'))
+                    ws=dict(sala.ws), envio=dict(sala.envio), fila=len(sala.fila), fase=sala.st.get('fase'),
+                    ponte=dict(getattr(sala, 'ponte', None).info) if getattr(sala, 'ponte', None) else None)
         return jsonify({'ok': True, 'ligado': kv.get(K_ON) == '1', 'cfg': sala._cfg_load(), 'hoje': _hoje(),
                         'snap': snap, 'diag': diag, 'nomes': NOMES, 'agora': agora})
 
@@ -801,9 +921,59 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
 
     # SALA-DIGITOS-V3.5: o motor so liga dentro do processo que atende o site (o gunicorn carrega o app
     # no processo mestre e depois copia; antes a sala rodava 2x, uma em cada processo)
+    ponte = Ponte(kv)
+    sala.ponte = ponte
+
     @app.before_request
     def _sd_garante():
         if sala.diag.get('pid') != os.getpid() or sala.sup_thread is None:
             sala.garante_supervisor(atraso=3)
-    print('[SalaDigitos] SALA-DIGITOS-V3.5 registrada (processo %s)' % os.getpid())
+        ponte.garante()
+
+    import re as _re
+
+    def _pessoa(v):
+        v = (v or '').strip()
+        return v if _re.match(r'^[A-Za-z0-9_-]{3,40}$', v) else ''
+
+    @app.route('/api/sala-digitos/agora', methods=['GET'])
+    def _sd_agora():
+        # SALA-DIGITOS-V4: estado ao vivo da sala para o robo do Alpha Digitos seguir o mesmo sinal
+        if sala.rodando:
+            st = sala.st
+            d = {'fase': st.get('fase'), 'sym': st.get('sym'), 'lado': st.get('lado'), 'passo': st.get('passo', 0),
+                 'k': st.get('k'), 'pausa_ate': int(sala.cool)}
+        else:
+            try:
+                sn = json.loads(kv.get(K_SNAP) or 'null') or {}
+            except Exception:
+                sn = {}
+            d = {'fase': sn.get('fase'), 'sym': sn.get('sym'), 'lado': sn.get('lado'), 'passo': sn.get('passo', 0),
+                 'k': None, 'pausa_ate': sn.get('pausa_ate', 0)}
+        d.update(ok=True, ligada=kv.get(K_ON) == '1', rodando=bool(sala.rodando), t=time.time(), mercados=sala._cfg_load()['mercados'])
+        return jsonify(d)
+
+    @app.route('/api/sala-digitos/tg/codigo', methods=['POST'])
+    def _sd_tg_codigo():
+        p = _pessoa((request.get_json(silent=True) or {}).get('pessoa'))
+        if not p:
+            return jsonify({'ok': False, 'erro': 'conta invalida'}), 400
+        bu = bot_usuario()
+        if not bu:
+            return jsonify({'ok': False, 'erro': 'bot do Telegram indisponivel'}), 503
+        cod = uuid.uuid4().hex[:12]
+        kv.set('sala_dig:tgcod:' + cod, p, ex=900)
+        return jsonify({'ok': True, 'link': 'https://t.me/%s?start=%s' % (bu, cod), 'canal': CANAL_LINK})
+
+    @app.route('/api/sala-digitos/tg/status', methods=['GET'])
+    def _sd_tg_status():
+        p = _pessoa(request.args.get('pessoa'))
+        if not p:
+            return jsonify({'ok': False, 'erro': 'conta invalida'}), 400
+        forca = request.args.get('forca') == '1' and kv.get('sala_dig:tgf:' + p) != '1'
+        if forca:
+            kv.set('sala_dig:tgf:' + p, '1', ex=8)
+        lig, mem = ponte.membro(p, forca=forca)
+        return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
+    print('[SalaDigitos] SALA-DIGITOS-V4 registrada (processo %s)' % os.getpid())
     return sala
