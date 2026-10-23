@@ -632,6 +632,7 @@ class Sala(object):
                 if st['falta'] > 0:
                     return
                 st['res'].append(d)
+                st.setdefault('passos', []).append({'g': st['passo'], 'ep': int(ep), 'd': d})   # SALA-COMPARA-V1
                 rot = 'SG' if st['passo'] == 0 else 'G%d' % st['passo']
                 ganhou = _par(d) == st['lado']
                 st['linhas'].append('%s: %s → %d %s' % (rot, _lado_txt(_par(d)), d, '✅' if ganhou else '❌'))
@@ -674,7 +675,8 @@ class Sala(object):
             h['loss'] += 1
         h['un'] = round(h['un'] + un, 4)
         h['ciclos'].insert(0, {'t': int(ep), 'sym': st['sym'], 'lado': st['lado'], 'res': 'win' if ganhou else 'loss',
-                               'passo': p, 'dig': st['res'], 'un': round(un, 3)})
+                               'passo': p, 'dig': st['res'], 'un': round(un, 3),
+                               'k': st.get('k'), 'conf': int(st.get('t_conf') or 0), 'passos': st.get('passos', [])})
         h['ciclos'] = h['ciclos'][:1000]  # SALA-HIST-V1
         self._salva_dia()
         d = st['res'][-1]
@@ -1076,6 +1078,75 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         d.update(ok=True, ligada=bool(sala.diag.get('ligada')), rodando=rodando, motor=onde, t=time.time(), mercados=list(sala.cfg.get('mercados') or []))
         return jsonify(d)
 
+    # ---------- SALA-COMPARA-V1: entradas do robo (Alpha Digitos) x ticks da sala ----------
+    def _num_ok(v, tipo=float, padrao=0):
+        try:
+            return tipo(v)
+        except Exception:
+            return padrao
+
+    @app.route('/api/sala-digitos/robo', methods=['POST'])
+    def _sd_robo():
+        j = request.get_json(silent=True) or {}
+        p = _pessoa(j.get('pessoa'))
+        sym = str(j.get('sym') or '')
+        if not p or sym not in NOMES:
+            return jsonify({'ok': False, 'erro': 'dados invalidos'}), 400
+        reg = {'pessoa': p, 'sym': sym, 'lado': 'PAR' if j.get('lado') in ('p', 'PAR') else 'IMPAR',
+               'g': _num_ok(j.get('g'), int), 'stake': round(_num_ok(j.get('stake')), 2), 'won': bool(j.get('won')),
+               'profit': round(_num_ok(j.get('profit')), 2), 'exit_ep': _num_ok(j.get('exit_ep'), int),
+               'exit_d': j.get('exit_d') if isinstance(j.get('exit_d'), int) else None,
+               'local_ep': _num_ok(j.get('local_ep'), int), 'local_d': j.get('local_d') if isinstance(j.get('local_d'), int) else None,
+               'buy_ep': _num_ok(j.get('buy_ep'), int), 'conta': 'real' if j.get('real') else 'demo', 't': int(time.time())}
+        dia = datetime.now(BRT).strftime('%Y-%m-%d')
+        try:
+            lst = json.loads(kv.get('sala_dig:robo:' + dia) or '[]')
+        except Exception:
+            lst = []
+        lst.insert(0, reg)
+        kv.set('sala_dig:robo:' + dia, json.dumps(lst[:800]), ex=86400 * 31)
+        return jsonify({'ok': True})
+
+    @app.route('/api/admin/sala-digitos/comparar', methods=['GET'])
+    def _sd_comparar():
+        if not ok_admin():
+            return negado()
+        import re as _re3
+        dia = (request.args.get('dia') or datetime.now(BRT).strftime('%Y-%m-%d')).strip()
+        if not _re3.match(r'^\d{4}-\d{2}-\d{2}$', dia):
+            return jsonify({'ok': False, 'erro': 'data invalida'}), 400
+        try:
+            robo = json.loads(kv.get('sala_dig:robo:' + dia) or '[]')
+        except Exception:
+            robo = []
+        try:
+            ciclos = (json.loads(kv.get('sala_dig:dia:' + dia) or 'null') or {}).get('ciclos') or []
+        except Exception:
+            ciclos = []
+        passos = []
+        for cy in ciclos:
+            for ps in cy.get('passos') or []:
+                passos.append({'sym': cy.get('sym'), 'lado': cy.get('lado'), 'g': ps.get('g'), 'ep': ps.get('ep'), 'd': ps.get('d'),
+                               'conf': cy.get('conf'), 'res': cy.get('res'), 'passo_final': cy.get('passo')})
+        out, certos, comparaveis = [], 0, 0
+        for r in robo:
+            ep = r.get('exit_ep') or r.get('local_ep') or 0
+            tk = 1 if str(r['sym']).startswith('1HZ') else 2
+            mesmo = [s for s in passos if s['sym'] == r['sym'] and s['ep'] == ep]
+            perto = sorted([s for s in passos if s['sym'] == r['sym'] and s['g'] == r['g'] and abs((s['ep'] or 0) - ep) <= 60],
+                           key=lambda s: abs(s['ep'] - ep))
+            sala = mesmo[0] if mesmo else (perto[0] if perto else None)
+            if sala is None:
+                veredito, dif = 'sem_sinal', None
+            else:
+                dif = int(round((ep - sala['ep']) / float(tk)))
+                veredito = 'certo' if dif == 0 else ('atrasado' if dif > 0 else 'adiantado')
+                comparaveis += 1
+                certos += 1 if dif == 0 else 0
+            out.append(dict(r, sala=sala, veredito=veredito, dif_ticks=dif))
+        return jsonify({'ok': True, 'dia': dia, 'itens': out, 'certos': certos, 'comparaveis': comparaveis,
+                        'total': len(out), 'lucro': round(sum(x.get('profit') or 0 for x in robo), 2)})
+
     @app.route('/api/sala-digitos/tg/codigo', methods=['POST'])
     def _sd_tg_codigo():
         p = _pessoa((request.get_json(silent=True) or {}).get('pessoa'))
@@ -1100,5 +1171,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             kv.set('sala_dig:tgf:' + p, '1', ex=8)
         lig, mem = ponte.membro(p, forca=forca)
         return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
-    print('[SalaDigitos] SALA-DIGITOS-V4.3 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V4.4 registrada (processo %s)' % os.getpid())
     return sala
