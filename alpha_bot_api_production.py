@@ -2019,6 +2019,8 @@ def _sala_parar_antigo():
 
 try:
     from sala_digitos import register_sala_digitos
+    if os.environ.get('SALA_OFF'): raise Exception('sala desligada por SALA_OFF')
+    raise Exception('sala pausada para diagnostico')  # SALA-PAUSADA
     register_sala_digitos(app, get_redis=lambda: globals().get('redis_client'), parar_antigo=_sala_parar_antigo)
 except Exception as _e_sala:
     print(f"[SalaDigitos] nao registrou: {_e_sala}")
