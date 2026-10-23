@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SALA-DIGITOS-V4 (robo segue o sinal do servidor; Telegram obrigatorio) / V3.5 (1 processo so, log das respostas) / V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
+"""SALA-DIGITOS-V4.1 (ponte do Telegram sem conexao pendurada; rotas do site sem rede) / V4 (robo segue o sinal do servidor; Telegram obrigatorio) / V3.5 (1 processo so, log das respostas) / V3.4 (ticks no formato do schema novo) / V3.3 (varios enderecos de ticks) / V3.2 (assume trava abandonada) / V3.1 (diagnostico + supervisor que se religa) / V3 (1 postagem por sinal, editada no resultado; banner + botao) - Sala de sinais Alpha Digitos (par/impar) no canal do Telegram.
 
 Usa o MESMO bot e o MESMO canal do robo de sinais antigo
 (backend.telegram_signals: TELEGRAM_TOKEN / CHANNEL_ID). Nada novo no Render.
@@ -230,7 +230,7 @@ _BOT = {}
 
 def bot_usuario():
     if not _BOT.get('u'):
-        ok, _e, j = _tg_raw('getMe', {})
+        ok, _e, j = _tg_raw('getMe', {}, timeout=10)
         if ok:
             _BOT['u'] = (j.get('result') or {}).get('username') or ''
     return _BOT.get('u') or ''
@@ -244,6 +244,9 @@ class Ponte(object):
         self.id = uuid.uuid4().hex[:10]
         self.pid = None
         self.th = None
+        self.ativo_ate = 0          # SALA-DIGITOS-V4.1: so le o bot quando alguem pediu link (15 min)
+        self.pend = set()           # pessoas para conferir no canal (em segundo plano)
+        self.cache = {}             # pessoa -> (conectado, membro, quando)
         self.info = {'ativo': False, 'erro': '', 'ligados': 0, 'volta': 0}
 
     def garante(self):
@@ -254,24 +257,39 @@ class Ponte(object):
         self.th = threading.Thread(target=self.loop, daemon=True)
         self.th.start()
 
-    def membro(self, pessoa, forca=False):
+    def _confere(self, pessoa):
+        """Rede: so roda na thread da ponte, nunca dentro de um pedido do site."""
         uid = self.kv.get('sala_dig:tguser:' + pessoa)
         if not uid:
+            self.cache[pessoa] = (False, False, time.time())
             return False, False
-        if not forca:
-            cache = self.kv.get('sala_dig:tgmem:' + pessoa)
-            if cache in ('1', '0'):
-                return True, cache == '1'
         ok, _e, j = _tg_http('getChatMember', {'user_id': int(uid)})
-        st = ((j.get('result') or {}).get('status') or '') if ok else ''
-        mem = st in ('creator', 'administrator', 'member') or (st == 'restricted' and (j.get('result') or {}).get('is_member'))
-        self.kv.set('sala_dig:tgmem:' + pessoa, '1' if mem else '0', ex=600 if mem else 20)
+        if not ok:
+            ant = self.cache.get(pessoa)
+            return (True, ant[1]) if ant else (True, False)
+        r = j.get('result') or {}
+        st = r.get('status') or ''
+        mem = st in ('creator', 'administrator', 'member') or (st == 'restricted' and bool(r.get('is_member')))
+        self.cache[pessoa] = (True, bool(mem), time.time())
         return True, bool(mem)
+
+    def membro(self, pessoa, forca=False):
+        """Resposta imediata (memoria). Se estiver velho ou pedirem, agenda conferencia em segundo plano."""
+        ant = self.cache.get(pessoa)
+        if ant is None:
+            uid = self.kv.get('sala_dig:tguser:' + pessoa)
+            ant = (bool(uid), False, 0)
+            self.cache[pessoa] = ant
+        idade = time.time() - ant[2]
+        if ant[0] and ((forca and idade > 6) or idade > (600 if ant[1] else 15)):
+            self.pend.add(pessoa)
+        return ant[0], ant[1]
 
     def _responde(self, uid, texto):
         _tg_raw('sendMessage', {'chat_id': uid, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True,
                                 'reply_markup': {'inline_keyboard': [[{'text': '📣 Entrar no canal da Sala', 'url': CANAL_LINK}],
-                                                                     [{'text': '🎲 Voltar ao Alpha Dígitos', 'url': LINK_ROBO}]]}})
+                                                                     [{'text': '🎲 Voltar ao Alpha Dígitos', 'url': LINK_ROBO}]]}},
+                timeout=10)
 
     def _trata(self, u):
         m = u.get('message') or {}
@@ -289,7 +307,7 @@ class Ponte(object):
         self.kv.delete('sala_dig:tgcod:' + cod)
         self.kv.set('sala_dig:tguser:' + pessoa, str(uid))
         self.info['ligados'] += 1
-        _lig, mem = self.membro(pessoa, forca=True)
+        _lig, mem = self._confere(pessoa)
         if mem:
             self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nVocê já está no canal da Sala. Volte ao Alpha Dígitos e toque em '
                                 '<b>Seguir a Sala de Sinais</b>.')
@@ -302,17 +320,22 @@ class Ponte(object):
         while meu == self.id:
             try:
                 self.info['volta'] = int(time.time())
-                if not self.kv.trava('sala_dig:tglock', meu, 60):
+                if not _BOT.get('u'):
+                    bot_usuario()
+                for p in list(self.pend)[:5]:          # conferencias pedidas pelo site
+                    self.pend.discard(p)
+                    self._confere(p)
+                if time.time() > self.ativo_ate:       # ninguem pediu link: nao le o bot
                     self.info['ativo'] = False
-                    time.sleep(20)
+                    time.sleep(3)
                     continue
                 self.info['ativo'] = True
                 off = int(self.kv.get('sala_dig:tgoff') or 0)
-                ok, erro, j = _tg_raw('getUpdates', {'offset': off, 'timeout': 25, 'allowed_updates': ['message']}, timeout=40)
+                ok, erro, j = _tg_raw('getUpdates', {'offset': off, 'timeout': 0, 'allowed_updates': ['message']}, timeout=10)
                 if not ok:
                     self.info['erro'] = erro[:200]
                     print('[SalaDigitos] ponte Telegram: %s' % erro)
-                    time.sleep(60 if 'onflict' in erro else 10)
+                    time.sleep(30 if 'onflict' in erro else 6)
                     continue
                 self.info['erro'] = ''
                 for u in j.get('result') or []:
@@ -322,9 +345,10 @@ class Ponte(object):
                     except Exception as e:
                         print('[SalaDigitos] ponte /start: %s' % e)
                 self.kv.set('sala_dig:tgoff', str(off))
+                time.sleep(3)
             except Exception as e:
                 self.info['erro'] = str(e)[:200]
-                time.sleep(10)
+                time.sleep(6)
 
 
 def _foto(img):
@@ -643,7 +667,7 @@ class Sala(object):
         h['un'] = round(h['un'] + un, 4)
         h['ciclos'].insert(0, {'t': int(ep), 'sym': st['sym'], 'lado': st['lado'], 'res': 'win' if ganhou else 'loss',
                                'passo': p, 'dig': st['res'], 'un': round(un, 3)})
-        h['ciclos'] = h['ciclos'][:1000]  # SALA-HIST-V1
+        h['ciclos'] = h['ciclos'][:30]
         self._salva_dia()
         d = st['res'][-1]
         corpo = '%s\n🎲 Resultado: %s · dígito %d\n%s\n⏰ %s' % (
@@ -760,6 +784,7 @@ class Sala(object):
             self.diag['voltas'] += 1
             try:
                 on = self.kv.get(K_ON) == '1'
+                self.diag['ligada'] = on
                 if on and self.parar_antigo:
                     self.parar_antigo()
                 dono = on and self.kv.trava(K_LOCK, self.id, 30)
@@ -939,18 +964,10 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
     @app.route('/api/sala-digitos/agora', methods=['GET'])
     def _sd_agora():
         # SALA-DIGITOS-V4: estado ao vivo da sala para o robo do Alpha Digitos seguir o mesmo sinal
-        if sala.rodando:
-            st = sala.st
-            d = {'fase': st.get('fase'), 'sym': st.get('sym'), 'lado': st.get('lado'), 'passo': st.get('passo', 0),
-                 'k': st.get('k'), 'pausa_ate': int(sala.cool)}
-        else:
-            try:
-                sn = json.loads(kv.get(K_SNAP) or 'null') or {}
-            except Exception:
-                sn = {}
-            d = {'fase': sn.get('fase'), 'sym': sn.get('sym'), 'lado': sn.get('lado'), 'passo': sn.get('passo', 0),
-                 'k': None, 'pausa_ate': sn.get('pausa_ate', 0)}
-        d.update(ok=True, ligada=kv.get(K_ON) == '1', rodando=bool(sala.rodando), t=time.time(), mercados=sala._cfg_load()['mercados'])
+        st = sala.st   # V4.1: so memoria, nunca Redis
+        d = {'fase': st.get('fase'), 'sym': st.get('sym'), 'lado': st.get('lado'), 'passo': st.get('passo', 0),
+             'k': st.get('k'), 'pausa_ate': int(sala.cool)}
+        d.update(ok=True, ligada=bool(sala.diag.get('ligada')), rodando=bool(sala.rodando), t=time.time(), mercados=list(sala.cfg.get('mercados') or []))
         return jsonify(d)
 
     @app.route('/api/sala-digitos/tg/codigo', methods=['POST'])
@@ -958,9 +975,10 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         p = _pessoa((request.get_json(silent=True) or {}).get('pessoa'))
         if not p:
             return jsonify({'ok': False, 'erro': 'conta invalida'}), 400
-        bu = bot_usuario()
+        ponte.ativo_ate = time.time() + 900      # V4.1: liga a leitura do bot por 15 min
+        bu = _BOT.get('u')
         if not bu:
-            return jsonify({'ok': False, 'erro': 'bot do Telegram indisponivel'}), 503
+            return jsonify({'ok': False, 'erro': 'preparando o bot, tente de novo em alguns segundos'}), 503
         cod = uuid.uuid4().hex[:12]
         kv.set('sala_dig:tgcod:' + cod, p, ex=900)
         return jsonify({'ok': True, 'link': 'https://t.me/%s?start=%s' % (bu, cod), 'canal': CANAL_LINK})
@@ -975,5 +993,5 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             kv.set('sala_dig:tgf:' + p, '1', ex=8)
         lig, mem = ponte.membro(p, forca=forca)
         return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
-    print('[SalaDigitos] SALA-DIGITOS-V4 registrada (processo %s)' % os.getpid())
+    print('[SalaDigitos] SALA-DIGITOS-V4.1 registrada (processo %s)' % os.getpid())
     return sala
