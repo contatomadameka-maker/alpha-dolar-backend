@@ -65,6 +65,7 @@ LIMITES = {'atencao': (2, 8), 'confirma': (3, 10), 'gales': (0, 3), 'espera': (1
 
 K_ON, K_CFG, K_LOCK, K_SNAP, K_CMD = 'sala_dig:on', 'sala_dig:cfg', 'sala_dig:lock', 'sala_dig:snap', 'sala_dig:cmd'
 K_LIVE, K_TGATIVO = 'sala_dig:live', 'sala_dig:tgativo'   # SALA-DIGITOS-V4.3: estado ao vivo compartilhado entre servidores
+HORARIOS_PARCIAL = [(12, 0), (16, 0), (21, 0)]   # SALA-PARCIAL-V2: horario de Brasilia
 RODAPE = '<i>Análise estatística — não é garantia de resultado.</i>\n🌐 alphadolar.online'
 
 
@@ -703,10 +704,18 @@ class Sala(object):
                 self.kv.delete(K_CMD)
                 self.manda(self.texto_parcial(agora), None, True)
                 self.ult_parcial, self.desde_parcial = agora, 0
-            elif agora - self.ult_parcial >= self.cfg['parcial'] * 60:
-                if self.desde_parcial > 0:
-                    self.manda(self.texto_parcial(agora), None, True)
-                self.ult_parcial, self.desde_parcial = agora, 0
+            else:   # SALA-PARCIAL-V2: horarios fixos, uma vez cada
+                dt = datetime.fromtimestamp(agora, BRT)
+                for hh, mm in HORARIOS_PARCIAL:
+                    alvo = dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                    if 0 <= (dt - alvo).total_seconds() < 600:
+                        chave = 'sala_dig:parc:' + alvo.strftime('%Y-%m-%d-%H%M')
+                        if not self.kv.get(chave):
+                            self.kv.set(chave, '1', ex=86400)
+                            h = self._dia(agora)
+                            if h['win'] + h['loss'] > 0:
+                                self.manda(self.texto_parcial(agora), None, True)
+                            self.ult_parcial, self.desde_parcial = agora, 0
         self.kv.set(K_SNAP, json.dumps(self.snap(agora)), ex=60)
 
     def snap(self, agora=None):
