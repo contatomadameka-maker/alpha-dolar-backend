@@ -238,6 +238,12 @@ def bot_usuario():
     return _BOT.get('u') or ''
 
 
+MSG_CEL = ('Volte ao Alpha Dígitos e toque em <b>Seguir a Sala de Sinais</b>.\n\n'
+           '📱 <b>No celular:</b> volte para o navegador onde você já abriu o robô (Chrome ou Safari), '
+           'não pelo botão abaixo. Se o robô abrir dentro do Telegram, toque em ⋮ e em <b>Abrir no navegador</b>. '
+           'O robô libera sozinho em poucos segundos.')   # SALA-TG-V5
+
+
 class Ponte(object):
     """Liga a pessoa do site ao Telegram dela: /start <codigo> no bot -> confere se e membro do canal."""
 
@@ -278,9 +284,12 @@ class Ponte(object):
     def membro(self, pessoa, forca=False):
         """Resposta imediata (memoria). Se estiver velho ou pedirem, agenda conferencia em segundo plano."""
         ant = self.cache.get(pessoa)
-        if ant is None:
+        if ant is None or (not ant[0] and time.time() - ant[2] > 4):   # SALA-TG-V5: a ligacao pode ter sido feita no outro servidor
             uid = self.kv.get('sala_dig:tguser:' + pessoa)
-            ant = (bool(uid), False, 0)
+            if uid:
+                ant = (True, False, 0); self.pend.add(pessoa)
+            else:
+                ant = (False, False, time.time())
             self.cache[pessoa] = ant
         idade = time.time() - ant[2]
         if ant[0] and ((forca and idade > 6) or idade > (600 if ant[1] else 15)):
@@ -303,19 +312,24 @@ class Ponte(object):
         cod = partes[1] if len(partes) > 1 else ''
         pessoa = self.kv.get('sala_dig:tgcod:' + cod) if cod else None
         if not pessoa:
+            p2 = self.kv.get('sala_dig:tguid:' + str(uid))   # SALA-TG-V5: ja conectado antes -> nao manda "Ola, conecte"
+            if p2:
+                _l2, mem2 = self._confere(p2)
+                self._responde(uid, ('✅ <b>Seu Telegram já está conectado.</b>\n\n' + ('Você já está no canal da Sala. ' if mem2 else 'Falta entrar no canal da Sala no botão abaixo. ')) + MSG_CEL)
+                return
             self._responde(uid, '👋 Olá! Para liberar o <b>Seguir a Sala</b> no Alpha Dígitos, toque em '
                                 '<b>Conectar meu Telegram</b> dentro do robô.')
             return
         self.kv.delete('sala_dig:tgcod:' + cod)
         self.kv.set('sala_dig:tguser:' + pessoa, str(uid))
+        self.kv.set('sala_dig:tguid:' + str(uid), pessoa)   # SALA-TG-V5
+        self.cache[pessoa] = (True, False, 0)
         self.info['ligados'] += 1
         _lig, mem = self._confere(pessoa)
         if mem:
-            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nVocê já está no canal da Sala. Volte ao Alpha Dígitos e toque em '
-                                '<b>Seguir a Sala de Sinais</b>.')
+            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nVocê já está no canal da Sala. ' + MSG_CEL)
         else:
-            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nFalta só um passo: entre no canal da Sala de Sinais no botão abaixo. '
-                                'Depois volte ao Alpha Dígitos e toque em <b>Seguir a Sala de Sinais</b>.')
+            self._responde(uid, '✅ <b>Telegram conectado!</b>\n\nFalta só um passo: entre no canal da Sala de Sinais no botão abaixo. Depois: ' + MSG_CEL)
 
     def loop(self):
         meu = self.id
@@ -346,6 +360,8 @@ class Ponte(object):
                 self.info['erro'] = ''
                 for u in j.get('result') or []:
                     off = max(off, int(u.get('update_id', 0)) + 1)
+                    if not self.kv.trava('sala_dig:tgupd:%s' % u.get('update_id'), self.id, 600):   # SALA-TG-V5: o outro servidor ja respondeu
+                        continue
                     try:
                         self._trata(u)
                     except Exception as e:
