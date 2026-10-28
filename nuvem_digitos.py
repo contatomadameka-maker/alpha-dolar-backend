@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.7'  # V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.8'  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -302,13 +302,11 @@ class Pessoa(object):
                 dg = digito_saida(q, p['sym'])
                 rs = RES_SALA.get((p.get('k'), p.get('g')))
                 ex = None
-                for kx in ('exit_tick_time', 'sell_spot_time', 'current_spot_time'):
-                    try:
-                        ex = int(q.get(kx)) if q.get(kx) else None
-                    except Exception:
-                        ex = None
-                    if ex:
-                        break
+                try:
+                    ex = int(q.get('exit_tick_time')) if q.get('exit_tick_time') else None
+                except Exception:
+                    ex = None
+                # V1.8: sell_spot_time/current_spot_time são o último preço quando conferimos (1 tick depois): não servem
                 if rs:
                     ex = ex or rs[0]
                     if dg is None:
