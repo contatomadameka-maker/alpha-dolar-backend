@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4'  # V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.1'  # V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -527,36 +527,85 @@ def _duka(sym, prog):
         m += 1
         if m > 12:
             y, m = y + 1, 1
-    # MESA-AGENTES-V3: 6 downloads ao mesmo tempo (antes era 1 por vez e a Fábrica desistia)
-    from concurrent.futures import ThreadPoolExecutor
+    # MESA-AGENTES-V4.1: cada mês baixado fica guardado no Redis (um erro não joga fora horas de download),
+    # "connection reset" espera como 503, e os meses recusados são tentados de novo no fim (3 voltas).
+    atual = (agora.year, agora.month)
 
-    falhou = []
+    def ck(ym):
+        return 'mesa:dkm:%s:%04d-%02d' % (ins, ym[0], ym[1])
 
-    def um(ym):
+    def do_cache(ym):
+        if HL_KV is None or ym == atual:
+            return None
+        try:
+            b = HL_KV.get(ck(ym))
+            return json.loads(gzip.decompress(base64.b64decode(b)).decode()) if b else None
+        except Exception:
+            return None
+
+    def guarda(ym, L):
+        if HL_KV is None or ym == atual:
+            return
+        try:
+            HL_KV.set(ck(ym), base64.b64encode(gzip.compress(json.dumps(L, separators=(',', ':')).encode(), 6)).decode(), ex=60 * 86400)
+        except Exception as e:
+            log('cache do mes %s: %s' % (ck(ym), e))
+
+    def espera(seg, feito, msg):
+        for _ in range(max(1, int(math.ceil(seg / 20.0)))):
+            prog(feito, len(meses), msg)          # mantém a trava e mostra que está vivo
+            time.sleep(min(20, seg))
+
+    def um(ym, feito, tentativas):
+        L = do_cache(ym)
+        if L is not None:
+            return L, True
         y, m = ym
-        for tent in range(6):
+        for tent in range(tentativas):
             try:
                 L = _duka_mes(ins, y, m)
-                time.sleep(1.0)        # V4: um pedido por segundo (a Dukascopy devolve 503 se pedir rápido)
-                return L
+                guarda(ym, L)
+                time.sleep(1.0)
+                return L, True
             except Exception as e:
-                if tent == 5:
+                es = str(e)
+                lento = any(x in es for x in ('503', '429', '104', 'reset', 'timed out', 'timeout', 'Temporary', 'EOF'))
+                if tent < tentativas - 1:
+                    espera(60 * (tent + 1) if lento else 3 * (tent + 1), feito, 'Dukascopy %s · %d-%02d recusado, esperando para tentar de novo' % (ins, y, m))
+                else:
                     log('Dukascopy %s %d-%02d falhou: %s' % (ins, y, m, e))
-                    prog(None, None, None, erro='%d-%02d: %s' % (y, m, str(e)[:80]))
-                    falhou.append('%d-%02d' % (y, m))
-                time.sleep(60 if ('503' in str(e) or '429' in str(e)) else 3 * (tent + 1))
-        return []
-    linhas, feito = [], [0]
+        return [], False
+
+    por_mes, falta = {}, []
     prog(0, len(meses), 'na fila (um mercado por vez)')
     with HL_FILA:
-        with ThreadPoolExecutor(max_workers=1) as ex:
-            for L in ex.map(um, meses):
-                linhas += L
-                feito[0] += 1
-                prog(feito[0], len(meses), 'Dukascopy %s' % ins)
-    if falhou:
-        # V3.2: nunca guarda histórico com buraco
-        raise RuntimeError('a Dukascopy recusou %d mês(es) (%s). Nada foi guardado; tente de novo em 1 hora.' % (len(falhou), ', '.join(falhou[:4])))
+        for i, ym in enumerate(meses):
+            L, ok = um(ym, i, 4)
+            if ok:
+                por_mes[ym] = L
+            else:
+                falta.append(ym)
+            prog(i + 1, len(meses), 'Dukascopy %s' % ins + (' · %d mês(es) para repetir no fim' % len(falta) if falta else ''))
+        for volta in range(3):
+            if not falta:
+                break
+            espera(180, len(meses), 'Dukascopy %s · repetindo %d mês(es) recusado(s) (volta %d de 3)' % (ins, len(falta), volta + 1))
+            ainda = []
+            for ym in falta:
+                L, ok = um(ym, len(meses), 3)
+                if ok:
+                    por_mes[ym] = L
+                else:
+                    ainda.append(ym)
+            falta = ainda
+    if falta:
+        nomes = ['%d-%02d' % ym for ym in falta]
+        prog(None, None, None, erro='faltaram %s' % ', '.join(nomes[:4]))
+        # nunca guarda histórico com buraco (os meses que deram certo ficam no Redis para a próxima vez)
+        raise RuntimeError('a Dukascopy recusou %d mês(es) (%s). Os outros ficaram guardados; peça de novo que ele baixa só o que falta.' % (len(falta), ', '.join(nomes[:4])))
+    linhas = []
+    for ym in meses:
+        linhas += por_mes.get(ym, [])
     f = _duka_escala(ins, linhas)
     return [[r[0], r[1] / f, r[2] / f, r[3] / f, r[4] / f] for r in linhas], 'Dukascopy'
 
@@ -666,6 +715,13 @@ def _hl_job(sym, g):
                 HL_KV.set('mesa:hlgz2:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=30 * 86400)
             HL_KV.delete('mesa:hl:%s' % sym)
             HL_KV.delete('mesa:hlt:%s' % sym)
+            if sym in DUKA:   # V4.1: com o histórico inteiro guardado, os pedaços mês a mês não precisam mais ocupar o Redis
+                y, m = 2018, 1
+                while (y, m) <= (datetime.now(timezone.utc).year, datetime.now(timezone.utc).month):
+                    HL_KV.delete('mesa:dkm:%s:%04d-%02d' % (DUKA[sym], y, m))
+                    m += 1
+                    if m > 12:
+                        y, m = y + 1, 1
         log('historico longo %s pronto: %s %d velas desde %s' % (sym, fonte, len(lim), datetime.fromtimestamp(lim[0][0], tz=timezone.utc).date()))
     except Exception as e:
         st.update({'status': 'erro', 'erro': str(e)[:300], 't': time.time()})
