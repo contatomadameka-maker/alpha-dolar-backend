@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.6'  # V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.7'  # V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -381,29 +381,37 @@ class Nuvem(object):
         log('%s…%s parado: %s' % (conta[:3], conta[-3:], motivo))
 
     def robo_x_sala(self, conta, tipo, p, pl, dg, ex):
-        """V1.4: a entrada da nuvem aparece no Robô x Sala do admin, igual às do robô do aparelho"""
-        try:
-            dia = datetime.now(BRT).strftime('%Y-%m-%d')
-            k = 'sala_dig:robo:' + dia
-            kv = self.sala_kv if self.sala_kv is not None else self.kv      # V1.5: o mesmo armazenamento que o admin lê
+        """V1.7: manda a entrada da nuvem pela MESMA rota que o robô do aparelho usa (/api/sala-digitos/robo).
+        O processo que recebe os ticks não enxerga o mesmo armazenamento que o admin lê; pela rota, cai no lugar certo."""
+        corpo = json.dumps({'pessoa': (conta + '-nuvem')[:40], 'sym': p['sym'], 'lado': 'PAR' if p['lado'] == 'PAR' else 'IMPAR', 'g': int(p['g']),
+                            'stake': r2(float(p['stake'])), 'won': (pl or 0) > 0, 'profit': pl, 'exit_ep': int(ex or 0),
+                            'exit_d': dg if isinstance(dg, int) else None, 'local_ep': 0, 'buy_ep': int(p.get('t') or 0),
+                            'real': tipo == 'real'}).encode()
+
+        def manda():
+            alvos = ['http://127.0.0.1:%s' % os.environ.get('PORT', '10000')]
+            pub = os.environ.get('RENDER_EXTERNAL_URL', '').strip().rstrip('/')
+            alvos.append(pub or 'https://alpha-dolar-backend.onrender.com')
+            erro = ''
+            for base in alvos:
+                try:
+                    rq = urllib.request.Request(base + '/api/sala-digitos/robo', data=corpo, headers={'Content-Type': 'application/json'}, method='POST')
+                    with urllib.request.urlopen(rq, timeout=10) as r:
+                        j = json.loads(r.read().decode() or '{}')
+                    if j.get('ok'):
+                        self.rxs = {'ok': self.rxs.get('ok', 0) + 1, 'erro': '', 'via': base.split('//')[-1][:40], 't': int(time.time()), 'pid': os.getpid()}
+                        break
+                    erro = str(j.get('erro') or j)[:150]
+                except Exception as e:
+                    erro = '%s: %s' % (base.split('//')[-1][:30], str(e)[:120])
+            else:
+                self.rxs = {'ok': self.rxs.get('ok', 0), 'erro': erro, 't': int(time.time()), 'pid': os.getpid()}
+                log('robo_x_sala', erro)
             try:
-                lst = json.loads(kv.get(k) or '[]')
+                self.kv.set('nuvem_dig:rxs', json.dumps(self.rxs), ex=86400 * 3)
             except Exception:
-                lst = []
-            lst.insert(0, {'pessoa': conta + ' ☁', 'sym': p['sym'], 'lado': 'PAR' if p['lado'] == 'PAR' else 'IMPAR', 'g': int(p['g']),
-                           'stake': r2(float(p['stake'])), 'won': (pl or 0) > 0, 'profit': pl, 'exit_ep': int(ex or 0),
-                           'exit_d': dg if isinstance(dg, int) else None, 'local_ep': 0, 'local_d': None, 'buy_ep': int(p.get('t') or 0),
-                           'conta': 'real' if tipo == 'real' else 'demo', 't': int(time.time()), 'nuvem': True})
-            kv.set(k, json.dumps(lst[:800]), ex=86400 * 31)
-            self.rxs = {'ok': self.rxs.get('ok', 0) + 1, 'erro': '', 'via': 'sala' if self.sala_kv is not None else 'nuvem', 't': int(time.time()), 'pid': os.getpid(),
-                        'itens_na_lista': len(lst), 'confere': len(json.loads(kv.get(k) or '[]'))}
-        except Exception as e:
-            self.rxs = {'ok': self.rxs.get('ok', 0), 'erro': str(e)[:200], 't': int(time.time()), 'pid': os.getpid()}
-            log('robo_x_sala', e)
-        try:
-            self.kv.set('nuvem_dig:rxs', json.dumps(self.rxs), ex=86400 * 3)
-        except Exception:
-            pass
+                pass
+        threading.Thread(target=manda, daemon=True).start()
 
     def op_log(self, conta, reg):
         k = 'nuvem_dig:ops:' + conta
@@ -570,7 +578,7 @@ def register_nuvem_digitos(app):
             mt = 0
         return jsonify({'ok': True, 'versao': VERSAO, 'pid_desta_resposta': os.getpid(), 'redis_nuvem': nv.kv._r is not None,
                         'motor_ha_seg': int(time.time() - mt) if mt else None, 'ultima_gravacao_robo_x_sala': ult,
-                        'hoje_na_lista': len(L), 'hoje_da_nuvem': len([x for x in L if x.get('nuvem')])})
+                        'hoje_na_lista_redis': len(L)})
 
     @app.route('/api/nuvem-digitos/ligar', methods=['POST'])
     def _nd_ligar():
