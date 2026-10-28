@@ -3977,3 +3977,11 @@ def rt_v5_token():
         return jsonify({'success': True, 'atualizados': n})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# MESA-AGENTES-V1: mesa de agentes (operam sozinhos na DEMO) + historico longo para a Fabrica
+try:
+    from mesa_agentes import register_mesa
+    register_mesa(app)
+except Exception as _e_mesa:
+    print('[Mesa] nao registrou:', _e_mesa)
