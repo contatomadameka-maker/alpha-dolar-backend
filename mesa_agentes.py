@@ -466,17 +466,25 @@ def _duka(sym, prog):
         m += 1
         if m > 12:
             y, m = y + 1, 1
-    linhas = []
-    for i, (y, m) in enumerate(meses):
+    # MESA-AGENTES-V3: 6 downloads ao mesmo tempo (antes era 1 por vez e a Fábrica desistia)
+    from concurrent.futures import ThreadPoolExecutor
+
+    def um(ym):
+        y, m = ym
         for tent in range(3):
             try:
-                linhas += _duka_mes(ins, y, m)
-                break
+                return _duka_mes(ins, y, m)
             except Exception as e:
                 if tent == 2:
                     log('Dukascopy %s %d-%02d falhou: %s' % (ins, y, m, e))
                 time.sleep(1.5)
-        prog(i + 1, len(meses), 'Dukascopy %s %d/%02d' % (ins, y, m))
+        return []
+    linhas, feito = [], [0]
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        for L in ex.map(um, meses):
+            linhas += L
+            feito[0] += 1
+            prog(feito[0], len(meses), 'Dukascopy %s' % ins)
     f = _duka_escala(ins, linhas)
     return [[r[0], r[1] / f, r[2] / f, r[3] / f, r[4] / f] for r in linhas], 'Dukascopy'
 
@@ -594,12 +602,6 @@ def hist_longo(sym, g):
     if os.path.exists(p) and time.time() - os.path.getmtime(p) < 5 * 86400:
         return {'status': 'pronto', 'arquivo': p}
     key = (sym, g)
-    if HL_KV is not None:
-        st = HL_KV.jget('mesa:hl:%s' % sym)
-        if st and st.get('status') in ('baixando', 'erro') and not (key in HL_JOBS and HL_JOBS[key].get('status') == 'baixando'):
-            return st
-        if not HL_KV.trava('mesa:hlt:%s' % sym, HL_DONO, 900):
-            return {'status': 'baixando', 'pct': 0, 'msg': 'outro servidor está baixando'}
     with HL_LOCK:
         st = HL_JOBS.get(key)
         if not st or st.get('status') in ('erro', 'pronto'):
