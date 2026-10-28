@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1'
+VERSAO = 'NUVEM-DIGITOS-V1.1'  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -78,6 +78,17 @@ class KV(object):
                 self._r.set(k, v, ex=ex) if ex else self._r.set(k, v)
             except Exception:
                 pass
+
+    def setnx(self, k, v, ex):
+        if self._r is not None:
+            try:
+                return bool(self._r.set(k, v, nx=True, ex=ex))
+            except Exception:
+                pass
+        if k in self._m:
+            return False
+        self._m[k] = v
+        return True
 
     def jget(self, k, d=None):
         try:
@@ -269,7 +280,7 @@ class Pessoa(object):
             u2['abertos'] = [p for p in (u2.get('abertos') or []) if p['cid'] not in ids]
             s = u2.setdefault('sessao', {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0})
             for p, pl, dg in fechados:
-                if pl is None:
+                if pl is None or not self.nv.kv.setnx('nuvem_dig:contou:%s' % p['cid'], '1', 86400 * 3):
                     continue
                 s['pl'] = r2(s['pl'] + pl)
                 s['n'] += 1
@@ -342,7 +353,10 @@ class Nuvem(object):
 
     # chamado depois de cada tick que a sala processou
     def no_tick(self, sala, sym, ep):
-        self.ult_tick = time.time()
+        agora = time.time()
+        if agora - self.ult_tick > 5:
+            self.kv.set(K_MOTOR, str(int(agora)), ex=60)   # V1.1: marca daqui (a thread vigia pode estar em outro processo)
+        self.ult_tick = agora
         st = sala.st
         if st.get('fase') != 'entrada' or st.get('falta') != 1 or st.get('sym') != sym:
             return
