@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.4'  # V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.5'  # V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -343,6 +343,8 @@ class Nuvem(object):
         self.pessoas = {}
         self.ult_sinal = None
         self.res_pend = {}
+        self.sala_kv = None
+        self.rxs = {'ok': 0, 'erro': ''}
         self.ult_tick = 0
         self.lock = threading.Lock()
         self.locks = {}
@@ -383,16 +385,19 @@ class Nuvem(object):
         try:
             dia = datetime.now(BRT).strftime('%Y-%m-%d')
             k = 'sala_dig:robo:' + dia
+            kv = self.sala_kv if self.sala_kv is not None else self.kv      # V1.5: o mesmo armazenamento que o admin lê
             try:
-                lst = json.loads(self.kv.get(k) or '[]')
+                lst = json.loads(kv.get(k) or '[]')
             except Exception:
                 lst = []
             lst.insert(0, {'pessoa': conta + ' ☁', 'sym': p['sym'], 'lado': 'PAR' if p['lado'] == 'PAR' else 'IMPAR', 'g': int(p['g']),
                            'stake': r2(float(p['stake'])), 'won': (pl or 0) > 0, 'profit': pl, 'exit_ep': int(ex or 0),
                            'exit_d': dg if isinstance(dg, int) else None, 'local_ep': 0, 'local_d': None, 'buy_ep': int(p.get('t') or 0),
                            'conta': 'real' if tipo == 'real' else 'demo', 't': int(time.time()), 'nuvem': True})
-            self.kv.set(k, json.dumps(lst[:800]), ex=86400 * 31)
+            kv.set(k, json.dumps(lst[:800]), ex=86400 * 31)
+            self.rxs = {'ok': self.rxs.get('ok', 0) + 1, 'erro': '', 'via': 'sala' if self.sala_kv is not None else 'nuvem', 't': int(time.time())}
         except Exception as e:
+            self.rxs = {'ok': self.rxs.get('ok', 0), 'erro': str(e)[:200], 't': int(time.time())}
             log('robo_x_sala', e)
 
     def op_log(self, conta, reg):
@@ -421,6 +426,9 @@ class Nuvem(object):
         if agora - self.ult_tick > 5:
             self.kv.set(K_MOTOR, str(int(agora)), ex=60)   # V1.1: marca daqui (a thread vigia pode estar em outro processo)
         self.ult_tick = agora
+        sk = getattr(sala, 'kv', None)
+        if sk is not None:
+            self.sala_kv = sk
         pend = self.res_pend.pop(sym, None)
         if pend is not None:
             RES_SALA[pend] = (int(ep), (DIG_VISTO.get(sym) or {}).get(int(ep)))
@@ -538,6 +546,11 @@ def register_nuvem_digitos(app):
 
     def publico(u):
         return {k: v for k, v in u.items() if k not in ('tok',)}
+
+    @app.route('/api/nuvem-digitos/diag', methods=['GET'])
+    def _nd_diag():
+        # V1.5: sem dados de ninguém, só se a gravação no Robô x Sala está funcionando neste servidor
+        return jsonify({'ok': True, 'versao': VERSAO, 'pid': os.getpid(), 'achou_sala': nv.sala_kv is not None, 'robo_x_sala': nv.rxs})
 
     @app.route('/api/nuvem-digitos/ligar', methods=['POST'])
     def _nd_ligar():
