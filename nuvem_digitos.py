@@ -20,13 +20,15 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.3'  # V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.4'  # V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
 K_LISTA, K_MOTOR = 'nuvem_dig:lista', 'nuvem_dig:motor'
 PIP = {'R_10': 3, 'R_25': 3, 'R_50': 4, 'R_75': 4, 'R_100': 2, '1HZ10V': 2, '1HZ25V': 2, '1HZ50V': 2, '1HZ75V': 2, '1HZ100V': 2}
 DIG_VISTO = {}   # V1.3: sym -> {epoch: dígito} dos últimos ticks que a sala leu
+RES_SALA = {}    # V1.4: (k, g) -> (epoch, dígito) do tick que decidiu aquele passo da sala
+BRT = timezone(timedelta(hours=-3))
 
 
 def digito_saida(q, sym):
@@ -294,10 +296,24 @@ class Pessoa(object):
             q = r.get('proposal_open_contract') or {}
             if r.get('error'):
                 if time.time() - p['t'] > 600:
-                    fechados.append((p, None, None))
+                    fechados.append((p, None, None, None, None))
                 continue
             if q.get('is_sold') or q.get('status') in ('won', 'lost', 'sold'):
-                fechados.append((p, r2(float(q.get('profit') or 0)), digito_saida(q, p['sym'])))
+                dg = digito_saida(q, p['sym'])
+                rs = RES_SALA.get((p.get('k'), p.get('g')))
+                ex = None
+                for kx in ('exit_tick_time', 'sell_spot_time', 'current_spot_time'):
+                    try:
+                        ex = int(q.get(kx)) if q.get(kx) else None
+                    except Exception:
+                        ex = None
+                    if ex:
+                        break
+                if rs:
+                    ex = ex or rs[0]
+                    if dg is None:
+                        dg = rs[1]
+                fechados.append((p, r2(float(q.get('profit') or 0)), dg, ex, sorted(q.keys())[:60] if dg is None else None))
         if not fechados:
             return
         with self.nv.trava(self.conta):
@@ -305,13 +321,17 @@ class Pessoa(object):
             ids = {f[0]['cid'] for f in fechados}
             u2['abertos'] = [p for p in (u2.get('abertos') or []) if p['cid'] not in ids]
             s = u2.setdefault('sessao', {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0})
-            for p, pl, dg in fechados:
+            for p, pl, dg, ex, chv in fechados:
                 if pl is None or not self.nv.kv.setnx('nuvem_dig:contou:%s' % p['cid'], '1', 86400 * 3):
                     continue
                 s['pl'] = r2(s['pl'] + pl)
                 s['n'] += 1
                 s['w' if pl > 0 else 'l'] += 1
-                self.nv.op_log(self.conta, {'t': int(time.time()), 'sym': p['sym'], 'lado': p['lado'], 'g': p['g'], 'stake': p['stake'], 'pl': pl, 'dig': dg})
+                reg = {'t': int(time.time()), 'sym': p['sym'], 'lado': p['lado'], 'g': p['g'], 'stake': p['stake'], 'pl': pl, 'dig': dg, 'ex': ex}
+                if chv:
+                    reg['chaves'] = chv      # V1.4: para descobrir o campo do dígito se a Deriv mudar de novo
+                self.nv.op_log(self.conta, reg)
+                self.nv.robo_x_sala(self.conta, u2.get('tipo'), p, pl, dg, ex)
             self.salva(u2)
         if self.nv.ligado(self.conta) and u2.get('tp') and s.get('pl', 0) >= u2['tp'] and not u2['abertos']:
             self.nv.para(self.conta, 'META ATINGIDA (+$%.2f)' % s['pl'])
@@ -322,6 +342,7 @@ class Nuvem(object):
         self.kv = KV()
         self.pessoas = {}
         self.ult_sinal = None
+        self.res_pend = {}
         self.ult_tick = 0
         self.lock = threading.Lock()
         self.locks = {}
@@ -357,6 +378,23 @@ class Nuvem(object):
         self.op_log(conta, {'t': int(time.time()), 'aviso': motivo})
         log('%s…%s parado: %s' % (conta[:3], conta[-3:], motivo))
 
+    def robo_x_sala(self, conta, tipo, p, pl, dg, ex):
+        """V1.4: a entrada da nuvem aparece no Robô x Sala do admin, igual às do robô do aparelho"""
+        try:
+            dia = datetime.now(BRT).strftime('%Y-%m-%d')
+            k = 'sala_dig:robo:' + dia
+            try:
+                lst = json.loads(self.kv.get(k) or '[]')
+            except Exception:
+                lst = []
+            lst.insert(0, {'pessoa': conta + ' ☁', 'sym': p['sym'], 'lado': 'PAR' if p['lado'] == 'PAR' else 'IMPAR', 'g': int(p['g']),
+                           'stake': r2(float(p['stake'])), 'won': (pl or 0) > 0, 'profit': pl, 'exit_ep': int(ex or 0),
+                           'exit_d': dg if isinstance(dg, int) else None, 'local_ep': 0, 'local_d': None, 'buy_ep': int(p.get('t') or 0),
+                           'conta': 'real' if tipo == 'real' else 'demo', 't': int(time.time()), 'nuvem': True})
+            self.kv.set(k, json.dumps(lst[:800]), ex=86400 * 31)
+        except Exception as e:
+            log('robo_x_sala', e)
+
     def op_log(self, conta, reg):
         k = 'nuvem_dig:ops:' + conta
         L = self.kv.jget(k, []) or []
@@ -383,6 +421,12 @@ class Nuvem(object):
         if agora - self.ult_tick > 5:
             self.kv.set(K_MOTOR, str(int(agora)), ex=60)   # V1.1: marca daqui (a thread vigia pode estar em outro processo)
         self.ult_tick = agora
+        pend = self.res_pend.pop(sym, None)
+        if pend is not None:
+            RES_SALA[pend] = (int(ep), (DIG_VISTO.get(sym) or {}).get(int(ep)))
+            if len(RES_SALA) > 300:
+                for kk in list(RES_SALA)[:100]:
+                    RES_SALA.pop(kk, None)
         st = sala.st
         if st.get('fase') != 'entrada' or st.get('falta') != 1 or st.get('sym') != sym:
             return
@@ -391,6 +435,7 @@ class Nuvem(object):
             return
         self.ult_sinal = chave
         g, lado, k = int(st.get('passo', 0)), st.get('lado'), st.get('k')
+        self.res_pend[sym] = (k, g)
         for conta in self.lista():
             try:
                 self.entra(conta, sym, lado, g, k)
