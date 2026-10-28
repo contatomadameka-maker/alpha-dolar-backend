@@ -18,7 +18,7 @@
    POST /api/mesa/agente/remover {id}
    POST /api/mesa/zerar      {id}              (apaga o placar de um agente)
 """
-import os, io, json, time, math, gzip, uuid, lzma, struct, zipfile, threading, traceback
+import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, threading, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
@@ -410,7 +410,10 @@ HL_DONO = uuid.uuid4().hex[:10]
 UA = {'User-Agent': 'Mozilla/5.0 (AlphaDolar Fabrica)'}
 
 
-def _baixa(url, to=25):
+HL_SEM = threading.BoundedSemaphore(4)   # no máximo 4 downloads ao mesmo tempo por processo
+
+
+def _baixa(url, to=20):
     rq = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(rq, timeout=to) as r:
         return r.read()
@@ -424,7 +427,8 @@ def _duka_mes(ins, y, m):
     """velas de 1 h de um mês inteiro (arquivo BID_candles_hour_1.bi5; o mês da URL começa em 00)."""
     url = 'https://datafeed.dukascopy.com/datafeed/%s/%04d/%02d/BID_candles_hour_1.bi5' % (ins, y, m - 1)
     try:
-        raw = _baixa(url)
+        with HL_SEM:
+            raw = _baixa(url)
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return []
@@ -477,10 +481,11 @@ def _duka(sym, prog):
             except Exception as e:
                 if tent == 2:
                     log('Dukascopy %s %d-%02d falhou: %s' % (ins, y, m, e))
-                time.sleep(1.5)
+                    prog(None, None, None, erro='%d-%02d: %s' % (y, m, str(e)[:80]))
+                time.sleep(2 + 2 * tent)
         return []
     linhas, feito = [], [0]
-    with ThreadPoolExecutor(max_workers=6) as ex:
+    with ThreadPoolExecutor(max_workers=4) as ex:
         for L in ex.map(um, meses):
             linhas += L
             feito[0] += 1
@@ -560,11 +565,17 @@ def _hl_job(sym, g):
     key = (sym, g)
     st = HL_JOBS[key]
     try:
-        def prog(a, b, msg):
-            st['pct'] = int(a * 100 / max(1, b))
-            st['msg'] = msg
-            if HL_KV is not None and a % 5 == 0:
+        def prog(a, b, msg, erro=None):
+            if erro:
+                st['falhas'] = st.get('falhas', 0) + 1
+                st['ult_erro'] = erro
+            else:
+                st['pct'] = int(a * 100 / max(1, b))
+                st['msg'] = msg
+            st['hb'] = time.time()
+            if HL_KV is not None:
                 HL_KV.set('mesa:hl:%s' % sym, json.dumps(st), ex=900)
+                HL_KV.trava('mesa:hlt:%s' % sym, HL_DONO, 120)
         if sym in BINA:
             L, fonte = _bina(sym, prog)
         else:
@@ -584,7 +595,10 @@ def _hl_job(sym, g):
         os.replace(tmp, _hl_path(sym, g))
         st.update({'status': 'pronto', 'pct': 100, 'msg': '%s: %d velas' % (fonte, len(lim))})
         if HL_KV is not None:
+            with open(_hl_path(sym, g), 'rb') as f:
+                HL_KV.set('mesa:hlgz:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=5 * 86400)
             HL_KV.delete('mesa:hl:%s' % sym)
+            HL_KV.delete('mesa:hlt:%s' % sym)
         log('historico longo %s pronto: %s %d velas desde %s' % (sym, fonte, len(lim), datetime.fromtimestamp(lim[0][0], tz=timezone.utc).date()))
     except Exception as e:
         st.update({'status': 'erro', 'erro': str(e)[:300], 't': time.time()})
@@ -602,14 +616,47 @@ def hist_longo(sym, g):
     if os.path.exists(p) and time.time() - os.path.getmtime(p) < 5 * 86400:
         return {'status': 'pronto', 'arquivo': p}
     key = (sym, g)
+    # MESA-AGENTES-V3: o resultado fica também no Redis (todos os servidores enxergam e sobrevive ao deploy)
+    if HL_KV is not None:
+        b = HL_KV.get('mesa:hlgz:%s' % sym)
+        if b:
+            try:
+                os.makedirs(HL_DIR, exist_ok=True)
+                with open(p + '.tmp', 'wb') as f:
+                    f.write(gzip.decompress(base64.b64decode(b)))
+                os.replace(p + '.tmp', p)
+                return {'status': 'pronto', 'arquivo': p}
+            except Exception as e:
+                log('copia do Redis falhou:', e)
     with HL_LOCK:
         st = HL_JOBS.get(key)
-        if not st or st.get('status') in ('erro', 'pronto'):
-            if st and st.get('status') == 'erro' and time.time() - st.get('t', 0) < 120:
-                return dict(st)
-            st = HL_JOBS[key] = {'status': 'baixando', 'pct': 0, 'msg': 'começando', 't': time.time()}
-            threading.Thread(target=_hl_job, args=(sym, g), daemon=True).start()
+        if st and st.get('status') == 'baixando':
+            return dict(st)
+        if HL_KV is not None:
+            rs = HL_KV.jget('mesa:hl:%s' % sym)
+            if rs and rs.get('status') == 'baixando' and time.time() - float(rs.get('hb') or rs.get('t') or 0) < 90:
+                return rs
+            if rs and rs.get('status') == 'erro' and time.time() - float(rs.get('t') or 0) < 120:
+                return rs
+            if not HL_KV.trava('mesa:hlt:%s' % sym, HL_DONO, 120):
+                return rs or {'status': 'baixando', 'pct': 0, 'msg': 'outro servidor está baixando'}
+        elif st and st.get('status') == 'erro' and time.time() - st.get('t', 0) < 120:
+            return dict(st)
+        st = HL_JOBS[key] = {'status': 'baixando', 'pct': 0, 'msg': 'começando', 't': time.time(), 'hb': time.time(), 'host': HOST}
+        threading.Thread(target=_hl_job, args=(sym, g), daemon=True).start()
     return dict(st)
+
+
+HOST = '%s:%d' % (__import__('socket').gethostname(), os.getpid())
+
+
+def hist_status():
+    out = {'servidor': HOST}
+    for sym in ['cryBTCUSD', 'cryETHUSD', 'frxXAUUSD', 'frxXAGUSD', 'frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']:
+        rs = HL_KV.jget('mesa:hl:%s' % sym) if HL_KV is not None else None
+        out[sym] = {'arquivo_aqui': os.path.exists(_hl_path(sym, 3600)), 'copia_redis': bool(HL_KV is not None and HL_KV.get('mesa:hlgz:%s' % sym)),
+                    'download': {k: v for k, v in (rs or {}).items() if k in ('status', 'pct', 'msg', 'falhas', 'ult_erro', 'host', 'erro')} or None}
+    return out
 
 
 def hist_teste():
@@ -1215,6 +1262,10 @@ def register_mesa(app):
         if 'gzip' in (request.headers.get('Accept-Encoding') or ''):
             return Response(c[1], mimetype='application/json', headers={'Content-Encoding': 'gzip', 'Cache-Control': 'public, max-age=3600'})
         return Response(gzip.decompress(c[1]), mimetype='application/json')
+
+    @app.route('/api/hist/status', methods=['GET'])
+    def _hls():
+        return jsonify(hist_status())
 
     @app.route('/api/hist/teste', methods=['GET'])
     def _hlt():
