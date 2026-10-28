@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.1'  # V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.2'  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -1537,6 +1537,50 @@ def register_mesa(app):
         if 'gzip' in (request.headers.get('Accept-Encoding') or ''):
             return Response(c[1], mimetype='application/json', headers={'Content-Encoding': 'gzip', 'Cache-Control': 'public, max-age=3600'})
         return Response(gzip.decompress(c[1]), mimetype='application/json')
+
+    # MESA-AGENTES-V4.2: histórico longo baixado no computador do admin e enviado pronto (a Dukascopy bloqueia o servidor)
+    @app.route('/api/hist/subir', methods=['POST'])
+    def _hl_subir():
+        if not ok_admin():
+            return negado()
+        sym = request.args.get('sym', '')
+        if sym not in DUKA and sym not in BINA:
+            return jsonify({'ok': False, 'erro': 'mercado desconhecido'}), 400
+        try:
+            j = json.loads(gzip.decompress(request.get_data()).decode())
+            c = j.get('c') or []
+            ini = int(datetime(2010, 1, 1, tzinfo=timezone.utc).timestamp())
+            vis, lim = set(), []
+            for r in c:
+                t, o, h, l, cl = int(r[0]), float(r[1]), float(r[2]), float(r[3]), float(r[4])
+                if t < ini or t in vis or not (cl > 0 and h >= max(o, cl) * 0.999 and l <= min(o, cl) * 1.001):
+                    continue
+                vis.add(t)
+                lim.append([t, float('%.6g' % o), float('%.6g' % h), float('%.6g' % l), float('%.6g' % cl)])
+            lim.sort(key=lambda r: r[0])
+        except Exception as e:
+            return jsonify({'ok': False, 'erro': 'arquivo inválido: %s' % str(e)[:120]}), 400
+        if len(lim) < 5000:
+            return jsonify({'ok': False, 'erro': 'poucas velas (%d)' % len(lim)}), 400
+        ins = DUKA.get(sym)
+        lo, hi = FAIXA.get(ins, (0.3, 5)) if ins else (0, 1e9)
+        med = sorted(r[4] for r in lim)[len(lim) // 2]
+        if not (lo <= med <= hi):
+            return jsonify({'ok': False, 'erro': 'preço fora da faixa esperada (mediana %s)' % med}), 400
+        fonte = str(j.get('fonte') or 'Dukascopy (enviado pelo admin)')[:60]
+        os.makedirs(HL_DIR, exist_ok=True)
+        p = _hl_path(sym, 3600)
+        with open(p + '.tmp', 'w') as f:
+            json.dump({'sym': sym, 'g': 3600, 'fonte': fonte, 'n': len(lim), 'de': lim[0][0], 'ate': lim[-1][0], 'em': time.time(), 'c': lim}, f, separators=(',', ':'))
+        os.replace(p + '.tmp', p)
+        if HL_KV is not None:
+            with open(p, 'rb') as f:
+                HL_KV.set('mesa:hlgz2:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=60 * 86400)
+            HL_KV.delete('mesa:hl:%s' % sym)
+            HL_KV.delete('mesa:hlt:%s' % sym)
+        HL_JOBS.pop((sym, 3600), None)
+        log('historico longo %s recebido do admin: %d velas desde %s' % (sym, len(lim), datetime.fromtimestamp(lim[0][0], tz=timezone.utc).date()))
+        return jsonify({'ok': True, 'sym': sym, 'n': len(lim), 'de': lim[0][0], 'ate': lim[-1][0]})
 
     @app.route('/api/hist/status', methods=['GET'])
     def _hls():
