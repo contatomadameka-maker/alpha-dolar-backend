@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.1'  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.2'  # V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -507,7 +507,13 @@ def register_nuvem_digitos(app):
         if u:
             u['ligado'] = nv.ligado(conta)
         motor = float(nv.kv.get(K_MOTOR) or 0)
-        return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget('nuvem_dig:ops:' + conta, []) or [])[:40],
+        on = nv.kv.get('sala_dig:on')
+        try:
+            vivo = time.time() - float((json.loads(nv.kv.get('sala_dig:live') or '{}') or {}).get('tp') or 0) < 20
+        except Exception:
+            vivo = False
+        sala = {'ligada': (on == '1') if on is not None else None, 'vivo': vivo or time.time() - motor < 60}
+        return jsonify({'ok': True, 'versao': VERSAO, 'sala': sala, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget('nuvem_dig:ops:' + conta, []) or [])[:40],
                         'motor': time.time() - motor < 60, 'saldo': info.get('saldo')})
 
     @app.route('/api/admin/nuvem-digitos', methods=['GET'])
