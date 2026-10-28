@@ -22,7 +22,8 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V3'  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
+VERSAO = 'MESA-AGENTES-V4'  # V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+# V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
@@ -30,7 +31,9 @@ HOLD = {3600: 72, 900: 288, 300: 864}
 NOME = {'cryBTCUSD': 'Bitcoin', 'cryETHUSD': 'Ethereum', 'frxXAUUSD': 'Ouro', 'frxXAGUSD': 'Prata', 'frxEURUSD': 'EUR/USD',
         'frxGBPUSD': 'GBP/USD', 'frxUSDJPY': 'USD/JPY', 'frxAUDUSD': 'AUD/USD', 'frxUSDCAD': 'USD/CAD', 'frxUSDCHF': 'USD/CHF',
         'frxEURJPY': 'EUR/JPY', 'frxGBPJPY': 'GBP/JPY', 'frxEURGBP': 'EUR/GBP', 'frxAUDJPY': 'AUD/JPY'}
-REGRA_N = {'smc': 'SMC (reteste do order block)', 'tend': 'Tendência EMA 20/50', 'rsi': 'Reversão do RSI', 'romp': 'Rompimento do dia anterior'}
+REGRA_N = {'smc': 'SMC (reteste do order block)', 'tend': 'Tendência EMA 20/50', 'rsi': 'Reversão do RSI', 'romp': 'Rompimento do dia anterior',
+           'lon': 'Rompimento da faixa da Ásia (abertura de Londres)', 'ny': 'Rompimento da 1ª hora de Nova York',
+           'don': 'Rompimento Donchian 55 velas', 'bb': 'Volta para dentro da Bollinger 20/2'}
 TF_N = {3600: '1h', 900: '15m', 300: '5m'}
 
 
@@ -285,13 +288,28 @@ def sinais(B):
     n = len(B)
     cl = [c['c'] for c in B]
     e20, e50, rs = ema(cl, 20), ema(cl, 50), rsi_s(cl, 14)
-    S = {'atr': atr_s(B, 14), 'smc': [0] * n, 'tend': [0] * n, 'rsi': [0] * n, 'romp': [0] * n,
+    S = {'atr': atr_s(B, 14), 'smc': [0] * n, 'tend': [0] * n, 'rsi': [0] * n, 'romp': [0] * n, 'lon': [0] * n, 'ny': [0] * n, 'don': [0] * n, 'bb': [0] * n,
          'slL': [0.0] * n, 'slS': [0.0] * n, 'ses': [0] * n, 'e20': e20, 'e50': e50, 'rs': rs}
     A = smc_analisa(B)
     S['smc'], S['slL'], S['slS'], S['tr'], S['obs'] = A['sig'], A['slL'], A['slS'], A['tr'], A['obs']
     dia = ''
     dH = dL = pH = pL = 0.0
     fezU = fezD = ''
+    aH = aL = nH = nL = None
+    fLU = fLD = fNU = fND = ''
+    bbU = [0.0] * n
+    bbL = [0.0] * n
+    for i in range(n):
+        if i >= 19:
+            sm = 0.0
+            for k in range(i - 19, i + 1):
+                sm += cl[k]
+            m = sm / 20
+            v = 0.0
+            for k in range(i - 19, i + 1):
+                v += (cl[k] - m) * (cl[k] - m)
+            sd = math.sqrt(v / 20)
+            bbU[i], bbL[i] = m + 2 * sd, m - 2 * sd
     for i in range(1, n):
         h = datetime.fromtimestamp(B[i]['t'], tz=timezone.utc)
         d = h.strftime('%Y-%m-%d')
@@ -311,8 +329,45 @@ def sinais(B):
                 pH, pL = dH, dL
             dia = d
             dH, dL = B[i]['h'], B[i]['l']
+            aH = aL = nH = nL = None
         else:
             dH, dL = max(dH, B[i]['h']), min(dL, B[i]['l'])
+        c = B[i]['c']
+        if hr < 7:
+            aH = B[i]['h'] if aH is None else max(aH, B[i]['h'])
+            aL = B[i]['l'] if aL is None else min(aL, B[i]['l'])
+        elif hr < 11 and aH is not None:
+            if c > aH and fLU != d:
+                S['lon'][i] = 1
+                fLU = d
+            elif c < aL and fLD != d:
+                S['lon'][i] = -1
+                fLD = d
+        if hr == 13:
+            nH = B[i]['h'] if nH is None else max(nH, B[i]['h'])
+            nL = B[i]['l'] if nL is None else min(nL, B[i]['l'])
+        elif 14 <= hr < 18 and nH is not None:
+            if c > nH and fNU != d:
+                S['ny'][i] = 1
+                fNU = d
+            elif c < nL and fND != d:
+                S['ny'][i] = -1
+                fND = d
+        if i >= 56:
+            mx = max(B[k]['h'] for k in range(i - 55, i))
+            mx1 = max(B[k]['h'] for k in range(i - 56, i - 1))
+            mn = min(B[k]['l'] for k in range(i - 55, i))
+            mn1 = min(B[k]['l'] for k in range(i - 56, i - 1))
+            if c > mx and B[i - 1]['c'] <= mx1:
+                S['don'][i] = 1
+            elif c < mn and B[i - 1]['c'] >= mn1:
+                S['don'][i] = -1
+            S['dmx'], S['dmn'] = mx, mn
+        if i >= 20:
+            if cl[i - 1] < bbL[i - 1] and c > bbL[i]:
+                S['bb'][i] = 1
+            elif cl[i - 1] > bbU[i - 1] and c < bbU[i]:
+                S['bb'][i] = -1
         if pH and B[i]['c'] > pH and fezU != d:
             S['romp'][i] = 1
             fezU = d
@@ -320,6 +375,7 @@ def sinais(B):
             S['romp'][i] = -1
             fezD = d
     S['pH'], S['pL'] = pH, pL
+    S['aH'], S['aL'], S['nH'], S['nL'], S['bbU'], S['bbL'] = aH, aL, nH, nL, bbU, bbL
     return S
 
 
@@ -818,7 +874,33 @@ PADRAO = [
 K_CFG, K_TOK, K_OPS, K_LOCK, K_LOG = 'mesa:cfg', 'mesa:tok', 'mesa:ops', 'mesa:lock', 'mesa:log'
 # MESA-AGENTES-V2: proteções. stop_dia = perda máxima da mesa no dia (Brasília); stop_ag_dia = por agente;
 # apos_n / apos_pf = com apos_n+ operações reais e fator de lucro abaixo de apos_pf o agente se aposenta sozinho.
-PROT_PADRAO = {'stop_dia': 400.0, 'stop_ag_dia': 160.0, 'apos_n': 30, 'apos_pf': 0.85}
+PROT_PADRAO = {'stop_dia': 400.0, 'stop_ag_dia': 160.0, 'apos_n': 30, 'apos_pf': 0.85,
+               # MESA-AGENTES-V4 diretor: sombra com prom_n+ ops e fator >= prom_pf vira DEMO (até max_demo agentes na demo)
+               'prom_n': 20, 'prom_pf': 1.2, 'max_demo': 10}
+
+
+def auditor(L, bt):
+    """parecer do auditor sobre as operações reais (L) comparadas com o teste da Fábrica (bt)"""
+    n = len(L)
+    if n < 10:
+        return {'nivel': 'cedo', 'txt': '%d operação(ões): cedo para qualquer conclusão (o auditor começa a julgar com 10 e decide com 30).' % n}
+    pl = [o['pl'] for o in L]
+    md = sum(pl) / n
+    sd = math.sqrt(sum((x - md) ** 2 for x in pl) / (n - 1)) if n > 1 else 0
+    tt = md / (sd / math.sqrt(n)) if sd > 0 else 0
+    sorte = 0.5 * math.erfc(tt / math.sqrt(2)) * 100      # chance de um resultado assim (ou melhor) sem vantagem nenhuma
+    pf = fator(L)
+    bpf = float((bt or {}).get('pf') or 0) or None
+    t = '%d ops · fator %.2f · média %+.2f por operação · chance de ser sorte %.0f%%' % (n, pf, md, sorte)
+    if bpf:
+        t += ' · no teste o fator era %.2f' % bpf
+    if pf < 0.9 and n >= 20:
+        return {'nivel': 'ruim', 'txt': t + '. Não está repetindo o teste.', 'sorte': round(sorte, 1)}
+    if pf >= 1.2 and sorte <= 10 and n >= 30:
+        return {'nivel': 'forte', 'txt': t + '. Resultado consistente: candidato a entrada maior.', 'sorte': round(sorte, 1)}
+    if bpf and pf < bpf - 0.4:
+        return {'nivel': 'atencao', 'txt': t + '. Bem abaixo do teste: observar.', 'sorte': round(sorte, 1)}
+    return {'nivel': 'ok', 'txt': t + '.', 'sorte': round(sorte, 1)}
 BRT = timezone(__import__('datetime').timedelta(hours=-3))
 
 
@@ -838,14 +920,14 @@ def _limpa_ag(a, velho=None):
     g = int(a.get('g') or 3600)
     regra = str(a.get('regra') or '')
     if not sym or g not in HOLD or regra not in REGRA_N:
-        raise ValueError('agente precisa de sym, g (3600/900/300) e regra (smc/tend/rsi/romp)')
+        raise ValueError('agente precisa de sym, g (3600/900/300) e regra (%s)' % '/'.join(REGRA_N))
     x = {k: float(v) for k, v in (a.get('x') or {}).items() if k in ('es', 'r', 'a1', 'a2', 'sl', 'tp') and v not in (None, '')}
     if not (x.get('es') or x.get('a1') or (x.get('sl') and x.get('tp'))):
         raise ValueError('saída inválida')
     aid = str(a.get('id') or '%s-%s-%s%s' % (sym[-6:].lower(), regra, TF_N[g], '-s' if a.get('f') else ''))[:40]
     return {'id': aid, 'nome': str(a.get('nome') or ('Agente ' + NOME.get(sym, sym)))[:40], 'sym': sym, 'g': g, 'regra': regra,
             'f': 's' if a.get('f') else '', 'x': x, 'stk': max(1.0, min(2000.0, float(a.get('stk') or 80))), 'mq': int(a.get('mq') or 100),
-            'an': [k for k in (a.get('an') or []) if k in AN_N][:3],
+            'an': [k for k in (a.get('an') or []) if k in AN_N][:3], 'modo': 'sombra' if a.get('modo') == 'sombra' else 'demo',
             'ativo': a.get('ativo', True) is not False, 'bt': a.get('bt') if isinstance(a.get('bt'), dict) else {}, 'criado': a.get('criado') or time.time()}
 
 
@@ -861,6 +943,8 @@ class Mesa(object):
         self.cache_cm = {}    # (sym, stk, mq) -> (mult, comm, t)
         self.ult_ping = 0
         self.supa = 'ainda não usado'
+        self.cache_v = {}     # (sym, g, barra) -> velas (vários agentes no mesmo mercado e tempo baixam 1 vez)
+        self.ult_rel = ''
         threading.Thread(target=self.restaura, daemon=True).start()
         cfg = self.kv.jget(K_CFG)
         if not cfg:
@@ -932,11 +1016,12 @@ class Mesa(object):
         """resultado de hoje (Brasília): fechadas + o que está aberto agora"""
         d = dia_brt(time.time())
         ops = ops if ops is not None else self.kv.lista(K_OPS, 3000)
-        v = sum(o['pl'] for o in ops if dia_brt(o.get('t1') or 0) == d and (aid is None or o.get('ag') == aid))
+        v = sum(o['pl'] for o in ops if not o.get('sombra') and dia_brt(o.get('t1') or 0) == d and (aid is None or o.get('ag') == aid))
         for a in self.cfg().get('agentes') or []:
             if aid is None or a['id'] == aid:
                 po = (self.st.get(a['id']) or {}).get('pos') or {}
-                v += min(0.0, float(po.get('pl') or 0))
+                if not po.get('sombra'):
+                    v += min(0.0, float(po.get('pl') or 0))
         return round(v, 2)
 
     # ---------- laço ----------
@@ -984,6 +1069,7 @@ class Mesa(object):
                     self.analisa(a)
             if time.time() - self.d.ult > 25:
                 self.d.req({'ping': 1}, 10)
+            self.relatorio()
             self.erro = ''
         except DerivErro as e:
             if str(e) == 'TOKEN':
@@ -1016,7 +1102,14 @@ class Mesa(object):
         if s.get('barra') == barra or agora - (barra + 1) * g < 4:
             return
         try:
-            B = self.d.velas(a['sym'], g, 1000)
+            kc = (a['sym'], g, barra)
+            B = self.cache_v.get(kc)
+            if B is None:
+                B = self.d.velas(a['sym'], g, 1000)
+                if len(self.cache_v) > 120:
+                    self.cache_v = {}
+                self.cache_v[kc] = B
+            B = list(B)
         except DerivErro as e:
             s.update({'estado': 'erro', 'txt': 'Deriv recusou as velas: %s' % e, 'barra': barra, 'ta': int(agora)})
             self.grava_st(aid)
@@ -1033,7 +1126,14 @@ class Mesa(object):
             s.update({'estado': 'fechado', 'txt': 'Mercado fechado agora (última vela %s UTC). Volta a analisar quando abrir.' % datetime.fromtimestamp(B[-1]['t'], tz=timezone.utc).strftime('%d/%m %H:%M')})
             self.grava_st(aid)
             return
-        S = sinais(B)
+        fechou_agora = False
+        if s.get('pos') and s['pos'].get('sombra'):
+            fechou_agora = self.anda_sombra(a, s, B) == B[-1]['t']
+        ks = (a['sym'], g, barra, 'S')
+        S = self.cache_v.get(ks)
+        if S is None or len(S['ses']) != len(B):
+            S = sinais(B)          # todos os agentes do mesmo mercado e tempo usam o mesmo cálculo
+            self.cache_v[ks] = S
         i = len(B) - 1
         lado = S[a['regra']][i]
         px = B[i]['c']
@@ -1056,9 +1156,14 @@ class Mesa(object):
                 lado = 0
             else:
                 s['txt'] += ' · analistas de acordo: ' + ', '.join(AN_N[k] for k in a['an'])
+        if lado and a.get('modo') == 'sombra' and fechou_agora:
+            lado = 0          # igual à Fábrica: não entra na mesma vela em que saiu
+        if lado and a.get('modo') == 'sombra':
+            self.entra_sombra(a, s, lado, B[i], S['atr'][i], S['slL'][i] if lado > 0 else S['slS'][i])
+            lado = 0
         if lado:
             pr = self.prot()
-            ops = self.kv.lista(K_OPS, 3000)
+            ops = [o for o in self.kv.lista(K_OPS, 3000) if not o.get('sombra')]
             hm_, ha_ = self.hoje(None, ops), self.hoje(aid, ops)
             if pr['stop_dia'] and hm_ <= -pr['stop_dia']:
                 s['txt'] += ' · STOP DO DIA DA MESA (%.2f): não entra até amanhã' % hm_
@@ -1079,11 +1184,117 @@ class Mesa(object):
             t = 'EMA 20 %s da EMA 50 · espera o preço recuar até a EMA 20 (%.5g) e voltar' % ('acima' if up else 'abaixo', S['e20'][i])
         elif r == 'smc':
             t = 'estrutura %s · %d order block(s) vivo(s) · espera o reteste a favor' % ({1: 'de alta', -1: 'de baixa'}.get(S['tr'], 'indefinida'), S['obs'])
+        elif r == 'lon':
+            t = ('faixa da Ásia hoje %.5g a %.5g · entra se fechar fora entre 07h e 11h UTC' % (S['aH'], S['aL'])) if S.get('aH') is not None else 'esperando a faixa da Ásia (00h–07h UTC) de hoje'
+        elif r == 'ny':
+            t = ('1ª hora de Nova York %.5g a %.5g · entra se fechar fora entre 14h e 18h UTC' % (S['nH'], S['nL'])) if S.get('nH') is not None else 'esperando a 1ª hora de Nova York (13h UTC) de hoje'
+        elif r == 'don':
+            t = 'canal de 55 velas %.5g a %.5g · entra quando fechar fora · preço %.5g' % (S.get('dmx', 0), S.get('dmn', 0), px)
+        elif r == 'bb':
+            t = 'Bollinger %.5g a %.5g · entra quando o preço sai e volta para dentro · preço %.5g' % (S['bbU'][i], S['bbL'][i], px)
         else:
             t = 'máxima de ontem %.5g · mínima de ontem %.5g · preço %.5g' % (S['pH'], S['pL'], px)
         if lado:
             t = ('SINAL DE COMPRA · ' if lado > 0 else 'SINAL DE VENDA · ') + t
         return t
+
+    # ---------- agentes SOMBRA: entram no papel com o preço real da Deriv (sem ordem), mesma conta da Fábrica ----------
+    def entra_sombra(self, a, s, lado, b, atr, slpx):
+        try:
+            mult, comm = self.mult_comm(a)
+        except DerivErro as e:
+            s['txt'] += ' · sem proposta da Deriv (%s)' % e
+            return
+        K = a['stk'] * mult
+        nv = niveis(a['x'], K, a['stk'], comm, b['c'], atr, slpx)
+        if not nv:
+            s['txt'] += ' · stop/alvo não cabem nesta entrada, pulou'
+            return
+        s['pos'] = {'sombra': 1, 'cid': None, 'lado': lado, 'ent': b['c'], 'bi': b['t'], 't': int(time.time()), 'stk': a['stk'], 'mult': mult, 'comm': comm,
+                    'K': K, 'slD': nv['slD'], 'tpD': nv['tpD'], 'sl': nv['sl'], 'tp': nv['tp'], 'velas': 0, 'venc': int(time.time()) + HOLD[a['g']] * a['g'], 'pl': 0.0}
+        s['estado'] = 'posicionado'
+        self.nota('%s (sombra) entrou %s em %s · stop $%.2f · alvo $%.2f' % (a['nome'], 'COMPRA' if lado > 0 else 'VENDA', NOME.get(a['sym'], a['sym']), nv['sl'], nv['tp']))
+
+    def anda_sombra(self, a, s, B):
+        p = s['pos']
+        ent, lado, hold = p['ent'], p['lado'], HOLD[a['g']]
+        novas = [b for b in B if b['t'] > p['bi'] and b['t'] > p.get('vista', 0)]
+        for b in novas:
+            p['vista'] = b['t']
+            p['velas'] = p.get('velas', 0) + 1
+            adv = (ent - b['l']) / ent if lado > 0 else (b['h'] - ent) / ent
+            fav = (b['h'] - ent) / ent if lado > 0 else (ent - b['l']) / ent
+            pl, mot = None, ''
+            if adv >= p['slD']:
+                pl, mot = -p['sl'], 'stop'
+            elif fav >= p['tpD']:
+                pl, mot = p['tp'], 'alvo'
+            elif p['velas'] >= hold:
+                pl, mot = p['K'] * lado * (b['c'] / ent - 1) - p['comm'], 'tempo'
+            if pl is not None:
+                op = {'id': 'S%s-%d' % (a['id'], p['bi']), 'ag': a['id'], 'nome': a['nome'], 'sym': a['sym'], 'g': a['g'], 'regra': a['regra'], 'lado': lado,
+                      'stk': p['stk'], 'mult': p['mult'], 'ent': ent, 'sai': b['c'], 't0': p['t'], 't1': int(b['t'] + a['g']), 'pl': round(pl, 2), 'motivo': mot, 'sombra': 1}
+                self.kv.push(K_OPS, op)
+                self.copia(op)
+                s.pop('pos', None)
+                s['estado'] = 'analisando'
+                self.nota('%s (sombra) fechou %s em %s: %s%.2f (%s)' % (a['nome'], 'compra' if lado > 0 else 'venda', NOME.get(a['sym'], a['sym']), '+' if pl >= 0 else '−', abs(pl), mot))
+                self.diretor(a)
+                return b['t']
+        p['pl'] = round(p['K'] * lado * (B[-1]['c'] / ent - 1) - p['comm'], 2)
+
+    # ---------- DIRETOR: promove sombra boa para a demo, aposenta quem não repete o teste ----------
+    def diretor(self, a):
+        try:
+            pr = self.prot()
+            c = self.cfg()
+            x = [y for y in c.get('agentes') or [] if y['id'] == a['id']]
+            if not x:
+                return
+            x = x[0]
+            todas = self.kv.lista(K_OPS, 8000)
+            Ls = [o for o in todas if o.get('ag') == a['id'] and o.get('sombra')]
+            Ld = [o for o in todas if o.get('ag') == a['id'] and not o.get('sombra')]
+            ndemo = len([y for y in c['agentes'] if y.get('ativo') and y.get('modo', 'demo') == 'demo'])
+            if x.get('modo') == 'sombra':
+                if len(Ls) >= int(pr['prom_n']) and fator(Ls) >= float(pr['prom_pf']) and sum(o['pl'] for o in Ls) > 0:
+                    if ndemo < int(pr['max_demo']):
+                        x['modo'] = 'demo'
+                        x['promovido'] = {'t': int(time.time()), 'n': len(Ls), 'pf': round(fator(Ls), 2)}
+                        self.salva(c)
+                        self.nota('DIRETOR: %s PROMOVIDO para a demo (%d operações na sombra, fator %.2f)' % (x['nome'], len(Ls), fator(Ls)))
+                    return
+                if len(Ls) >= int(pr['apos_n']) and fator(Ls) < float(pr['apos_pf']):
+                    x['ativo'] = False
+                    x['aposentado'] = {'t': int(time.time()), 'n': len(Ls), 'pf': round(fator(Ls), 2), 'sum': round(sum(o['pl'] for o in Ls), 2), 'sombra': 1}
+                    self.salva(c)
+                    self.nota('DIRETOR: %s aposentado na sombra (%d operações, fator %.2f)' % (x['nome'], len(Ls), fator(Ls)))
+            else:
+                if pr['apos_n'] and len(Ld) >= int(pr['apos_n']) and fator(Ld) < float(pr['apos_pf']):
+                    x['ativo'] = False
+                    x['aposentado'] = {'t': int(time.time()), 'n': len(Ld), 'pf': round(fator(Ld), 2), 'sum': round(sum(o['pl'] for o in Ld), 2)}
+                    self.salva(c)
+                    s = self.st_ag(a['id'])
+                    s['estado'] = 'aposentado'
+                    s['txt'] = 'Aposentado pelo diretor: %d operações reais com fator %.2f (abaixo de %.2f).' % (len(Ld), fator(Ld), pr['apos_pf'])
+                    self.grava_st(a['id'])
+                    self.nota('DIRETOR: %s APOSENTADO: %d operações, fator %.2f, %s%.2f' % (x['nome'], len(Ld), fator(Ld), '+' if sum(o['pl'] for o in Ld) >= 0 else '−', abs(sum(o['pl'] for o in Ld))))
+        except Exception as e:
+            log('diretor:', e)
+
+    def relatorio(self):
+        """AUDITOR: relatório do dia às 21h de Brasília, no feed"""
+        agora = datetime.now(BRT)
+        chave = agora.strftime('%Y-%m-%d')
+        if agora.hour < 21 or self.ult_rel == chave or self.kv.get('mesa:rel') == chave:
+            return
+        self.ult_rel = chave
+        self.kv.set('mesa:rel', chave, ex=2 * 86400)
+        ops = [o for o in self.kv.lista(K_OPS, 3000) if dia_brt(o.get('t1') or 0) == chave]
+        d = [o for o in ops if not o.get('sombra')]
+        sb = [o for o in ops if o.get('sombra')]
+        self.nota('AUDITOR · relatório de hoje: demo %d operações %+.2f (acerto %s) · sombra %d operações %+.2f' % (
+            len(d), sum(o['pl'] for o in d), ('%d%%' % round(100 * len([o for o in d if o['pl'] > 0]) / len(d))) if d else '—', len(sb), sum(o['pl'] for o in sb)))
 
     def mult_comm(self, a):
         k = (a['sym'], a['stk'], a['mq'])
@@ -1184,22 +1395,7 @@ class Mesa(object):
         s['estado'] = 'analisando'
         s['ultop'] = op
         self.nota('%s fechou %s em %s: %s%.2f (%s)' % (a['nome'], 'compra' if p['lado'] > 0 else 'venda', NOME.get(a['sym'], a['sym']), '+' if pl >= 0 else '−', abs(pl), mot))
-        # MESA-AGENTES-V2: aposentadoria automática
-        try:
-            pr = self.prot()
-            L = [o for o in self.kv.lista(K_OPS, 5000) if o.get('ag') == a['id']]
-            if pr['apos_n'] and len(L) >= int(pr['apos_n']) and fator(L) < float(pr['apos_pf']):
-                c = self.cfg()
-                for x in c.get('agentes') or []:
-                    if x['id'] == a['id']:
-                        x['ativo'] = False
-                        x['aposentado'] = {'t': int(time.time()), 'n': len(L), 'pf': round(fator(L), 2), 'sum': round(sum(o['pl'] for o in L), 2)}
-                self.salva(c)
-                s['estado'] = 'aposentado'
-                s['txt'] = 'Aposentado: %d operações reais com fator %.2f (abaixo de %.2f). Fica no descanso; o admin pode religar.' % (len(L), fator(L), pr['apos_pf'])
-                self.nota('%s APOSENTADO: %d operações, fator %.2f, %s%.2f' % (a['nome'], len(L), fator(L), '+' if sum(o['pl'] for o in L) >= 0 else '−', abs(sum(o['pl'] for o in L))))
-        except Exception as e:
-            log('aposentadoria:', e)
+        self.diretor(a)   # MESA-AGENTES-V4: aposentadoria pelo diretor
 
     # ---------- para o Escritório ----------
     def estado(self):
@@ -1208,12 +1404,17 @@ class Mesa(object):
         hb = float(self.kv.get('mesa:hb') or 0)
         ags = []
         tot = {'n': 0, 'w': 0, 'sum': 0.0}
+        tsb = {'n': 0, 'sum': 0.0}
         for a in c.get('agentes') or []:
             s = self.st.get(a['id']) if self.lider else None
             if s is None:
                 s = self.kv.jget('mesa:st:' + a['id']) or {}
-            L = [o for o in ops if o.get('ag') == a['id']]
+            LS = [o for o in ops if o.get('ag') == a['id'] and o.get('sombra')]
+            LS.reverse()
+            L = [o for o in ops if o.get('ag') == a['id'] and not o.get('sombra')]
             L.reverse()
+            if a.get('modo') == 'sombra':
+                L, LS = LS, L          # na sombra o placar principal é o virtual
             eq = pico = dd = 0.0
             w = 0
             curva = [0]
@@ -1226,20 +1427,27 @@ class Mesa(object):
             pl = {'n': len(L), 'w': w, 'sum': round(eq, 2), 'dd': round(dd, 2), 'curva': curva[-200:], 'pf': round(fator(L), 2) if L else None,
                   'hoje': round(sum(o['pl'] for o in L if dia_brt(o.get('t1') or 0) == dia_brt(time.time())), 2)}
             pr = self.prot()
-            etapa = 'aposentado' if not a.get('ativo') else ('em teste' if len(L) < int(pr['apos_n']) else 'aprovado' if fator(L) >= 1.1 else 'em observação')
-            tot['n'] += len(L)
-            tot['w'] += w
-            tot['sum'] += eq
+            etapa = 'aposentado' if not a.get('ativo') else 'sombra' if a.get('modo') == 'sombra' else ('em teste' if len(L) < int(pr['apos_n']) else 'aprovado' if fator(L) >= 1.1 else 'em observação')
+            if a.get('modo') != 'sombra':
+                tot['n'] += len(L)
+                tot['w'] += w
+                tot['sum'] += eq
+            else:
+                tsb['n'] += len(L)
+                tsb['sum'] += eq
             x = dict(a)
             x.update({'mercado': NOME.get(a['sym'], a['sym']), 'tf': TF_N.get(a['g'], ''), 'regra_n': REGRA_N.get(a['regra'], a['regra']),
                       'saida': saida_nome(a['x']), 'analistas': [AN_N[k] for k in (a.get('an') or []) if k in AN_N], 'st': {k: v for k, v in s.items() if k != 'ultop'}, 'placar': pl,
-                      'ult': [o for o in L[-12:]][::-1], 'etapa': etapa})
+                      'ult': [o for o in L[-12:]][::-1], 'etapa': etapa, 'auditor': auditor(L, a.get('bt')),
+                      'outro': {'n': len(LS), 'sum': round(sum(o['pl'] for o in LS), 2)}})
             ags.append(x)
         tot['sum'] = round(tot['sum'], 2)
+        tsb['sum'] = round(tsb['sum'], 2)
+        ops = [o for o in ops if not o.get('sombra')]
         conta = c.get('conta') or ''
         return {'versao': VERSAO, 'ligada': bool(c.get('ligada')), 'conectada': bool(self.kv.get(K_TOK)), 'conta': (conta[:3] + '…' + conta[-3:]) if conta else '',
                 'vivo': time.time() - hb < 90, 'hb': int(hb), 'erro': self.erro, 'agentes': ags, 'total': tot, 'agora': int(time.time()),
-                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis, 'prot': self.prot(), 'hoje': self.hoje(None, ops), 'supabase': self.supa}
+                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis, 'prot': self.prot(), 'hoje': self.hoje(None, ops), 'supabase': self.supa, 'sombra': tsb}
 
 
 def register_mesa(app):
@@ -1334,12 +1542,41 @@ def register_mesa(app):
             a = _limpa_ag(d, velho[0] if velho else None)
         except Exception as e:
             return jsonify({'ok': False, 'erro': str(e)}), 400
-        if not velho and len(L) >= 16:
-            return jsonify({'ok': False, 'erro': 'a mesa já tem 16 agentes; remova um antes'}), 400
+        if not velho and len(L) >= 48:
+            return jsonify({'ok': False, 'erro': 'a mesa já tem 48 agentes; remova um antes'}), 400
         c['agentes'] = [x for x in L if x['id'] != a['id']] + [a]
         mesa.salva(c)
         mesa.nota('agente %s %s' % (a['nome'], 'atualizado' if velho else 'entrou na mesa'))
         return jsonify({'ok': True, 'agente': a})
+
+    @app.route('/api/mesa/candidatos', methods=['POST'])
+    def _mcand():
+        """MESA-AGENTES-V4: várias regras da Fábrica de uma vez, como SOMBRA (o diretor promove as boas)"""
+        if not ok_admin():
+            return negado()
+        lista = (request.get_json(silent=True) or {}).get('lista') or []
+        c = mesa.cfg()
+        L = c.get('agentes') or []
+        ids = {x['id'] for x in L}
+        novos, erros = 0, []
+        for d in lista[:40]:
+            if len(L) >= 48:
+                erros.append('mesa cheia (48 agentes)')
+                break
+            try:
+                d = dict(d, modo='sombra')
+                a = _limpa_ag(d)
+                if a['id'] in ids:
+                    continue
+                L.append(a)
+                ids.add(a['id'])
+                novos += 1
+            except Exception as e:
+                erros.append(str(e)[:80])
+        c['agentes'] = L
+        mesa.salva(c)
+        mesa.nota('%d candidato(s) entraram como SOMBRA (o diretor promove para a demo quem fizer %d+ operações com fator >= %.2f)' % (novos, mesa.prot()['prom_n'], mesa.prot()['prom_pf']))
+        return jsonify({'ok': True, 'novos': novos, 'erros': erros[:5]})
 
     @app.route('/api/mesa/agente/remover', methods=['POST'])
     def _mr():
