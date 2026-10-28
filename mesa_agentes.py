@@ -22,7 +22,8 @@ import os, io, json, time, math, gzip, uuid, lzma, struct, zipfile, threading, t
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V2'  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
+VERSAO = 'MESA-AGENTES-V3'  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
+# V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 HOLD = {3600: 72, 900: 288, 300: 864}
@@ -320,6 +321,40 @@ def sinais(B):
             fezD = d
     S['pH'], S['pL'] = pH, pL
     return S
+
+
+AN_N = {'tf': 'tendência maior a favor (EMA 200)', 'vA': 'volatilidade alta', 'vB': 'volatilidade baixa', 'mom': 'momento a favor (24 velas)', 'dia': 'sem segunda e sexta'}
+
+
+def analistas(B):
+    """global-fabrica.js V5 analistas(B)"""
+    n = len(B)
+    cl = [c['c'] for c in B]
+    e200 = ema(cl, 200)
+    at = atr_s(B, 14)
+    r = [at[i] / cl[i] if cl[i] > 0 else 0 for i in range(n)]
+    pct = [0.0] * n
+    wd = [0] * n
+    for i in range(n):
+        a = max(0, i - 499)
+        ri = r[i]
+        pct[i] = sum(1 for j in range(a, i + 1) if r[j] <= ri) / (i - a + 1)
+        wd[i] = (datetime.fromtimestamp(B[i]['t'], tz=timezone.utc).weekday() + 1) % 7   # 0 = domingo, como getUTCDay
+    return {'e200': e200, 'pct': pct, 'wd': wd, 'cl': cl}
+
+
+def passa(A, k, i, lado):
+    if k == 'tf':
+        return A['cl'][i] > A['e200'][i] if lado > 0 else A['cl'][i] < A['e200'][i]
+    if k == 'vA':
+        return A['pct'][i] >= 0.5
+    if k == 'vB':
+        return A['pct'][i] < 0.5
+    if k == 'mom':
+        return i >= 24 and lado * (A['cl'][i] - A['cl'][i - 24]) > 0
+    if k == 'dia':
+        return A['wd'][i] not in (1, 5)
+    return True
 
 
 def niveis(x, K, stk, comm, ent, atr, slPx):
@@ -696,6 +731,21 @@ class Deriv(object):
         return [{'t': int(c['epoch']), 'o': float(c['open']), 'h': float(c['high']), 'l': float(c['low']), 'c': float(c['close'])} for c in (r.get('candles') or [])]
 
 
+# ════════════════════════ cópia do placar no Supabase (tabela mesa_ops) ════════════════════════
+def _supa(path, method='GET', body=None, extra=None):
+    url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    key = os.environ.get('SUPABASE_KEY', '')
+    if not url or not key:
+        raise RuntimeError('SUPABASE_URL/SUPABASE_KEY não definidas')
+    h = {'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'}
+    if extra:
+        h.update(extra)
+    rq = urllib.request.Request(url + '/rest/v1/' + path, data=json.dumps(body).encode() if body is not None else None, headers=h, method=method)
+    with urllib.request.urlopen(rq, timeout=15) as r:
+        t = r.read().decode()
+        return json.loads(t) if t else None
+
+
 # ════════════════════════ a mesa ════════════════════════
 PADRAO = [
     {'id': 'btc-smc-1h', 'nome': 'Agente Satoshi', 'sym': 'cryBTCUSD', 'g': 3600, 'regra': 'smc', 'f': '', 'x': {'es': 1, 'r': 1.5}},
@@ -735,6 +785,7 @@ def _limpa_ag(a, velho=None):
     aid = str(a.get('id') or '%s-%s-%s%s' % (sym[-6:].lower(), regra, TF_N[g], '-s' if a.get('f') else ''))[:40]
     return {'id': aid, 'nome': str(a.get('nome') or ('Agente ' + NOME.get(sym, sym)))[:40], 'sym': sym, 'g': g, 'regra': regra,
             'f': 's' if a.get('f') else '', 'x': x, 'stk': max(1.0, min(2000.0, float(a.get('stk') or 80))), 'mq': int(a.get('mq') or 100),
+            'an': [k for k in (a.get('an') or []) if k in AN_N][:3],
             'ativo': a.get('ativo', True) is not False, 'bt': a.get('bt') if isinstance(a.get('bt'), dict) else {}, 'criado': a.get('criado') or time.time()}
 
 
@@ -749,6 +800,8 @@ class Mesa(object):
         self.lider = False
         self.cache_cm = {}    # (sym, stk, mq) -> (mult, comm, t)
         self.ult_ping = 0
+        self.supa = 'ainda não usado'
+        threading.Thread(target=self.restaura, daemon=True).start()
         cfg = self.kv.jget(K_CFG)
         if not cfg:
             cfg = {'ligada': False, 'conta': '', 'agentes': [_limpa_ag(a) for a in PADRAO]}
@@ -775,6 +828,40 @@ class Mesa(object):
 
     def grava_st(self, aid):
         self.kv.jset('mesa:st:' + aid, self.st.get(aid) or {})
+
+    def copia(self, op):
+        def _vai():
+            try:
+                _supa('mesa_ops?on_conflict=id', 'POST', {'id': op['id'], 'ag': op['ag'], 't1': op['t1'], 'reg': op},
+                      {'Prefer': 'resolution=merge-duplicates,return=minimal'})
+                self.supa = 'ok'
+            except Exception as e:
+                self.supa = 'falhou: %s' % str(e)[:120]
+                log('Supabase mesa_ops:', e)
+        threading.Thread(target=_vai, daemon=True).start()
+
+    def restaura(self):
+        """se o Redis perdeu o placar (reinício), traz de volta do Supabase"""
+        try:
+            time.sleep(5)
+            if self.kv.lista(K_OPS, 1):
+                return
+            if not self.kv.trava('mesa:restaura', self.dono, 300):
+                return
+            L, ini = [], 0
+            while ini < 50000:
+                lote = _supa('mesa_ops?select=reg&order=t1.asc&offset=%d&limit=1000' % ini) or []
+                L += [x.get('reg') for x in lote if x.get('reg')]
+                if len(lote) < 1000:
+                    break
+                ini += 1000
+            for op in L:
+                self.kv.push(K_OPS, op)
+            self.supa = 'ok (restaurou %d operações)' % len(L)
+            if L:
+                log('placar restaurado do Supabase: %d operações' % len(L))
+        except Exception as e:
+            self.supa = 'falhou: %s' % str(e)[:120]
 
     def prot(self):
         p = dict(PROT_PADRAO)
@@ -900,6 +987,15 @@ class Mesa(object):
         if lado and a.get('f') == 's' and not S['ses'][i]:
             s['txt'] += ' · sinal fora do horário 07–17h UTC, não entra'
             lado = 0
+        if lado and a.get('an'):
+            A = analistas(B)
+            j = len(B) - 1
+            contra = [AN_N[k] for k in a['an'] if not passa(A, k, j, lado)]
+            if contra:
+                s['txt'] += ' · analista discordou (%s), não entra' % ', '.join(contra)
+                lado = 0
+            else:
+                s['txt'] += ' · analistas de acordo: ' + ', '.join(AN_N[k] for k in a['an'])
         if lado:
             pr = self.prot()
             ops = self.kv.lista(K_OPS, 3000)
@@ -1023,6 +1119,7 @@ class Mesa(object):
               'stk': p['stk'], 'mult': p['mult'], 'ent': p['ent'], 'sai': float(q.get('exit_tick') or q.get('current_spot') or 0),
               't0': p['t'], 't1': int(q.get('sell_time') or time.time()), 'pl': pl, 'motivo': mot}
         self.kv.push(K_OPS, op)
+        self.copia(op)
         s.pop('pos', None)
         s['estado'] = 'analisando'
         s['ultop'] = op
@@ -1075,14 +1172,14 @@ class Mesa(object):
             tot['sum'] += eq
             x = dict(a)
             x.update({'mercado': NOME.get(a['sym'], a['sym']), 'tf': TF_N.get(a['g'], ''), 'regra_n': REGRA_N.get(a['regra'], a['regra']),
-                      'saida': saida_nome(a['x']), 'st': {k: v for k, v in s.items() if k != 'ultop'}, 'placar': pl,
+                      'saida': saida_nome(a['x']), 'analistas': [AN_N[k] for k in (a.get('an') or []) if k in AN_N], 'st': {k: v for k, v in s.items() if k != 'ultop'}, 'placar': pl,
                       'ult': [o for o in L[-12:]][::-1], 'etapa': etapa})
             ags.append(x)
         tot['sum'] = round(tot['sum'], 2)
         conta = c.get('conta') or ''
         return {'versao': VERSAO, 'ligada': bool(c.get('ligada')), 'conectada': bool(self.kv.get(K_TOK)), 'conta': (conta[:3] + '…' + conta[-3:]) if conta else '',
                 'vivo': time.time() - hb < 90, 'hb': int(hb), 'erro': self.erro, 'agentes': ags, 'total': tot, 'agora': int(time.time()),
-                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis, 'prot': self.prot(), 'hoje': self.hoje(None, ops)}
+                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis, 'prot': self.prot(), 'hoje': self.hoje(None, ops), 'supabase': self.supa}
 
 
 def register_mesa(app):
