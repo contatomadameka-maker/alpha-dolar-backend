@@ -410,7 +410,8 @@ HL_DONO = uuid.uuid4().hex[:10]
 UA = {'User-Agent': 'Mozilla/5.0 (AlphaDolar Fabrica)'}
 
 
-HL_SEM = threading.BoundedSemaphore(4)   # no máximo 4 downloads ao mesmo tempo por processo
+HL_SEM = threading.BoundedSemaphore(2)   # V3.2: no máximo 2 downloads ao mesmo tempo (a Dukascopy devolve 503 se pedir muito)
+HL_FILA = threading.Lock()                # V3.2: um mercado da Dukascopy por vez
 
 
 def _baixa(url, to=20):
@@ -473,23 +474,33 @@ def _duka(sym, prog):
     # MESA-AGENTES-V3: 6 downloads ao mesmo tempo (antes era 1 por vez e a Fábrica desistia)
     from concurrent.futures import ThreadPoolExecutor
 
+    falhou = []
+
     def um(ym):
         y, m = ym
-        for tent in range(3):
+        for tent in range(6):
             try:
-                return _duka_mes(ins, y, m)
+                L = _duka_mes(ins, y, m)
+                time.sleep(0.4)
+                return L
             except Exception as e:
-                if tent == 2:
+                if tent == 5:
                     log('Dukascopy %s %d-%02d falhou: %s' % (ins, y, m, e))
                     prog(None, None, None, erro='%d-%02d: %s' % (y, m, str(e)[:80]))
-                time.sleep(2 + 2 * tent)
+                    falhou.append('%d-%02d' % (y, m))
+                time.sleep((20 if '503' in str(e) or '429' in str(e) else 3) * (tent + 1))
         return []
     linhas, feito = [], [0]
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        for L in ex.map(um, meses):
-            linhas += L
-            feito[0] += 1
-            prog(feito[0], len(meses), 'Dukascopy %s' % ins)
+    prog(0, len(meses), 'na fila (um mercado por vez)')
+    with HL_FILA:
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            for L in ex.map(um, meses):
+                linhas += L
+                feito[0] += 1
+                prog(feito[0], len(meses), 'Dukascopy %s' % ins)
+    if falhou:
+        # V3.2: nunca guarda histórico com buraco
+        raise RuntimeError('a Dukascopy recusou %d mês(es) (%s). Nada foi guardado; tente de novo em 1 hora.' % (len(falhou), ', '.join(falhou[:4])))
     f = _duka_escala(ins, linhas)
     return [[r[0], r[1] / f, r[2] / f, r[3] / f, r[4] / f] for r in linhas], 'Dukascopy'
 
@@ -596,7 +607,7 @@ def _hl_job(sym, g):
         st.update({'status': 'pronto', 'pct': 100, 'msg': '%s: %d velas' % (fonte, len(lim))})
         if HL_KV is not None:
             with open(_hl_path(sym, g), 'rb') as f:
-                HL_KV.set('mesa:hlgz:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=5 * 86400)
+                HL_KV.set('mesa:hlgz2:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=5 * 86400)
             HL_KV.delete('mesa:hl:%s' % sym)
             HL_KV.delete('mesa:hlt:%s' % sym)
         log('historico longo %s pronto: %s %d velas desde %s' % (sym, fonte, len(lim), datetime.fromtimestamp(lim[0][0], tz=timezone.utc).date()))
@@ -618,7 +629,7 @@ def hist_longo(sym, g):
     key = (sym, g)
     # MESA-AGENTES-V3: o resultado fica também no Redis (todos os servidores enxergam e sobrevive ao deploy)
     if HL_KV is not None:
-        b = HL_KV.get('mesa:hlgz:%s' % sym)
+        b = HL_KV.get('mesa:hlgz2:%s' % sym)
         if b:
             try:
                 os.makedirs(HL_DIR, exist_ok=True)
@@ -654,7 +665,7 @@ def hist_status():
     out = {'servidor': HOST}
     for sym in ['cryBTCUSD', 'cryETHUSD', 'frxXAUUSD', 'frxXAGUSD', 'frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']:
         rs = HL_KV.jget('mesa:hl:%s' % sym) if HL_KV is not None else None
-        out[sym] = {'arquivo_aqui': os.path.exists(_hl_path(sym, 3600)), 'copia_redis': bool(HL_KV is not None and HL_KV.get('mesa:hlgz:%s' % sym)),
+        out[sym] = {'arquivo_aqui': os.path.exists(_hl_path(sym, 3600)), 'copia_redis': bool(HL_KV is not None and HL_KV.get('mesa:hlgz2:%s' % sym)),
                     'download': {k: v for k, v in (rs or {}).items() if k in ('status', 'pct', 'msg', 'falhas', 'ult_erro', 'host', 'erro')} or None}
     return out
 
