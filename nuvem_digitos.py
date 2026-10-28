@@ -20,11 +20,37 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.2'  # V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.3'  # V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
 K_LISTA, K_MOTOR = 'nuvem_dig:lista', 'nuvem_dig:motor'
+PIP = {'R_10': 3, 'R_25': 3, 'R_50': 4, 'R_75': 4, 'R_100': 2, '1HZ10V': 2, '1HZ25V': 2, '1HZ50V': 2, '1HZ75V': 2, '1HZ100V': 2}
+DIG_VISTO = {}   # V1.3: sym -> {epoch: dígito} dos últimos ticks que a sala leu
+
+
+def digito_saida(q, sym):
+    """V1.3: a API nova nem sempre manda exit_tick_display_value; float perde o zero do fim (1234.50 -> 1234.5)"""
+    for k in ('exit_tick_display_value', 'exit_spot_display_value', 'sell_spot_display_value'):
+        v = q.get(k)
+        if v not in (None, ''):
+            n = ''.join(ch for ch in str(v) if ch.isdigit())
+            if n:
+                return int(n[-1])
+    ep = q.get('exit_tick_time') or q.get('sell_spot_time') or q.get('date_expiry')
+    try:
+        d = (DIG_VISTO.get(sym) or {}).get(int(ep))
+        if d is not None:
+            return int(d)
+    except Exception:
+        pass
+    for k in ('exit_tick', 'exit_spot', 'sell_spot'):
+        try:
+            f = float(q.get(k))
+            return int(round(abs(f) * 10 ** PIP.get(sym, 2))) % 10
+        except Exception:
+            pass
+    return None
 PARA = {'pausa': False}
 CONFERE_ESPERA = 2      # segundos antes de perguntar à Deriv o resultado do contrato
 
@@ -271,7 +297,7 @@ class Pessoa(object):
                     fechados.append((p, None, None))
                 continue
             if q.get('is_sold') or q.get('status') in ('won', 'lost', 'sold'):
-                fechados.append((p, r2(float(q.get('profit') or 0)), str(q.get('exit_tick_display_value') or q.get('exit_tick') or '')[-1:] or None))
+                fechados.append((p, r2(float(q.get('profit') or 0)), digito_saida(q, p['sym'])))
         if not fechados:
             return
         with self.nv.trava(self.conta):
@@ -417,6 +443,14 @@ def register_nuvem_digitos(app):
             def on_tick(self, sym, d, ep, _o=orig):
                 r = _o(self, sym, d, ep)
                 try:
+                    try:
+                        m = DIG_VISTO.setdefault(sym, {})
+                        m[int(ep)] = int(d)
+                        if len(m) > 400:
+                            for e in sorted(m)[:200]:
+                                m.pop(e, None)
+                    except Exception:
+                        pass
                     nv.no_tick(self, sym, ep)
                 except Exception as e:
                     log('no_tick', e)
