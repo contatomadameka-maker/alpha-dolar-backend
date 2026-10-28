@@ -3985,3 +3985,11 @@ try:
     register_mesa(app)
 except Exception as _e_mesa:
     print('[Mesa] nao registrou:', _e_mesa)
+
+
+# NUVEM-DIGITOS-V1: o Alpha Digitos segue a Sala de Sinais no servidor (funciona com o celular fechado)
+try:
+    from nuvem_digitos import register_nuvem_digitos
+    register_nuvem_digitos(app)
+except Exception as _e_nuvem:
+    print('[NuvemDig] nao registrou:', _e_nuvem)

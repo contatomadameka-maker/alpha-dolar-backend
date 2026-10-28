@@ -466,7 +466,7 @@ HL_DONO = uuid.uuid4().hex[:10]
 UA = {'User-Agent': 'Mozilla/5.0 (AlphaDolar Fabrica)'}
 
 
-HL_SEM = threading.BoundedSemaphore(2)   # V3.2: no máximo 2 downloads ao mesmo tempo (a Dukascopy devolve 503 se pedir muito)
+HL_SEM = threading.BoundedSemaphore(1)   # V3.2: no máximo 2 downloads ao mesmo tempo (a Dukascopy devolve 503 se pedir muito)
 HL_FILA = threading.Lock()                # V3.2: um mercado da Dukascopy por vez
 
 
@@ -537,19 +537,19 @@ def _duka(sym, prog):
         for tent in range(6):
             try:
                 L = _duka_mes(ins, y, m)
-                time.sleep(0.4)
+                time.sleep(1.0)        # V4: um pedido por segundo (a Dukascopy devolve 503 se pedir rápido)
                 return L
             except Exception as e:
                 if tent == 5:
                     log('Dukascopy %s %d-%02d falhou: %s' % (ins, y, m, e))
                     prog(None, None, None, erro='%d-%02d: %s' % (y, m, str(e)[:80]))
                     falhou.append('%d-%02d' % (y, m))
-                time.sleep((20 if '503' in str(e) or '429' in str(e) else 3) * (tent + 1))
+                time.sleep(60 if ('503' in str(e) or '429' in str(e)) else 3 * (tent + 1))
         return []
     linhas, feito = [], [0]
     prog(0, len(meses), 'na fila (um mercado por vez)')
     with HL_FILA:
-        with ThreadPoolExecutor(max_workers=2) as ex:
+        with ThreadPoolExecutor(max_workers=1) as ex:
             for L in ex.map(um, meses):
                 linhas += L
                 feito[0] += 1
@@ -663,7 +663,7 @@ def _hl_job(sym, g):
         st.update({'status': 'pronto', 'pct': 100, 'msg': '%s: %d velas' % (fonte, len(lim))})
         if HL_KV is not None:
             with open(_hl_path(sym, g), 'rb') as f:
-                HL_KV.set('mesa:hlgz2:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=5 * 86400)
+                HL_KV.set('mesa:hlgz2:%s' % sym, base64.b64encode(gzip.compress(f.read(), 6)).decode(), ex=30 * 86400)
             HL_KV.delete('mesa:hl:%s' % sym)
             HL_KV.delete('mesa:hlt:%s' % sym)
         log('historico longo %s pronto: %s %d velas desde %s' % (sym, fonte, len(lim), datetime.fromtimestamp(lim[0][0], tz=timezone.utc).date()))
@@ -680,7 +680,7 @@ def hist_longo(sym, g):
     if sym not in BINA and sym not in DUKA:
         return {'status': 'sem_fonte', 'erro': 'sem fonte externa para ' + sym}
     p = _hl_path(sym, g)
-    if os.path.exists(p) and time.time() - os.path.getmtime(p) < 5 * 86400:
+    if os.path.exists(p) and time.time() - os.path.getmtime(p) < 30 * 86400:
         return {'status': 'pronto', 'arquivo': p}
     key = (sym, g)
     # MESA-AGENTES-V3: o resultado fica também no Redis (todos os servidores enxergam e sobrevive ao deploy)
