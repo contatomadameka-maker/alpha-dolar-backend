@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, struct, zipfile, threading, t
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V1'
+VERSAO = 'MESA-AGENTES-V2'  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 HOLD = {3600: 72, 900: 288, 300: 864}
@@ -706,6 +706,20 @@ PADRAO = [
     {'id': 'eur-rsi-15m', 'nome': 'Agente Euro', 'sym': 'frxEURUSD', 'g': 900, 'regra': 'rsi', 'f': '', 'x': {'a1': 1.5, 'a2': 3}},
 ]
 K_CFG, K_TOK, K_OPS, K_LOCK, K_LOG = 'mesa:cfg', 'mesa:tok', 'mesa:ops', 'mesa:lock', 'mesa:log'
+# MESA-AGENTES-V2: proteções. stop_dia = perda máxima da mesa no dia (Brasília); stop_ag_dia = por agente;
+# apos_n / apos_pf = com apos_n+ operações reais e fator de lucro abaixo de apos_pf o agente se aposenta sozinho.
+PROT_PADRAO = {'stop_dia': 400.0, 'stop_ag_dia': 160.0, 'apos_n': 30, 'apos_pf': 0.85}
+BRT = timezone(__import__('datetime').timedelta(hours=-3))
+
+
+def dia_brt(t):
+    return datetime.fromtimestamp(t, tz=BRT).strftime('%Y-%m-%d')
+
+
+def fator(L):
+    g = sum(o['pl'] for o in L if o['pl'] > 0)
+    p = -sum(o['pl'] for o in L if o['pl'] <= 0)
+    return g / p if p > 0 else (99.0 if g > 0 else 0.0)
 
 
 def _limpa_ag(a, velho=None):
@@ -761,6 +775,22 @@ class Mesa(object):
 
     def grava_st(self, aid):
         self.kv.jset('mesa:st:' + aid, self.st.get(aid) or {})
+
+    def prot(self):
+        p = dict(PROT_PADRAO)
+        p.update({k: v for k, v in (self.cfg().get('prot') or {}).items() if k in PROT_PADRAO})
+        return p
+
+    def hoje(self, aid=None, ops=None):
+        """resultado de hoje (Brasília): fechadas + o que está aberto agora"""
+        d = dia_brt(time.time())
+        ops = ops if ops is not None else self.kv.lista(K_OPS, 3000)
+        v = sum(o['pl'] for o in ops if dia_brt(o.get('t1') or 0) == d and (aid is None or o.get('ag') == aid))
+        for a in self.cfg().get('agentes') or []:
+            if aid is None or a['id'] == aid:
+                po = (self.st.get(a['id']) or {}).get('pos') or {}
+                v += min(0.0, float(po.get('pl') or 0))
+        return round(v, 2)
 
     # ---------- laço ----------
     def supervisor(self):
@@ -870,6 +900,16 @@ class Mesa(object):
         if lado and a.get('f') == 's' and not S['ses'][i]:
             s['txt'] += ' · sinal fora do horário 07–17h UTC, não entra'
             lado = 0
+        if lado:
+            pr = self.prot()
+            ops = self.kv.lista(K_OPS, 3000)
+            hm_, ha_ = self.hoje(None, ops), self.hoje(aid, ops)
+            if pr['stop_dia'] and hm_ <= -pr['stop_dia']:
+                s['txt'] += ' · STOP DO DIA DA MESA (%.2f): não entra até amanhã' % hm_
+                lado = 0
+            elif pr['stop_ag_dia'] and ha_ <= -pr['stop_ag_dia']:
+                s['txt'] += ' · stop do dia deste agente (%.2f): descansa até amanhã' % ha_
+                lado = 0
         if lado:
             self.entra(a, s, lado, px, S['atr'][i], S['slL'][i] if lado > 0 else S['slS'][i])
         self.grava_st(aid)
@@ -987,6 +1027,22 @@ class Mesa(object):
         s['estado'] = 'analisando'
         s['ultop'] = op
         self.nota('%s fechou %s em %s: %s%.2f (%s)' % (a['nome'], 'compra' if p['lado'] > 0 else 'venda', NOME.get(a['sym'], a['sym']), '+' if pl >= 0 else '−', abs(pl), mot))
+        # MESA-AGENTES-V2: aposentadoria automática
+        try:
+            pr = self.prot()
+            L = [o for o in self.kv.lista(K_OPS, 5000) if o.get('ag') == a['id']]
+            if pr['apos_n'] and len(L) >= int(pr['apos_n']) and fator(L) < float(pr['apos_pf']):
+                c = self.cfg()
+                for x in c.get('agentes') or []:
+                    if x['id'] == a['id']:
+                        x['ativo'] = False
+                        x['aposentado'] = {'t': int(time.time()), 'n': len(L), 'pf': round(fator(L), 2), 'sum': round(sum(o['pl'] for o in L), 2)}
+                self.salva(c)
+                s['estado'] = 'aposentado'
+                s['txt'] = 'Aposentado: %d operações reais com fator %.2f (abaixo de %.2f). Fica no descanso; o admin pode religar.' % (len(L), fator(L), pr['apos_pf'])
+                self.nota('%s APOSENTADO: %d operações, fator %.2f, %s%.2f' % (a['nome'], len(L), fator(L), '+' if sum(o['pl'] for o in L) >= 0 else '−', abs(sum(o['pl'] for o in L))))
+        except Exception as e:
+            log('aposentadoria:', e)
 
     # ---------- para o Escritório ----------
     def estado(self):
@@ -1010,20 +1066,23 @@ class Mesa(object):
                 pico = max(pico, eq)
                 dd = max(dd, pico - eq)
                 curva.append(round(eq, 2))
-            pl = {'n': len(L), 'w': w, 'sum': round(eq, 2), 'dd': round(dd, 2), 'curva': curva[-200:]}
+            pl = {'n': len(L), 'w': w, 'sum': round(eq, 2), 'dd': round(dd, 2), 'curva': curva[-200:], 'pf': round(fator(L), 2) if L else None,
+                  'hoje': round(sum(o['pl'] for o in L if dia_brt(o.get('t1') or 0) == dia_brt(time.time())), 2)}
+            pr = self.prot()
+            etapa = 'aposentado' if not a.get('ativo') else ('em teste' if len(L) < int(pr['apos_n']) else 'aprovado' if fator(L) >= 1.1 else 'em observação')
             tot['n'] += len(L)
             tot['w'] += w
             tot['sum'] += eq
             x = dict(a)
             x.update({'mercado': NOME.get(a['sym'], a['sym']), 'tf': TF_N.get(a['g'], ''), 'regra_n': REGRA_N.get(a['regra'], a['regra']),
                       'saida': saida_nome(a['x']), 'st': {k: v for k, v in s.items() if k != 'ultop'}, 'placar': pl,
-                      'ult': [o for o in L[-12:]][::-1]})
+                      'ult': [o for o in L[-12:]][::-1], 'etapa': etapa})
             ags.append(x)
         tot['sum'] = round(tot['sum'], 2)
         conta = c.get('conta') or ''
         return {'versao': VERSAO, 'ligada': bool(c.get('ligada')), 'conectada': bool(self.kv.get(K_TOK)), 'conta': (conta[:3] + '…' + conta[-3:]) if conta else '',
                 'vivo': time.time() - hb < 90, 'hb': int(hb), 'erro': self.erro, 'agentes': ags, 'total': tot, 'agora': int(time.time()),
-                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis}
+                'ops': ops[:40], 'log': self.kv.lista(K_LOG, 30), 'redis': self.kv.redis, 'prot': self.prot(), 'hoje': self.hoje(None, ops)}
 
 
 def register_mesa(app):
@@ -1146,6 +1205,25 @@ def register_mesa(app):
             mesa.kv.push(K_OPS, o)
         mesa.nota('placar do agente %s zerado' % aid)
         return jsonify({'ok': True})
+
+    @app.route('/api/mesa/protecao', methods=['POST'])
+    def _mp():
+        if not ok_admin():
+            return negado()
+        d = request.get_json(silent=True) or {}
+        c = mesa.cfg()
+        p = mesa.prot()
+        try:
+            for k in PROT_PADRAO:
+                if d.get(k) not in (None, ''):
+                    p[k] = max(0.0, float(str(d[k]).replace(',', '.')))
+            p['apos_n'] = int(p['apos_n'])
+        except Exception:
+            return jsonify({'ok': False, 'erro': 'valores inválidos'}), 400
+        c['prot'] = p
+        mesa.salva(c)
+        mesa.nota('proteções: stop do dia da mesa $%.0f · por agente $%.0f · aposenta com %d ops e fator < %.2f' % (p['stop_dia'], p['stop_ag_dia'], p['apos_n'], p['apos_pf']))
+        return jsonify({'ok': True, 'prot': p})
 
     threading.Thread(target=mesa.supervisor, daemon=True).start()
     log('%s registrada (Redis: %s)' % (VERSAO, 'sim' if mesa.kv.redis else 'NAO - sem REDIS_URL o placar some a cada deploy'))
