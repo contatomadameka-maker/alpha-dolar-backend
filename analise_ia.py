@@ -19,7 +19,7 @@ from nuvem_digitos import KV, contas_do_token, Conexao
 TFS = {'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400}
 FIM = ('alv', 'stp', 'inv', 'exp')
 
-VERSAO = 'ANALISE-IA-V2'  # V2: o servidor confere todos os sinais com as velas da Deriv e mostra o placar real (/api/analise-ia/placar)
+VERSAO = 'ANALISE-IA-V2.4'  # V2.4 ESPEROU-V1: planos recusados pela IA viram sombra (placar 'esperou') ·  # V2: o servidor confere todos os sinais com as velas da Deriv e mostra o placar real (/api/analise-ia/placar)
 BRT = timezone(timedelta(hours=-3))
 
 
@@ -145,7 +145,16 @@ def register_analise_ia(app):
                          'tf': limpa(L.get('tf'), 5), 'g': TFS.get(limpa(L.get('tf'), 5), 0), 'escolha': r['escolha'], 'dir': (1 if r['escolha'] == 'compra' else -1) if ok else 0,
                          'conf': r['confianca'], 'ent': ent, 'sl': sl, 'tp': tp, 'rr': fl(p.get('rr')), 'px': px, 'dentro': bool(p.get('dentro')),
                          'st': ('and' if p.get('dentro') else 'val') if ok else 'sem'})
-            kv.jset(k, S[:500], ex=86400 * 60)
+            if r['escolha'] == 'esperar':      # ESPEROU-V1: guarda os planos que a IA recusou, para medir se esperar foi certo
+                for kk, dd in (('compra', 1), ('venda', -1)):
+                    q = (L.get('planos') or {}).get(kk) or {}
+                    e2, s2, t2 = fl(q.get('ent')), fl(q.get('sl')), fl(q.get('tp'))
+                    if None not in (e2, s2, t2):
+                        S.insert(0, {'id': '%d%04de%d' % (int(time.time() * 1000), n, dd + 1), 't': int(time.time()), 'conta': conta[-4:], 'tipo': info.get('tipo'), 'origem': 'esperou',
+                                     'sym': limpa(L.get('sym'), 14), 'tf': limpa(L.get('tf'), 5), 'g': TFS.get(limpa(L.get('tf'), 5), 0), 'escolha': kk, 'dir': dd,
+                                     'conf': r['confianca'], 'ent': e2, 'sl': s2, 'tp': t2, 'rr': fl(q.get('rr')), 'px': px, 'dentro': bool(q.get('dentro')),
+                                     'st': 'and' if q.get('dentro') else 'val'})
+            kv.jset(k, S[:1500], ex=86400 * 60)
         except Exception:
             pass
         r.update({'ok': True, 'versao': VERSAO, 'restam': lim - n - 1})
@@ -219,7 +228,7 @@ def register_analise_ia(app):
         for i, s in enumerate(T):
             if s.get('id') in novo:
                 T[i] = novo[s['id']]
-        kv.jset('aia:sinais', T[:500], ex=86400 * 60)
+        kv.jset('aia:sinais', T[:1500], ex=86400 * 60)
 
     def laco():
         while True:
@@ -233,9 +242,19 @@ def register_analise_ia(app):
     app.extensions['aia_kv'] = kv
     app.extensions['aia_ia'] = ia  # AGENTE-IA-V1: o agente na sombra usa a mesma IA
 
+    def resumo(L):
+        a = [s for s in L if s.get('st') == 'alv']
+        b = [s for s in L if s.get('st') == 'stp']
+        n = len(a) + len(b)
+        return {'resolvidos': n, 'alvo': len(a), 'stop': len(b), 'pc': round(len(a) * 100.0 / n, 1) if n else None,
+                'saldo_r': round(sum(float(s.get('rr') or 0) for s in a) - len(b), 2), 'em_aberto': len([s for s in L if s.get('st') in ('val', 'and')])}
+    app.extensions['aia_resumo'] = resumo
+
     @app.route('/api/analise-ia/placar', methods=['GET'])
     def _aia_placar():
-        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and s.get('origem') != 'agente' and time.time() - s.get('t', 0) < 30 * 86400]  # AGENTE-IA-V1: o agente tem placar proprio
+        T30 = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and time.time() - s.get('t', 0) < 30 * 86400]
+        esp = resumo([s for s in T30 if s.get('origem') == 'esperou'])
+        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and s.get('origem') not in ('agente', 'esperou', 'agente-esperou') and time.time() - s.get('t', 0) < 30 * 86400]  # AGENTE-IA-V1: o agente tem placar proprio
         alv = [s for s in S if s.get('st') == 'alv']
         stp = [s for s in S if s.get('st') == 'stp']
         r_sum = round(sum(float(s.get('rr') or 0) for s in alv) - len(stp), 2)
@@ -246,6 +265,6 @@ def register_analise_ia(app):
         n = len(alv) + len(stp)
         return jsonify({'ok': True, 'versao': VERSAO, 'resolvidos': n, 'alvo': len(alv), 'stop': len(stp), 'pc': round(len(alv) * 100.0 / n, 1) if n else None,
                         'saldo_r': r_sum, 'em_aberto': len([s for s in S if s.get('st') in ('val', 'and')]), 'invalidados': len([s for s in S if s.get('st') in ('inv', 'exp')]),
-                        'por_mercado': por, 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
+                        'por_mercado': por, 'esperou': esp, 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
 
     log('%s registrada' % VERSAO)

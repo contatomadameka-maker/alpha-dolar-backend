@@ -14,7 +14,7 @@ Variáveis: AGENTE_IA_LIGADO (1), AGENTE_IA_MERCADOS (lista separada por vírgul
 import os, time, math, threading
 from nuvem_digitos import KV, Conexao
 
-VERSAO = 'AGENTE-IA-V1.1'  # V1.1: aparece no Escritorio como agente SOMBRA (placar com risco fixo de $10 por sinal)
+VERSAO = 'AGENTE-IA-V1.2'  # V1.2 ESPEROU-V1: planos recusados viram sombra ·  # V1.1: aparece no Escritorio como agente SOMBRA (placar com risco fixo de $10 por sinal)
 MERCADOS = {'frxXAUUSD': ('Ouro', 2), 'frxXAGUSD': ('Prata', 3), 'frxEURUSD': ('EUR/USD', 5), 'frxGBPUSD': ('GBP/USD', 5),
             'frxUSDJPY': ('USD/JPY', 3), 'cryBTCUSD': ('Bitcoin', 2), 'cryETHUSD': ('Ethereum', 2)}
 TFN = {60: 'M1', 300: 'M5', 900: 'M15', 1800: 'M30', 3600: 'H1', 14400: 'H4', 86400: 'D1'}
@@ -360,7 +360,14 @@ def register_agente_ia(app):
                                  'ent': p['ent'] if p else None, 'sl': p['sl'] if p else None, 'tp': p['tp'] if p else None, 'rr': p['rr'] if p else None,
                                  'px': R['px'], 'dentro': bool(p and p['dentro']), 'st': ('and' if p['dentro'] else 'val') if p else 'sem',
                                  'motivo': r['motivo'][:300]})
-                    kv.jset('aia:sinais', S[:500], ex=86400 * 60)
+                    if not p:      # ESPEROU-V1: o plano que a IA recusou vira sombra (1 por mercado e lado em aberto)
+                        for kk in ('compra', 'venda'):
+                            q = P.get(kk)
+                            if q and not any(x.get('origem') == 'agente-esperou' and x.get('sym') == sym and x.get('dir') == q['dir'] and x.get('st') in ('val', 'and') for x in S[:300]):
+                                S.insert(0, {'id': 'ae%d%s%d' % (int(time.time() * 1000), sym[-3:], q['dir'] + 1), 't': int(time.time()), 'conta': 'IA', 'tipo': 'sombra', 'origem': 'agente-esperou',
+                                             'sym': sym, 'tf': TFN.get(g, str(g)), 'g': g, 'escolha': kk, 'dir': q['dir'], 'conf': r['confianca'], 'ent': q['ent'], 'sl': q['sl'], 'tp': q['tp'],
+                                             'rr': q['rr'], 'px': R['px'], 'dentro': bool(q['dentro']), 'st': 'and' if q['dentro'] else 'val'})
+                    kv.jset('aia:sinais', S[:1500], ex=86400 * 60)
                 except PermissionError:
                     it['msg'] = 'token da Mesa expirou: conecte de novo'
                     res.append(it)
@@ -426,7 +433,9 @@ def register_agente_ia(app):
             else:
                 m['stop'] += 1
                 m['r'] = round(m['r'] - 1, 2)
-        return jsonify({'ok': True, 'versao': VERSAO, 'analises': len(S), 'esperou': len([s for s in S if not s.get('dir')]), 'resolvidos': n,
+        rs = app.extensions.get('aia_resumo')
+        E = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('origem') == 'agente-esperou' and time.time() - s.get('t', 0) < 30 * 86400]
+        return jsonify({'ok': True, 'versao': VERSAO, 'analises': len(S), 'esperou': len([s for s in S if not s.get('dir')]), 'resolvidos': n, 'planos_recusados': rs(E) if rs else None,
                         'alvo': len(alv), 'stop': len(stp), 'pc': round(len(alv) * 100.0 / n, 1) if n else None,
                         'saldo_r': round(sum(float(s.get('rr') or 0) for s in alv) - len(stp), 2),
                         'em_aberto': len([s for s in D if s.get('st') in ('val', 'and')]), 'invalidados': len([s for s in D if s.get('st') in ('inv', 'exp')]),
