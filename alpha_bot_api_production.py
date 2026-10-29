@@ -4021,3 +4021,10 @@ try:
     register_agente_ia(app)
 except Exception as _e_agia:
     print('[AgenteIA] nao registrou:', _e_agia)
+
+# TRAVA-DIAG-V1: grava no log o que prende o servidor (pedidos presos ha mais de 40 s)
+try:
+    from trava_diag import register_trava_diag
+    register_trava_diag(app)
+except Exception as _e_td:
+    print('[TravaDiag] nao registrou:', _e_td)
