@@ -119,6 +119,8 @@ def register_analise_ia(app):
         dia = datetime.now(BRT).strftime('%Y-%m-%d')
         kq = 'aia:n:%s:%s' % (conta, dia)
         lim = int(os.environ.get('ANALISE_IA_LIMITE', '10'))
+        if conta in [x.strip() for x in os.environ.get('ANALISE_IA_SEM_LIMITE', '').split(',') if x.strip()]:   # SEM-LIMITE-V1: contas de teste do admin
+            lim = 9999
         try:
             n = int(kv.get(kq) or 0)
         except Exception:
