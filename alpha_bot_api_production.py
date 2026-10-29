@@ -4000,3 +4000,10 @@ try:
     register_protecao(app)
 except Exception as _e_prot:
     print('[Protecao] nao registrou:', _e_prot)
+
+# ANALISE-IA-V1: botao Analise IA do Alpha Global (a IA escolhe entre os planos calculados pelo codigo)
+try:
+    from analise_ia import register_analise_ia
+    register_analise_ia(app)
+except Exception as _e_aia:
+    print('[AnaliseIA] nao registrou:', _e_aia)
