@@ -1499,6 +1499,16 @@ class Mesa(object):
             ags.append(x)
         tot['sum'] = round(tot['sum'], 2)
         tsb['sum'] = round(tsb['sum'], 2)
+        try:   # MESA-MOVIMENTOS-V1: agentes parecidos entrando juntos contam 1 movimento (mesmo mercado, mesmo lado, mesma meia hora)
+            idsb = {x['id'] for x in (c.get('agentes') or []) if x.get('modo') == 'sombra'}
+            grp = {}
+            for o in ops:
+                if o.get('sombra') and o.get('ag') in idsb:
+                    grp.setdefault((o.get('sym'), o.get('lado'), int((o.get('t0') or 0) // 1800)), []).append(float(o.get('pl') or 0))
+            tsb['mov'] = len(grp)
+            tsb['sum_mov'] = round(sum(sum(v) / len(v) for v in grp.values()), 2)
+        except Exception:
+            pass
         ops = [o for o in ops if not o.get('sombra')]
         conta = c.get('conta') or ''
         return {'versao': VERSAO, 'ligada': bool(c.get('ligada')), 'conectada': bool(self.kv.get(K_TOK)), 'conta': (conta[:3] + '…' + conta[-3:]) if conta else '',
