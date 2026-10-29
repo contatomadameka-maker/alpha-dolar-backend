@@ -479,6 +479,32 @@ def register_agente_ia(app):
                             ('Ainda cedo: %d sinal(is) resolvido(s), precisa de 20+ para julgar.' % n if n < 20 else '%d sinais, %d%% no alvo, saldo %+.2f.' % (n, round(w * 100.0 / n), eq))},
                 'outro': {'n': 0, 'sum': 0}}
 
+    def diretor_escritorio(d):
+        """DIRETOR-ESC-V1: o chefe dos agentes aparece no Escritório, com as regras, as últimas decisões e a trava de lucro"""
+        import json as _j
+        A = [x for x in (d.get('agentes') or []) if x.get('id') not in ('agente-ia', 'diretor')]
+        pr = d.get('prot') or {}
+        L = []
+        try:
+            r = getattr(kv, '_r', None)
+            L = [_j.loads(x) for x in r.lrange('mesa:log', 0, 299)] if r is not None else (d.get('log') or [])
+        except Exception:
+            L = d.get('log') or []
+        dec = [x for x in L if isinstance(x, dict) and 'DIRETOR' in str(x.get('m', ''))][:6]
+        som = len([x for x in A if x.get('modo') == 'sombra' and x.get('ativo') is not False])
+        dem = len([x for x in A if x.get('modo') != 'sombra' and x.get('ativo') is not False])
+        apo = len([x for x in A if x.get('ativo') is False])
+        tv = (d.get('sombra') or {}).get('trava') or {}
+        tvt = ('Trava de lucro: liga com lucro de %d%% da entrada e garante %d%% do maior lucro (%s na demo). ' % (round(float(pr.get('trava_ini', 0.3)) * 100), round(float(pr.get('trava_keep', 0.5)) * 100), 'fecha de verdade' if pr.get('trava_on', 1) else 'só medindo')) + \
+              ('Na sombra, %d operações: sem trava %+.2f · com trava %+.2f (%d vezes ela teria fechado antes).' % (tv.get('n', 0), tv.get('sem', 0), tv.get('com', 0), tv.get('acionou', 0)) if tv.get('n') else 'Na sombra ainda não há operação medida com a trava.')
+        txt = ('Regras: promove da sombra para a demo quem fizer %d+ operações com fator ≥ %.2f e lucro (até %d na demo); aposenta quem fizer %d+ operações com fator < %.2f. ' % (int(pr.get('prom_n', 20)), float(pr.get('prom_pf', 1.2)), int(pr.get('max_demo', 10)), int(pr.get('apos_n', 30)), float(pr.get('apos_pf', 0.85)))) + \
+              ('Agora: %d na demo · %d na sombra · %d aposentados. ' % (dem, som, apo)) + \
+              (('Últimas decisões: ' + ' | '.join(time.strftime('%d/%m %H:%M', time.gmtime(int(x.get('t', 0)) - 3 * 3600)) + ' ' + str(x.get('m', '')).replace('DIRETOR: ', '') for x in dec)) if dec else 'Ainda não precisou promover nem aposentar ninguém.')
+        return {'id': 'diretor', 'nome': 'Diretor', 'sym': 'frxXAUUSD', 'g': 3600, 'regra': 'diretor', 'f': '', 'x': {}, 'stk': '—', 'mq': '—', 'an': [],
+                'modo': 'demo', 'ativo': True, 'bt': {}, 'mercado': 'toda a mesa', 'tf': '', 'regra_n': 'promove e aposenta os agentes', 'saida': 'decide pelos números',
+                'analistas': [], 'etapa': 'diretor', 'st': {'estado': 'analisando', 'txt': txt}, 'placar': {'n': 0, 'w': 0, 'sum': 0, 'dd': 0, 'curva': [0], 'pf': None, 'hoje': 0},
+                'ult': [], 'auditor': {'nivel': 'ok', 'txt': tvt}, 'outro': {'n': 0, 'sum': 0}}
+
     orig = app.view_functions.get('_me')
     if orig is not None:
         def _me_com_agente(*a, **k):
@@ -487,6 +513,7 @@ def register_agente_ia(app):
                 d = r.get_json()
                 if isinstance(d, dict) and os.environ.get('AGENTE_IA_ESCRITORIO', '1') != '0':
                     d.setdefault('agentes', []).append(agente_escritorio())
+                    d['agentes'].append(diretor_escritorio(d))   # DIRETOR-ESC-V1
                     return jsonify(d)
             except Exception as e:
                 log('escritorio', e)

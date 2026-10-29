@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.2'  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.3'  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -932,7 +932,10 @@ K_CFG, K_TOK, K_OPS, K_LOCK, K_LOG = 'mesa:cfg', 'mesa:tok', 'mesa:ops', 'mesa:l
 # apos_n / apos_pf = com apos_n+ operações reais e fator de lucro abaixo de apos_pf o agente se aposenta sozinho.
 PROT_PADRAO = {'stop_dia': 400.0, 'stop_ag_dia': 160.0, 'apos_n': 30, 'apos_pf': 0.85,
                # MESA-AGENTES-V4 diretor: sombra com prom_n+ ops e fator >= prom_pf vira DEMO (até max_demo agentes na demo)
-               'prom_n': 20, 'prom_pf': 1.2, 'max_demo': 10}
+               'prom_n': 20, 'prom_pf': 1.2, 'max_demo': 10,
+               # MESA-TRAVA-V1: trava de lucro. Quando o lucro chega a trava_ini x entrada, garante trava_keep do maior lucro.
+               # trava_on=1 fecha de verdade as posições da DEMO; na SOMBRA só mede (plt = como teria sido com a trava).
+               'trava_on': 1.0, 'trava_ini': 0.30, 'trava_keep': 0.50}
 
 
 def auditor(L, bt):
@@ -1281,6 +1284,11 @@ class Mesa(object):
             adv = (ent - b['l']) / ent if lado > 0 else (b['h'] - ent) / ent
             fav = (b['h'] - ent) / ent if lado > 0 else (ent - b['l']) / ent
             pl, mot = None, ''
+            pr0 = getattr(self, '_prot_cache', None) or self.prot()
+            mx0 = float(p.get('mx') or 0)
+            if p.get('plt') is None and mx0 >= float(pr0['trava_ini']) * float(p['stk']) and p['K'] * (-adv) - p['comm'] <= float(pr0['trava_keep']) * mx0:
+                p['plt'] = round(float(pr0['trava_keep']) * mx0, 2)   # MESA-TRAVA-V1: aqui a trava teria fechado
+            p['mx'] = max(mx0, p['K'] * fav - p['comm'])
             if adv >= p['slD']:
                 pl, mot = -p['sl'], 'stop'
             elif fav >= p['tpD']:
@@ -1289,7 +1297,8 @@ class Mesa(object):
                 pl, mot = p['K'] * lado * (b['c'] / ent - 1) - p['comm'], 'tempo'
             if pl is not None:
                 op = {'id': 'S%s-%d' % (a['id'], p['bi']), 'ag': a['id'], 'nome': a['nome'], 'sym': a['sym'], 'g': a['g'], 'regra': a['regra'], 'lado': lado,
-                      'stk': p['stk'], 'mult': p['mult'], 'ent': ent, 'sai': b['c'], 't0': p['t'], 't1': int(b['t'] + a['g']), 'pl': round(pl, 2), 'motivo': mot, 'sombra': 1}
+                      'stk': p['stk'], 'mult': p['mult'], 'ent': ent, 'sai': b['c'], 't0': p['t'], 't1': int(b['t'] + a['g']), 'pl': round(pl, 2), 'motivo': mot, 'sombra': 1,
+                      'mx': round(float(p.get('mx') or 0), 2), 'plt': p['plt'] if p.get('plt') is not None else round(pl, 2)}
                 self.kv.push(K_OPS, op)
                 self.copia(op)
                 s.pop('pos', None)
@@ -1423,6 +1432,15 @@ class Mesa(object):
                 p['err'] = r['error'].get('message', '')
                 continue
             p['pl'] = float(q.get('profit') or 0)
+            p['mx'] = max(float(p.get('mx') or 0), p['pl'])   # MESA-TRAVA-V1
+            pr = self.prot()
+            if pr.get('trava_on') and not (q.get('is_sold') or q.get('status') in ('won', 'lost', 'sold')) and p['mx'] >= float(pr['trava_ini']) * float(p['stk']) \
+                    and p['pl'] <= float(pr['trava_keep']) * p['mx'] and not p.get('motivo'):
+                rs = self.d.req({'sell': p['cid'], 'price': 0}, 20)
+                if not rs.get('error'):
+                    p['motivo'] = 'trava'
+                    p['chk'] = 0
+                    self.nota('%s: TRAVA DE LUCRO fechou (maior lucro +%.2f, piso +%.2f)' % (a['nome'], p['mx'], float(pr['trava_keep']) * p['mx']))
             if q.get('current_spot'):
                 s['px'] = float(q['current_spot'])
             if q.get('is_sold') or q.get('status') in ('won', 'lost', 'sold'):
@@ -1499,6 +1517,13 @@ class Mesa(object):
             ags.append(x)
         tot['sum'] = round(tot['sum'], 2)
         tsb['sum'] = round(tsb['sum'], 2)
+        try:   # MESA-TRAVA-V1: sombra com e sem a trava
+            idsb = {x['id'] for x in (c.get('agentes') or []) if x.get('modo') == 'sombra'}
+            LT = [o for o in ops if o.get('sombra') and o.get('ag') in idsb and o.get('plt') is not None]
+            tsb['trava'] = {'n': len(LT), 'sem': round(sum(float(o['pl']) for o in LT), 2), 'com': round(sum(float(o['plt']) for o in LT), 2),
+                            'acionou': len([o for o in LT if abs(float(o['plt']) - float(o['pl'])) > 0.005]), 'regra': {k: self.prot()[k] for k in ('trava_on', 'trava_ini', 'trava_keep')}}
+        except Exception:
+            pass
         try:   # MESA-MOVIMENTOS-V1: agentes parecidos entrando juntos contam 1 movimento (mesmo mercado, mesmo lado, mesma meia hora)
             idsb = {x['id'] for x in (c.get('agentes') or []) if x.get('modo') == 'sombra'}
             grp = {}
