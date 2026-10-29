@@ -3993,3 +3993,10 @@ try:
     register_nuvem_digitos(app)
 except Exception as _e_nuvem:
     print('[NuvemDig] nao registrou:', _e_nuvem)
+
+# PROTECAO-LUCRO-V1: protege o lucro das posicoes de Multiplicador no servidor
+try:
+    from protecao_global import register_protecao
+    register_protecao(app)
+except Exception as _e_prot:
+    print('[Protecao] nao registrou:', _e_prot)
