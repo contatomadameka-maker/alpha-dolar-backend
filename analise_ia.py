@@ -7,14 +7,19 @@ Este módulo só pede para a IA ESCOLHER entre os planos (ou mandar esperar) e E
 A IA nunca inventa preço: entrada/stop/alvo vêm do código.
 
   POST /api/analise-ia   {token, conta, leitura:{...}}  -> {ok, escolha, confianca, motivo, riscos, concordam, restam}
+  GET  /api/analise-ia/placar                     -> acerto real dos sinais de todos (30 dias), conferido com as velas da Deriv
 Limite: ANALISE_IA_LIMITE por conta por dia (padrão 10). Cada análise fica guardada (placar futuro).
 """
 import os, re, json, time, hashlib, urllib.request
 from datetime import datetime, timezone, timedelta
 
-from nuvem_digitos import KV, contas_do_token
+import threading
+from nuvem_digitos import KV, contas_do_token, Conexao
 
-VERSAO = 'ANALISE-IA-V1'
+TFS = {'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400}
+FIM = ('alv', 'stp', 'inv', 'exp')
+
+VERSAO = 'ANALISE-IA-V2'  # V2: o servidor confere todos os sinais com as velas da Deriv e mostra o placar real (/api/analise-ia/placar)
 BRT = timezone(timedelta(hours=-3))
 
 
@@ -124,12 +129,117 @@ def register_analise_ia(app):
             k = 'aia:sinais'
             S = kv.jget(k, []) or []
             p = (L.get('planos') or {}).get(r['escolha']) or {}
-            S.insert(0, {'t': int(time.time()), 'conta': conta[-4:], 'tipo': info.get('tipo'), 'sym': limpa(L.get('sym'), 14), 'tf': limpa(L.get('tf'), 5),
-                         'escolha': r['escolha'], 'conf': r['confianca'], 'ent': p.get('ent'), 'sl': p.get('sl'), 'tp': p.get('tp'), 'rr': p.get('rr')})
+            def fl(v):
+                try:
+                    return float(v)
+                except Exception:
+                    return None
+            ent, sl, tp, px = fl(p.get('ent')), fl(p.get('sl')), fl(p.get('tp')), fl(L.get('px'))
+            ok = r['escolha'] in ('compra', 'venda') and None not in (ent, sl, tp)
+            S.insert(0, {'id': '%d%04d' % (int(time.time() * 1000), n), 't': int(time.time()), 'conta': conta[-4:], 'tipo': info.get('tipo'), 'sym': limpa(L.get('sym'), 14),
+                         'tf': limpa(L.get('tf'), 5), 'g': TFS.get(limpa(L.get('tf'), 5), 0), 'escolha': r['escolha'], 'dir': (1 if r['escolha'] == 'compra' else -1) if ok else 0,
+                         'conf': r['confianca'], 'ent': ent, 'sl': sl, 'tp': tp, 'rr': fl(p.get('rr')), 'px': px, 'dentro': bool(p.get('dentro')),
+                         'st': ('and' if p.get('dentro') else 'val') if ok else 'sem'})
             kv.jset(k, S[:500], ex=86400 * 60)
         except Exception:
             pass
         r.update({'ok': True, 'versao': VERSAO, 'restam': lim - n - 1})
         return jsonify(r)
+
+    def conexao():
+        tok = kv.get('mesa:tok') or ''
+        c = kv.jget('mesa:cfg') or {}
+        conta = str(c.get('conta') or '')
+        if not tok or not conta:
+            for ct in kv.jget('prot:lista', []) or []:
+                u = kv.jget('prot:u:' + ct) or {}
+                if u.get('tok') and u.get('ligado'):
+                    tok, conta = u['tok'], ct
+                    break
+        return Conexao(tok, conta) if tok and conta else None
+
+    def avanca(s, velas):
+        for k in velas:
+            if k['t'] + s['g'] <= s['t'] or s['st'] in FIM:
+                continue
+            d = s['dir']
+            if s['st'] == 'val':
+                if (k['h'] >= s['tp']) if d > 0 else (k['l'] <= s['tp']):
+                    s['st'], s['fim'] = 'inv', k['t']
+                    continue
+                if (k['l'] <= s['sl']) if d > 0 else (k['h'] >= s['sl']):
+                    s['st'], s['fim'] = 'inv', k['t']
+                    continue
+                if (k['l'] <= s['ent']) if d > 0 else (k['h'] >= s['ent']):
+                    s['st'] = 'and'
+            if s['st'] == 'and':
+                bsl = (k['l'] <= s['sl']) if d > 0 else (k['h'] >= s['sl'])
+                btp = (k['h'] >= s['tp']) if d > 0 else (k['l'] <= s['tp'])
+                if bsl:                       # vela que toca os dois: conta como stop (o pior caso)
+                    s['st'], s['fim'] = 'stp', k['t']
+                elif btp:
+                    s['st'], s['fim'] = 'alv', k['t']
+        if s['st'] == 'val' and time.time() - s['t'] > s['g'] * 60:
+            s['st'] = 'exp'
+
+    def confere():
+        if not kv.setnx('aia:res:lock', '1', 100):
+            return
+        S = kv.jget('aia:sinais', []) or []
+        abertos = [s for s in S if s.get('dir') and s.get('g') and s.get('st') in ('val', 'and') and time.time() - s['t'] > s['g']]
+        if not abertos:
+            return
+        c = conexao()
+        if c is None:
+            return
+        try:
+            grupos = {}
+            for s in abertos:
+                grupos.setdefault((s['sym'], s['g']), []).append(s)
+            for (sym, g), L in grupos.items():
+                t0 = min(s['t'] for s in L) - g
+                r = c.req({'ticks_history': sym, 'underlying_symbol': sym, 'style': 'candles', 'granularity': g, 'start': int(t0), 'end': 'latest', 'count': 5000}, 20)
+                if r.get('error') and 'underlying_symbol' in str(r['error']):
+                    r = c.req({'ticks_history': sym, 'style': 'candles', 'granularity': g, 'start': int(t0), 'end': 'latest', 'count': 5000}, 20)
+                velas = [{'t': int(q['epoch']), 'h': float(q['high']), 'l': float(q['low'])} for q in (r.get('candles') or [])]
+                if velas:
+                    for s in L:
+                        avanca(s, velas[:-1])          # só velas fechadas
+        except Exception as e:
+            log('confere', e)
+        finally:
+            c.fecha()
+        novo = {s['id']: s for s in abertos if s.get('id')}
+        T = kv.jget('aia:sinais', []) or []              # relê (pode ter chegado sinal novo)
+        for i, s in enumerate(T):
+            if s.get('id') in novo:
+                T[i] = novo[s['id']]
+        kv.jset('aia:sinais', T[:500], ex=86400 * 60)
+
+    def laco():
+        while True:
+            try:
+                confere()
+            except Exception as e:
+                log('laco', e)
+            time.sleep(120)
+    threading.Thread(target=laco, daemon=True).start()
+    app.extensions['aia_confere'] = confere
+    app.extensions['aia_kv'] = kv
+
+    @app.route('/api/analise-ia/placar', methods=['GET'])
+    def _aia_placar():
+        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and time.time() - s.get('t', 0) < 30 * 86400]
+        alv = [s for s in S if s.get('st') == 'alv']
+        stp = [s for s in S if s.get('st') == 'stp']
+        r_sum = round(sum(float(s.get('rr') or 0) for s in alv) - len(stp), 2)
+        por = {}
+        for s in alv + stp:
+            m = por.setdefault(s['sym'], {'alvo': 0, 'stop': 0})
+            m['alvo' if s['st'] == 'alv' else 'stop'] += 1
+        n = len(alv) + len(stp)
+        return jsonify({'ok': True, 'versao': VERSAO, 'resolvidos': n, 'alvo': len(alv), 'stop': len(stp), 'pc': round(len(alv) * 100.0 / n, 1) if n else None,
+                        'saldo_r': r_sum, 'em_aberto': len([s for s in S if s.get('st') in ('val', 'and')]), 'invalidados': len([s for s in S if s.get('st') in ('inv', 'exp')]),
+                        'por_mercado': por, 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
 
     log('%s registrada' % VERSAO)
