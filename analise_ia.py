@@ -226,10 +226,11 @@ def register_analise_ia(app):
     threading.Thread(target=laco, daemon=True).start()
     app.extensions['aia_confere'] = confere
     app.extensions['aia_kv'] = kv
+    app.extensions['aia_ia'] = ia  # AGENTE-IA-V1: o agente na sombra usa a mesma IA
 
     @app.route('/api/analise-ia/placar', methods=['GET'])
     def _aia_placar():
-        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and time.time() - s.get('t', 0) < 30 * 86400]
+        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and s.get('origem') != 'agente' and time.time() - s.get('t', 0) < 30 * 86400]  # AGENTE-IA-V1: o agente tem placar proprio
         alv = [s for s in S if s.get('st') == 'alv']
         stp = [s for s in S if s.get('st') == 'stp']
         r_sum = round(sum(float(s.get('rr') or 0) for s in alv) - len(stp), 2)

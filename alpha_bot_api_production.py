@@ -4007,3 +4007,10 @@ try:
     register_analise_ia(app)
 except Exception as _e_aia:
     print('[AnaliseIA] nao registrou:', _e_aia)
+
+# AGENTE-IA-V1: agente IA na sombra (analisa sozinho de hora em hora, placar proprio)
+try:
+    from agente_ia import register_agente_ia
+    register_agente_ia(app)
+except Exception as _e_agia:
+    print('[AgenteIA] nao registrou:', _e_agia)
