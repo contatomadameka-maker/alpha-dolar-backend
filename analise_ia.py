@@ -77,7 +77,7 @@ def register_analise_ia(app):
         pedido = ('Mercado %s, tempo grafico %s, preco agora %s, ATR %s.\nTempo maior (%s): %s.\nEstrutura recente: %s.\nVarreduras: %s.\n'
                   'Zonas de demanda (abaixo): %s.\nZonas de oferta (acima): %s.\nLiquidez: %s.\nPremium/discount: %s.\nStoch RSI: %s.\nSessao: %s.\n'
                   'PLANO DE COMPRA: %s\nPLANO DE VENDA: %s\n\n'
-                  'Formato: {"escolha":"compra|venda|esperar","confianca":0-100,"motivo":"2 a 3 frases","riscos":"1 frase","concordam":["ate 3 itens curtos"]}') % (
+                  'Formato: {"escolha":"compra|venda|esperar","confianca":0-100,"motivo":"2 a 3 frases","riscos":"1 frase","concordam":["ate 3 itens de ate 6 palavras"]}') % (
             limpa(L.get('nome'), 30), limpa(L.get('tf'), 5), limpa(L.get('px'), 14), limpa(L.get('atr'), 12), limpa(L.get('htf_tf'), 5), limpa(L.get('htf'), 80),
             limpa(L.get('estrutura'), 220), limpa(L.get('varreduras'), 160), limpa(L.get('demanda'), 220), limpa(L.get('oferta'), 220),
             limpa(L.get('liquidez'), 200), limpa(L.get('pd'), 120), limpa(L.get('stoch'), 60), limpa(L.get('sessao'), 80),
@@ -101,7 +101,7 @@ def register_analise_ia(app):
             cf = max(0, min(100, int(float(j.get('confianca') or 0))))
         except Exception:
             cf = 0
-        conc = [limpa(x, 40) for x in (j.get('concordam') or []) if isinstance(x, str)][:3]
+        conc = [limpa(x, 70) for x in (j.get('concordam') or []) if isinstance(x, str)][:3]
         return {'escolha': esc, 'confianca': cf, 'motivo': limpa(j.get('motivo'), 420), 'riscos': limpa(j.get('riscos'), 200), 'concordam': conc}, None
 
     @app.route('/api/analise-ia', methods=['POST'])
