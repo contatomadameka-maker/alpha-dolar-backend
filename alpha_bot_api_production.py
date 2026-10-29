@@ -4008,6 +4008,13 @@ try:
 except Exception as _e_aia:
     print('[AnaliseIA] nao registrou:', _e_aia)
 
+# PENDENTES-NUVEM-V1: Usar como sinal (ordem pendente no servidor, compra quando o preco chega na entrada)
+try:
+    from pendentes_global import register_pendentes
+    register_pendentes(app)
+except Exception as _e_pend:
+    print('[Pendentes] nao registrou:', _e_pend)
+
 # AGENTE-IA-V1: agente IA na sombra (analisa sozinho de hora em hora, placar proprio)
 try:
     from agente_ia import register_agente_ia
