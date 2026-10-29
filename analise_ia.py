@@ -34,8 +34,8 @@ def limpa(v, n=80):
 def plano_txt(p):
     if not p:
         return 'nenhum'
-    return 'entrada %s, stop %s, alvo %s, risco/retorno %s, perde $%s no stop, ganha $%s no alvo, motivo do codigo: %s' % (
-        limpa(p.get('ent'), 14), limpa(p.get('sl'), 14), limpa(p.get('tp'), 14), limpa(p.get('rr'), 5),
+    return 'entrada %s, stop %s, alvo %s, rr %s (ganha %s vezes o risco), perde $%s no stop, ganha $%s no alvo, motivo do codigo: %s' % (
+        limpa(p.get('ent'), 14), limpa(p.get('sl'), 14), limpa(p.get('tp'), 14), limpa(p.get('rr'), 5), limpa(p.get('rr'), 5),
         limpa(p.get('sl_usd'), 9), limpa(p.get('tp_usd'), 9), limpa(p.get('por'), 160))
 
 
@@ -71,8 +71,13 @@ def register_analise_ia(app):
         pl = L.get('planos') or {}
         sistema = ('Voce e um analista de Smart Money Concepts revisando uma leitura tecnica JA CALCULADA por codigo, para um contrato Multiplicador da Deriv. '
                    'Voce NAO calcula precos: entrada, stop e alvo vem prontos nos planos. Sua tarefa: escolher "compra", "venda" ou "esperar" '
-                   '(so pode escolher um plano que exista) e explicar. Seja conservador: estrutura contra o tempo maior, Stoch RSI extremo a favor da entrada, '
-                   'risco/retorno abaixo de 1.5, preco longe da zona ou leitura confusa = esperar. Nunca prometa lucro nem fale em certeza. '
+                   '(so pode escolher um plano que exista) e explicar. Regras (ANALISE-IA-V2.3): '
+                   '1) rr = quanto o plano ganha para cada 1 que arrisca. rr MAIOR e MELHOR. rr de 1.5 ou mais e bom; so rr abaixo de 1.5 e motivo para esperar. '
+                   '2) Plano que diz "esperar o preco voltar a zona" e uma ordem pendente: o preco estar longe da zona NAO e motivo para esperar. '
+                   '3) Stoch RSI nao precisa estar no extremo. So atrapalha se estiver no extremo CONTRA a entrada (acima de 80 para compra, abaixo de 20 para venda). '
+                   '4) Escolha o plano quando o tempo maior nao for contra ele e houver pelo menos 2 confluencias (zona OB/FVG, varredura de liquidez, discount para compra ou premium para venda, alvo na liquidez, Stoch RSI a favor). '
+                   '5) Espere quando o tempo maior for contra, houver menos de 2 confluencias ou os dois planos se anularem. '
+                   'confianca = 0 a 100, o quanto o plano escolhido (ou a espera) e claro. Nunca prometa lucro nem fale em certeza. '
                    'Portugues do Brasil, frases curtas. Responda SO com JSON valido, sem markdown.')
         pedido = ('Mercado %s, tempo grafico %s, preco agora %s, ATR %s.\nTempo maior (%s): %s.\nEstrutura recente: %s.\nVarreduras: %s.\n'
                   'Zonas de demanda (abaixo): %s.\nZonas de oferta (acima): %s.\nLiquidez: %s.\nPremium/discount: %s.\nStoch RSI: %s.\nSessao: %s.\n'

@@ -14,7 +14,7 @@ Variáveis: AGENTE_IA_LIGADO (1), AGENTE_IA_MERCADOS (lista separada por vírgul
 import os, time, math, threading
 from nuvem_digitos import KV, Conexao
 
-VERSAO = 'AGENTE-IA-V1'
+VERSAO = 'AGENTE-IA-V1.1'  # V1.1: aparece no Escritorio como agente SOMBRA (placar com risco fixo de $10 por sinal)
 MERCADOS = {'frxXAUUSD': ('Ouro', 2), 'frxXAGUSD': ('Prata', 3), 'frxEURUSD': ('EUR/USD', 5), 'frxGBPUSD': ('GBP/USD', 5),
             'frxUSDJPY': ('USD/JPY', 3), 'cryBTCUSD': ('Bitcoin', 2), 'cryETHUSD': ('Ethereum', 2)}
 TFN = {60: 'M1', 300: 'M5', 900: 'M15', 1800: 'M30', 3600: 'H1', 14400: 'H4', 86400: 'D1'}
@@ -434,4 +434,54 @@ def register_agente_ia(app):
                         'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'ent': s.get('ent'), 'sl': s.get('sl'), 'tp': s.get('tp'),
                                  'rr': s.get('rr'), 'conf': s.get('conf'), 'st': s['st'], 'motivo': s.get('motivo')} for s in D[:20]]})
 
-    log('%s registrado (%s)' % (VERSAO, ', '.join(mercados())))
+    RISCO = 10.0     # placar em $: cada sinal arrisca $10 no stop (alvo paga rr x $10)
+
+    def agente_escritorio():
+        S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('origem') == 'agente' and s.get('dir')]
+        F = sorted([s for s in S if s.get('st') in ('alv', 'stp')], key=lambda x: x.get('fim') or x['t'])
+        ult, eq, pico, dd, w, curva = [], 0.0, 0.0, 0.0, 0, [0]
+        for s in F:
+            pl = round(RISCO * float(s.get('rr') or 0), 2) if s['st'] == 'alv' else -RISCO
+            eq += pl
+            w += 1 if pl > 0 else 0
+            pico = max(pico, eq)
+            dd = max(dd, pico - eq)
+            curva.append(round(eq, 2))
+            nm = MERCADOS.get(s['sym'], (s['sym'], 5))[0]
+            ult.append({'id': s.get('id'), 'ag': 'agente-ia', 'nome': 'Agente IA', 't0': s['t'], 't1': int(s.get('fim') or s['t']), 'lado': s['dir'], 'stk': RISCO,
+                        'pl': pl, 'motivo': '%s %s · %s' % (nm, s.get('tf') or '', 'alvo' if s['st'] == 'alv' else 'stop'), 'sombra': 1})
+        hoje = time.strftime('%Y-%m-%d', time.gmtime(time.time() - 3 * 3600))
+        U = kv.jget('agia:ult') or {}
+        abertos = [s for s in S if s.get('st') in ('val', 'and')]
+        txt = ' | '.join('%s: %s' % (MERCADOS.get(i['sym'], (i['sym'],))[0], i.get('escolha') or i.get('msg', '')) for i in (U.get('itens') or []))
+        g = int(os.environ.get('AGENTE_IA_TF', '3600'))
+        n = len(F)
+        nivel = 'cedo' if n < 20 else ('forte' if eq > 0 and w * 1.0 / n >= 0.45 else 'ok' if eq > 0 else 'ruim')
+        return {'id': 'agente-ia', 'nome': 'Agente IA', 'sym': 'cryBTCUSD', 'g': g, 'regra': 'ia', 'f': '', 'x': {}, 'stk': RISCO, 'mq': 100, 'an': [],
+                'modo': 'sombra', 'ativo': os.environ.get('AGENTE_IA_LIGADO', '1') != '0', 'bt': {}, 'mercado': '7 mercados', 'tf': TFN.get(g, ''),
+                'regra_n': 'SMC + IA (Claude escolhe)', 'saida': 'stop e alvo do plano, risco $10', 'analistas': [], 'etapa': 'sombra',
+                'st': {'estado': 'analisando', 'ta': U.get('t'), 'prox': (int(time.time() // g) + 1) * g + 120,
+                       'txt': ('Sinais em aberto: %d. ' % len(abertos) if abertos else '') + (txt or 'esperando a primeira rodada')},
+                'placar': {'n': n, 'w': w, 'sum': round(eq, 2), 'dd': round(dd, 2), 'curva': curva[-200:], 'pf': None,
+                           'hoje': round(sum(o['pl'] for o in ult if time.strftime('%Y-%m-%d', time.gmtime(o['t1'] - 3 * 3600)) == hoje), 2)},
+                'ult': ult[-12:][::-1],
+                'auditor': {'nivel': nivel, 'txt': ('Agente IA: analisa 7 mercados de hora em hora e só dá SINAL (não compra nem vai para a demo). '
+                                                    'Placar conferido nas velas da Deriv, contando $10 de risco por sinal. ') +
+                            ('Ainda cedo: %d sinal(is) resolvido(s), precisa de 20+ para julgar.' % n if n < 20 else '%d sinais, %d%% no alvo, saldo %+.2f.' % (n, round(w * 100.0 / n), eq))},
+                'outro': {'n': 0, 'sum': 0}}
+
+    orig = app.view_functions.get('_me')
+    if orig is not None:
+        def _me_com_agente(*a, **k):
+            r = orig(*a, **k)
+            try:
+                d = r.get_json()
+                if isinstance(d, dict) and os.environ.get('AGENTE_IA_ESCRITORIO', '1') != '0':
+                    d.setdefault('agentes', []).append(agente_escritorio())
+                    return jsonify(d)
+            except Exception as e:
+                log('escritorio', e)
+            return r
+        app.view_functions['_me'] = _me_com_agente
+
+    log('%s registrado (%s)%s' % (VERSAO, ', '.join(mercados()), ' + Escritorio' if orig is not None else ''))
