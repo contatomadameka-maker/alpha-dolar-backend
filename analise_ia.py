@@ -64,7 +64,7 @@ def register_analise_ia(app):
         cache[h] = (time.time(), info)
         return info, None
 
-    def ia(L):
+    def ia(L, forca=False):   # SINAL-FORCA-V1: forca=True (tela das pessoas) nunca manda esperar se houver plano; o agente continua igual
         key = os.environ.get('ANTHROPIC_API_KEY', '')
         if not key:
             return None, 'IA sem chave no servidor'
@@ -79,6 +79,12 @@ def register_analise_ia(app):
                    '5) Espere quando o tempo maior for contra, houver menos de 2 confluencias ou os dois planos se anularem. '
                    'confianca = 0 a 100, o quanto o plano escolhido (ou a espera) e claro. Nunca prometa lucro nem fale em certeza. '
                    'Portugues do Brasil, frases curtas. Responda SO com JSON valido, sem markdown.')
+        if forca:
+            sistema = sistema.replace('so rr abaixo de 1.5 e motivo para esperar', 'rr abaixo de 1.5 deixa o sinal fraco').replace(
+                '5) Espere quando o tempo maior for contra, houver menos de 2 confluencias ou os dois planos se anularem. ',
+                '5) NUNCA escolha esperar quando existir plano: escolha o melhor e classifique. forca "forte" = regra 4 cumprida e rr 1.5 ou mais. '
+                'forca "fraco" = tempo maior contra, menos de 2 confluencias, rr abaixo de 1.5, planos se anulando ou plano "sinal reserva". '
+                'Se for fraco, diga no motivo POR QUE e fraco. ')
         pedido = ('Mercado %s, tempo grafico %s, preco agora %s, ATR %s.\nTempo maior (%s): %s.\nEstrutura recente: %s.\nVarreduras: %s.\n'
                   'Zonas de demanda (abaixo): %s.\nZonas de oferta (acima): %s.\nLiquidez: %s.\nPremium/discount: %s.\nStoch RSI: %s.\nSessao: %s.\n'
                   'PLANO DE COMPRA: %s\nPLANO DE VENDA: %s\n\n'
@@ -87,6 +93,8 @@ def register_analise_ia(app):
             limpa(L.get('estrutura'), 220), limpa(L.get('varreduras'), 160), limpa(L.get('demanda'), 220), limpa(L.get('oferta'), 220),
             limpa(L.get('liquidez'), 200), limpa(L.get('pd'), 120), limpa(L.get('stoch'), 60), limpa(L.get('sessao'), 80),
             plano_txt(pl.get('compra')), plano_txt(pl.get('venda')))
+        if forca:
+            pedido = pedido.replace('{"escolha":"compra|venda|esperar",', '{"escolha":"compra|venda","forca":"forte|fraco",')
         body = json.dumps({'model': os.environ.get('ANALISE_IA_MODELO', 'claude-haiku-4-5-20251001'), 'max_tokens': 420, 'system': sistema,
                            'messages': [{'role': 'user', 'content': pedido}]}).encode()
         rq = urllib.request.Request('https://api.anthropic.com/v1/messages', data=body, method='POST',
@@ -107,7 +115,29 @@ def register_analise_ia(app):
         except Exception:
             cf = 0
         conc = [limpa(x, 70) for x in (j.get('concordam') or []) if isinstance(x, str)][:3]
-        return {'escolha': esc, 'confianca': cf, 'motivo': limpa(j.get('motivo'), 420), 'riscos': limpa(j.get('riscos'), 200), 'concordam': conc}, None
+        fz = ''
+        if forca:
+            if esc == 'esperar':
+                ops = [k for k in ('compra', 'venda') if pl.get(k)]
+                if ops:
+                    def _rr(k):
+                        try:
+                            return float(pl[k].get('rr') or 0)
+                        except Exception:
+                            return 0.0
+                    esc = max(ops, key=_rr)
+                    fz = 'fraco'
+            if esc != 'esperar':
+                fz = fz or (str(j.get('forca') or '').lower() if str(j.get('forca') or '').lower() in ('forte', 'fraco') else 'fraco')
+                p0 = pl.get(esc) or {}
+                try:
+                    if float(p0.get('rr') or 0) < 1.5:
+                        fz = 'fraco'
+                except Exception:
+                    pass
+                if 'reserva' in str(p0.get('por') or ''):
+                    fz = 'fraco'
+        return {'escolha': esc, 'forca': fz, 'confianca': cf, 'motivo': limpa(j.get('motivo'), 420), 'riscos': limpa(j.get('riscos'), 200), 'concordam': conc}, None
 
     @app.route('/api/analise-ia', methods=['POST'])
     def _aia():
@@ -128,7 +158,7 @@ def register_analise_ia(app):
         if n >= lim:
             return jsonify({'ok': False, 'erro': 'você usou as %d análises de hoje. Amanhã libera de novo.' % lim, 'restam': 0}), 200
         L = d.get('leitura') or {}
-        r, erro = ia(L)
+        r, erro = ia(L, True)
         if r is None:
             return jsonify({'ok': False, 'erro': erro, 'restam': lim - n}), 200
         kv.set(kq, str(n + 1), ex=86400 * 2)
@@ -145,7 +175,7 @@ def register_analise_ia(app):
             ok = r['escolha'] in ('compra', 'venda') and None not in (ent, sl, tp)
             S.insert(0, {'id': '%d%04d' % (int(time.time() * 1000), n), 't': int(time.time()), 'conta': conta[-4:], 'tipo': info.get('tipo'), 'sym': limpa(L.get('sym'), 14),
                          'tf': limpa(L.get('tf'), 5), 'g': TFS.get(limpa(L.get('tf'), 5), 0), 'escolha': r['escolha'], 'dir': (1 if r['escolha'] == 'compra' else -1) if ok else 0,
-                         'conf': r['confianca'], 'ent': ent, 'sl': sl, 'tp': tp, 'rr': fl(p.get('rr')), 'px': px, 'dentro': bool(p.get('dentro')),
+                         'conf': r['confianca'], 'forca': r.get('forca') or '', 'ent': ent, 'sl': sl, 'tp': tp, 'rr': fl(p.get('rr')), 'px': px, 'dentro': bool(p.get('dentro')),
                          'st': ('and' if p.get('dentro') else 'val') if ok else 'sem'})
             if r['escolha'] == 'esperar':      # ESPEROU-V1: guarda os planos que a IA recusou, para medir se esperar foi certo
                 for kk, dd in (('compra', 1), ('venda', -1)):
@@ -267,6 +297,6 @@ def register_analise_ia(app):
         n = len(alv) + len(stp)
         return jsonify({'ok': True, 'versao': VERSAO, 'resolvidos': n, 'alvo': len(alv), 'stop': len(stp), 'pc': round(len(alv) * 100.0 / n, 1) if n else None,
                         'saldo_r': r_sum, 'em_aberto': len([s for s in S if s.get('st') in ('val', 'and')]), 'invalidados': len([s for s in S if s.get('st') in ('inv', 'exp')]),
-                        'por_mercado': por, 'esperou': esp, 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
+                        'por_mercado': por, 'esperou': esp, 'forte': resumo([s for s in S if s.get('forca') == 'forte']), 'fraco': resumo([s for s in S if s.get('forca') == 'fraco']), 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
 
     log('%s registrada' % VERSAO)
