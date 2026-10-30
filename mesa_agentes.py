@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.5'  # V4.5 CONSENSO-V1: regra 'cons' (4 tempos gráficos) ·  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.6'  # V4.6 CONSENSO-V2: a mesma conta da força do Alpha Global ·  # V4.5 CONSENSO-V1: regra 'cons' (4 tempos gráficos) ·  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -31,7 +31,7 @@ HOLD = {3600: 72, 900: 288, 300: 864}
 NOME = {'cryBTCUSD': 'Bitcoin', 'cryETHUSD': 'Ethereum', 'frxXAUUSD': 'Ouro', 'frxXAGUSD': 'Prata', 'frxEURUSD': 'EUR/USD',
         'frxGBPUSD': 'GBP/USD', 'frxUSDJPY': 'USD/JPY', 'frxAUDUSD': 'AUD/USD', 'frxUSDCAD': 'USD/CAD', 'frxUSDCHF': 'USD/CHF',
         'frxEURJPY': 'EUR/JPY', 'frxGBPJPY': 'GBP/JPY', 'frxEURGBP': 'EUR/GBP', 'frxAUDJPY': 'AUD/JPY'}
-REGRA_N = {'cons': 'Consenso 4 tempos (5m/15m/1h/4h) + repique na EMA 9',   # CONSENSO-V1
+REGRA_N = {'cons': 'Força da IA do Alpha Global (4 tempos, força mínima 70)',   # CONSENSO-V1
            'smc': 'SMC (reteste do order block)', 'tend': 'Tendência EMA 20/50', 'rsi': 'Reversão do RSI', 'romp': 'Rompimento do dia anterior',
            'lon': 'Rompimento da faixa da Ásia (abertura de Londres)', 'ny': 'Rompimento da 1ª hora de Nova York',
            'don': 'Rompimento Donchian 55 velas', 'bb': 'Volta para dentro da Bollinger 20/2'}
@@ -175,6 +175,24 @@ def supertrend(C, at, k=3.0):
             alta = True
         linha = dn_band if alta else up_band
     return linha, alta
+
+
+def supertrend_js(C, n=10, k=3.0):
+    """CONSENSO-V2: SuperTrend igual ao superTrend(C, 10, 3) do bot-global.html. Devolve +1 (alta) ou -1 (baixa)."""
+    at = atr_s(C, n)
+    up = dn = None
+    d = 1
+    for j, c in enumerate(C):
+        m = (c['h'] + c['l']) / 2.0
+        bu, bl = m + k * at[j], m - k * at[j]
+        up = min(bu, up) if (j and up is not None and C[j - 1]['c'] <= up) else bu
+        dn = max(bl, dn) if (j and dn is not None and C[j - 1]['c'] >= dn) else bl
+        if j:
+            if c['c'] > up:
+                d = 1
+            elif c['c'] < dn:
+                d = -1
+    return d
 
 
 def rsi_s(c, n):
@@ -1301,54 +1319,66 @@ class Mesa(object):
         return ''
 
     def consenso(self, a, B, S, i):
-        """CONSENSO-V1 — o sinal da IA embaixo do gráfico do Alpha Global, reconstruído no servidor:
-        em cada tempo gráfico (5m, 15m, 1h, 4h) a direção é de alta se o preço está acima do SuperTrend (10, 3) e a EMA 9 acima da EMA 21
-        (baixa ao contrário). Entra quando os 4 concordam, o RSI 14 não está esgotado (entre 25 e 75) e a vela do tempo do agente
-        fez um repique até a EMA 9 e fechou de volta a favor. Stop e alvo vêm da saída do agente (estrutural)."""
+        """CONSENSO-V2 — a MESMA conta da IA de força do Alpha Global (bot-global.html, analisar + rodarFila):
+        em cada tempo (5m, 15m, 1h, 4h; últimas 80 velas) v = (EMA9>EMA21 ? +1 : -1) + SuperTrend(10,3) (+1/-1) + inclinação da EMA21 em 5 velas (+0,5/-0,5).
+        m = média ponderada de v/2,5 com pesos 1, 1, 1,25, 1,25. Direção: alta se m > 0,2, baixa se m < -0,2.
+        Força = min(99, 50 + |m|*50), vezes 0,8 se o RSI 14 do 5m estiver esgotado (> 75 na alta, < 25 na baixa).
+        Entra quando a força >= a força mínima do agente (fmin, padrão 70), como o automático do Alpha Global. Espera 12 velas entre sinais."""
         if not hasattr(self, 'cons_txt'):
             self.cons_txt = {}
-        dirs, nomes = [], {300: '5m', 900: '15m', 3600: '1h', 14400: '4h'}
+        if not hasattr(self, 'cons_ult'):
+            self.cons_ult = {}
+        nomes, W = {300: '5m', 900: '15m', 3600: '1h', 14400: '4h'}, (1.0, 1.0, 1.25, 1.25)
         agora = time.time()
+        tfs = []
         for tf in (300, 900, 3600, 14400):
             try:
                 if tf == a['g']:
-                    C = B
+                    C = B[:i + 1][-80:]
                 else:
-                    kc = (a['sym'], tf, int(agora // tf))
+                    kc = (a['sym'], tf, int(agora // 60))
                     C = self.cache_v.get(kc)
                     if C is None:
-                        C = [c for c in self.d.velas(a['sym'], tf, 300) if c['t'] + tf <= agora + 2]
+                        C = self.d.velas(a['sym'], tf, 80)
                         self.cache_v[kc] = C
-                if len(C) < 60:
-                    dirs.append(0)
+                if len(C) < 30:
+                    tfs.append(None)
                     continue
                 cl = [c['c'] for c in C]
-                e9, e21, at = ema(cl, 9), ema(cl, 21), atr_s(C, 10)
-                st, up = supertrend(C, at)
-                d = 1 if (up and e9[-1] > e21[-1]) else -1 if ((not up) and e9[-1] < e21[-1]) else 0
-                dirs.append(d)
+                e9, e21 = ema(cl, 9), ema(cl, 21)
+                v = (1 if e9[-1] > e21[-1] else -1) + supertrend_js(C)
+                v += 0.5 if (e21[-1] - e21[-6]) > 0 else -0.5
+                tfs.append({'v': v, 'rsi': rsi_s(cl, 14)[-1]})
             except Exception:
-                dirs.append(0)
-        rs = rsi_s([c['c'] for c in B], 14)[i]
-        e9b = ema([c['c'] for c in B], 9)[i]
-        b = B[i]
-        txt = ' '.join('%s%s' % (nomes[tf], {1: '▲', -1: '▼', 0: '–'}[d]) for tf, d in zip((300, 900, 3600, 14400), dirs))
+                tfs.append(None)
+        ok = [t for t in tfs if t]
+        if not ok:
+            self.cons_txt[a['id']] = 'sem velas dos tempos maiores agora'
+            return 0
+        s = sum(t['v'] / 2.5 * W[k] for k, t in enumerate(tfs) if t)
+        wt = sum(W[k] for k, t in enumerate(tfs) if t)
+        m = s / wt
+        d = 1 if m > 0.2 else -1 if m < -0.2 else 0
+        r5 = tfs[0]['rsi'] if tfs[0] else 50
+        pen = 0.8 if ((d > 0 and r5 > 75) or (d < 0 and r5 < 25)) else 1.0
+        forca = int(round(min(99, 50 + abs(m) * 50) * pen))
+        if not d:
+            forca = min(forca, 49)
+        fmin = float(a.get('fmin') or 70)
+        setas = ' '.join('%s%s' % (nomes[tf], '?' if not t else '▲' if t['v'] >= 1.5 else '▼' if t['v'] <= -1.5 else '–') for tf, t in zip((300, 900, 3600, 14400), tfs))
+        ult = self.cons_ult.get(a['id'], 0)
         lado = 0
-        if all(d == 1 for d in dirs):
-            lado = 1 if (25 < rs < 75 and b['l'] <= e9b and b['c'] > e9b and b['c'] > b['o']) else 0
-            txt = 'ALTA nos 4 tempos (%s) · RSI %.0f · espera repique até a EMA 9 (%.5g) e fechar de volta' % (txt, rs, e9b)
-        elif all(d == -1 for d in dirs):
-            lado = -1 if (25 < rs < 75 and b['h'] >= e9b and b['c'] < e9b and b['c'] < b['o']) else 0
-            txt = 'BAIXA nos 4 tempos (%s) · RSI %.0f · espera repique até a EMA 9 (%.5g) e fechar de volta' % (txt, rs, e9b)
-        else:
-            txt = 'sem consenso (%s) · só entra quando os 4 tempos concordam' % txt
+        if d and forca >= fmin and B[i]['t'] - ult >= 12 * a['g']:
+            lado = d
+            self.cons_ult[a['id']] = B[i]['t']
+        self.cons_txt[a['id']] = '%s · força %d (mínimo %d) · %s · RSI 5m %.0f%s' % (
+            'ALTA' if d > 0 else 'BAIXA' if d < 0 else 'SEM DIREÇÃO', forca, fmin, setas, r5, '' if lado or not d or forca < fmin else ' · esperando 12 velas desde o último sinal')
         if lado:   # stop estrutural: se o SMC não achou topo/fundo, usa a máxima/mínima das últimas 12 velas + margem
             atv = S['atr'][i] or 0
             if lado < 0 and not S['slS'][i]:
                 S['slS'][i] = max(c['h'] for c in B[max(0, i - 11):i + 1]) + 0.2 * atv
             if lado > 0 and not S['slL'][i]:
                 S['slL'][i] = min(c['l'] for c in B[max(0, i - 11):i + 1]) - 0.2 * atv
-        self.cons_txt[a['id']] = txt
         return lado
 
     def leitura(self, a, S, B, i, lado):
