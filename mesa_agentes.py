@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.4'  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.5'  # V4.5 CONSENSO-V1: regra 'cons' (4 tempos gráficos) ·  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -31,7 +31,8 @@ HOLD = {3600: 72, 900: 288, 300: 864}
 NOME = {'cryBTCUSD': 'Bitcoin', 'cryETHUSD': 'Ethereum', 'frxXAUUSD': 'Ouro', 'frxXAGUSD': 'Prata', 'frxEURUSD': 'EUR/USD',
         'frxGBPUSD': 'GBP/USD', 'frxUSDJPY': 'USD/JPY', 'frxAUDUSD': 'AUD/USD', 'frxUSDCAD': 'USD/CAD', 'frxUSDCHF': 'USD/CHF',
         'frxEURJPY': 'EUR/JPY', 'frxGBPJPY': 'GBP/JPY', 'frxEURGBP': 'EUR/GBP', 'frxAUDJPY': 'AUD/JPY'}
-REGRA_N = {'smc': 'SMC (reteste do order block)', 'tend': 'Tendência EMA 20/50', 'rsi': 'Reversão do RSI', 'romp': 'Rompimento do dia anterior',
+REGRA_N = {'cons': 'Consenso 4 tempos (5m/15m/1h/4h) + repique na EMA 9',   # CONSENSO-V1
+           'smc': 'SMC (reteste do order block)', 'tend': 'Tendência EMA 20/50', 'rsi': 'Reversão do RSI', 'romp': 'Rompimento do dia anterior',
            'lon': 'Rompimento da faixa da Ásia (abertura de Londres)', 'ny': 'Rompimento da 1ª hora de Nova York',
            'don': 'Rompimento Donchian 55 velas', 'bb': 'Volta para dentro da Bollinger 20/2'}
 TF_N = {3600: '1h', 900: '15m', 300: '5m'}
@@ -151,6 +152,29 @@ def atr_s(C, n):
         a = (a * (i - 1) + t) / i if i <= n else (a * (n - 1) + t) / n
         o[i] = a
     return o
+
+
+def supertrend(C, at, k=3.0):
+    """CONSENSO-V1: SuperTrend clássico (ATR 10, multiplicador 3). Devolve (linha, True se em alta) da última vela."""
+    up_band = dn_band = None
+    alta = True
+    linha = 0.0
+    for j in range(len(C)):
+        if not at[j]:
+            continue
+        m = (C[j]['h'] + C[j]['l']) / 2.0
+        bu, bd = m + k * at[j], m - k * at[j]
+        if up_band is None:
+            up_band, dn_band = bu, bd
+        else:
+            up_band = bu if (bu < up_band or C[j - 1]['c'] > up_band) else up_band
+            dn_band = bd if (bd > dn_band or C[j - 1]['c'] < dn_band) else dn_band
+        if alta and C[j]['c'] < dn_band:
+            alta = False
+        elif (not alta) and C[j]['c'] > up_band:
+            alta = True
+        linha = dn_band if alta else up_band
+    return linha, alta
 
 
 def rsi_s(c, n):
@@ -1195,7 +1219,9 @@ class Mesa(object):
             S = sinais(B)          # todos os agentes do mesmo mercado e tempo usam o mesmo cálculo
             self.cache_v[ks] = S
         i = len(B) - 1
-        lado = S[a['regra']][i]
+        lado = S[a['regra']][i] if a['regra'] in S else 0
+        if a['regra'] == 'cons':   # CONSENSO-V1
+            lado = self.consenso(a, B, S, i)
         px = B[i]['c']
         s['px'] = px
         s['txt'] = self.leitura(a, S, B, i, lado)
@@ -1274,6 +1300,57 @@ class Mesa(object):
                 return m
         return ''
 
+    def consenso(self, a, B, S, i):
+        """CONSENSO-V1 — o sinal da IA embaixo do gráfico do Alpha Global, reconstruído no servidor:
+        em cada tempo gráfico (5m, 15m, 1h, 4h) a direção é de alta se o preço está acima do SuperTrend (10, 3) e a EMA 9 acima da EMA 21
+        (baixa ao contrário). Entra quando os 4 concordam, o RSI 14 não está esgotado (entre 25 e 75) e a vela do tempo do agente
+        fez um repique até a EMA 9 e fechou de volta a favor. Stop e alvo vêm da saída do agente (estrutural)."""
+        if not hasattr(self, 'cons_txt'):
+            self.cons_txt = {}
+        dirs, nomes = [], {300: '5m', 900: '15m', 3600: '1h', 14400: '4h'}
+        agora = time.time()
+        for tf in (300, 900, 3600, 14400):
+            try:
+                if tf == a['g']:
+                    C = B
+                else:
+                    kc = (a['sym'], tf, int(agora // tf))
+                    C = self.cache_v.get(kc)
+                    if C is None:
+                        C = [c for c in self.d.velas(a['sym'], tf, 300) if c['t'] + tf <= agora + 2]
+                        self.cache_v[kc] = C
+                if len(C) < 60:
+                    dirs.append(0)
+                    continue
+                cl = [c['c'] for c in C]
+                e9, e21, at = ema(cl, 9), ema(cl, 21), atr_s(C, 10)
+                st, up = supertrend(C, at)
+                d = 1 if (up and e9[-1] > e21[-1]) else -1 if ((not up) and e9[-1] < e21[-1]) else 0
+                dirs.append(d)
+            except Exception:
+                dirs.append(0)
+        rs = rsi_s([c['c'] for c in B], 14)[i]
+        e9b = ema([c['c'] for c in B], 9)[i]
+        b = B[i]
+        txt = ' '.join('%s%s' % (nomes[tf], {1: '▲', -1: '▼', 0: '–'}[d]) for tf, d in zip((300, 900, 3600, 14400), dirs))
+        lado = 0
+        if all(d == 1 for d in dirs):
+            lado = 1 if (25 < rs < 75 and b['l'] <= e9b and b['c'] > e9b and b['c'] > b['o']) else 0
+            txt = 'ALTA nos 4 tempos (%s) · RSI %.0f · espera repique até a EMA 9 (%.5g) e fechar de volta' % (txt, rs, e9b)
+        elif all(d == -1 for d in dirs):
+            lado = -1 if (25 < rs < 75 and b['h'] >= e9b and b['c'] < e9b and b['c'] < b['o']) else 0
+            txt = 'BAIXA nos 4 tempos (%s) · RSI %.0f · espera repique até a EMA 9 (%.5g) e fechar de volta' % (txt, rs, e9b)
+        else:
+            txt = 'sem consenso (%s) · só entra quando os 4 tempos concordam' % txt
+        if lado:   # stop estrutural: se o SMC não achou topo/fundo, usa a máxima/mínima das últimas 12 velas + margem
+            atv = S['atr'][i] or 0
+            if lado < 0 and not S['slS'][i]:
+                S['slS'][i] = max(c['h'] for c in B[max(0, i - 11):i + 1]) + 0.2 * atv
+            if lado > 0 and not S['slL'][i]:
+                S['slL'][i] = min(c['l'] for c in B[max(0, i - 11):i + 1]) - 0.2 * atv
+        self.cons_txt[a['id']] = txt
+        return lado
+
     def leitura(self, a, S, B, i, lado):
         r, px = a['regra'], B[i]['c']
         if r == 'rsi':
@@ -1291,6 +1368,8 @@ class Mesa(object):
             t = 'canal de 55 velas %.5g a %.5g · entra quando fechar fora · preço %.5g' % (S.get('dmx', 0), S.get('dmn', 0), px)
         elif r == 'bb':
             t = 'Bollinger %.5g a %.5g · entra quando o preço sai e volta para dentro · preço %.5g' % (S['bbU'][i], S['bbL'][i], px)
+        elif r == 'cons':
+            t = getattr(self, 'cons_txt', {}).get(a['id'], 'lendo os 4 tempos gráficos')
         else:
             t = 'máxima de ontem %.5g · mínima de ontem %.5g · preço %.5g' % (S['pH'], S['pL'], px)
         if lado:
@@ -1736,8 +1815,8 @@ def register_mesa(app):
         ids = {x['id'] for x in L}
         novos, erros = 0, []
         for d in lista[:40]:
-            if len(L) >= 48:
-                erros.append('mesa cheia (48 agentes)')
+            if len(L) >= 50:   # CONSENSO-V1: cabe 50
+                erros.append('mesa cheia (50 agentes)')
                 break
             try:
                 d = dict(d, modo='sombra')
