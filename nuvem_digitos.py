@@ -333,6 +333,14 @@ class Pessoa(object):
             self.salva(u2)
         if self.nv.ligado(self.conta) and u2.get('tp') and s.get('pl', 0) >= u2['tp'] and not u2['abertos']:
             self.nv.para(self.conta, 'META ATINGIDA (+$%.2f)' % s['pl'])
+        mx = int(u2.get('max_ent') or 0)                      # NUVEM-MAX-ENT-V1
+        if mx > 0 and self.nv.ligado(self.conta) and int(s.get('ciclos', 0)) >= mx and not u2['abertos']:
+            c = u2.get('ciclo') or {}
+            for p, pl, dg, ex, chv in fechados:
+                if pl is not None and p.get('k') == c.get('k') and p.get('g') == c.get('g') and (pl > 0 or int(p.get('g') or 0) >= int(u2.get('gales', 3))):
+                    v = float(s.get('pl', 0))
+                    self.nv.para(self.conta, 'FEZ OS %d SINAIS QUE VOCÊ PEDIU · desligou sozinho (%s$%.2f)' % (mx, '+' if v >= 0 else '−', abs(v)))
+                    break
 
 
 class Nuvem(object):
@@ -488,6 +496,13 @@ class Nuvem(object):
         if sl > 0 and (-P + stake) > sl + 1e-9:
             self.para(conta, 'PARADO: a próxima entrada ($%.2f) passaria do seu limite de perda ($%.2f)' % (stake, sl))
             return
+        mx = int(u.get('max_ent') or 0)                        # NUVEM-MAX-ENT-V1
+        if g == 0 and mx > 0 and int(s.get('ciclos', 0)) >= mx:
+            self.para(conta, 'FEZ OS %d SINAIS QUE VOCÊ PEDIU · desligou sozinho (%s$%.2f)' % (mx, '+' if P >= 0 else '−', abs(P)))
+            return
+        if g == 0 and mx > 0:
+            s['ciclos'] = int(s.get('ciclos', 0)) + 1
+            u['sessao'] = s
         ciclo.update({'k': k, 'g': g, 'ult': stake, 'perda': perda})
         u['ciclo'] = ciclo
         self.salva(conta, u)
@@ -592,7 +607,8 @@ def register_nuvem_digitos(app):
         u.update({'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '',
                   't_lig': int(time.time()), 'base': num(cf.get('base'), 0.35, 0.35, 500), 'modo': 'fator' if cf.get('modo') == 'fator' else 'rec',
                   'fator': num(cf.get('fator'), 2.1, 1.0, 5.0), 'gales': int(num(cf.get('gales'), 3, 0, 3)), 'sl': num(cf.get('sl'), 15, 0, 100000),
-                  'tp': num(cf.get('tp'), 5, 0, 100000), 'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
+                  'tp': num(cf.get('tp'), 5, 0, 100000), 'max_ent': int(num(cf.get('max_ent'), 0, 0, 500)),   # NUVEM-MAX-ENT-V1
+                  'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
         nv.salva(conta, u)
         nv.liga(conta, True)
@@ -601,7 +617,7 @@ def register_nuvem_digitos(app):
             L.append(conta)
             nv.kv.jset(K_LISTA, L)
         nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · entrada $%.2f · %d gale(s) · limite $%.2f · meta $%.2f' % (
-            info['tipo'].upper(), u['base'], u['gales'], u['sl'], u['tp'])})
+            info['tipo'].upper(), u['base'], u['gales'], u['sl'], u['tp']) + (' · para depois de %d sinais' % u['max_ent'] if u.get('max_ent') else '')})
         return jsonify({'ok': True, 'cfg': publico(u)})
 
     @app.route('/api/nuvem-digitos/desligar', methods=['POST'])
