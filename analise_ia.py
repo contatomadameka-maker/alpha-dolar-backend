@@ -84,7 +84,10 @@ def register_analise_ia(app):
                 '5) Espere quando o tempo maior for contra, houver menos de 2 confluencias ou os dois planos se anularem. ',
                 '5) NUNCA escolha esperar quando existir plano: escolha o melhor e classifique. forca "forte" = regra 4 cumprida e rr 1.5 ou mais. '
                 'forca "fraco" = tempo maior contra, menos de 2 confluencias, rr abaixo de 1.5, planos se anulando ou plano "sinal reserva". '
-                'Se for fraco, diga no motivo POR QUE e fraco. ')
+                'Se for fraco, diga no motivo POR QUE e fraco. '
+                '6) TEND-PLANO-V1: plano cujo motivo comeca com "tendencia confirmada" segue o tempo maior e a estrutura. Em dia de tendencia forte '
+                'o preco fica em discount (queda) ou premium (alta) por muito tempo: isso NAO deixa esse plano fraco. Ele e forte se o Stoch RSI '
+                'nao estiver no extremo contra e o rr for 1.5 ou mais. ')
         pedido = ('Mercado %s, tempo grafico %s, preco agora %s, ATR %s.\nTempo maior (%s): %s.\nEstrutura recente: %s.\nVarreduras: %s.\n'
                   'Zonas de demanda (abaixo): %s.\nZonas de oferta (acima): %s.\nLiquidez: %s.\nPremium/discount: %s.\nStoch RSI: %s.\nSessao: %s.\n'
                   'PLANO DE COMPRA: %s\nPLANO DE VENDA: %s\n\n'
