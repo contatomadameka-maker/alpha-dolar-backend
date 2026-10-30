@@ -85,6 +85,11 @@ try:
     register_noticias_reais(app)
 except Exception as _e_nr:
     print("NOTICIAS-REAIS: falhou ao registrar:", _e_nr)
+try:
+    from vetos_global import register_vetos  # VETOS-V1
+    register_vetos(app)
+except Exception as _e_vt:
+    print("VETOS: falhou ao registrar:", _e_vt)
 
 # ==================== IMPORTAR BOTS REAIS ====================
 

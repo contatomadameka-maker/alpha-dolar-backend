@@ -14,7 +14,7 @@ import os, time, socket, hashlib, threading, traceback
 
 from nuvem_digitos import KV, Conexao, contas_do_token
 
-VERSAO = 'PENDENTES-NUVEM-V1'
+VERSAO = 'PENDENTES-NUVEM-V1.1'  # V1.1 VETOS-V1: espera notícia forte passar e não dobra aposta no mesmo grupo
 HOST = '%s:%d' % (socket.gethostname(), os.getpid())
 K_LISTA = 'pend:lista'
 PASSO = 2.0
@@ -115,6 +115,22 @@ class Pendentes(object):
         P = (r.get('history') or {}).get('prices') or []
         return float(P[-1]) if P else None
 
+    def veto(self, c, o):
+        try:
+            import vetos_global as V
+        except Exception:
+            return ''
+        m = V.veto_noticia(o['sym'])
+        if m:
+            return m
+        try:
+            r = c.req({'portfolio': 1}, 10)
+            ab = [(x.get('underlying_symbol') or x.get('underlying') or x.get('symbol'), V.lado_contrato(x.get('contract_type')))
+                  for x in ((r.get('portfolio') or {}).get('contracts') or [])]
+            return V.veto_corr(o['sym'], o['dir'], [x for x in ab if x[0] and x[1]])
+        except Exception:
+            return ''
+
     def compra(self, c, u, o, px, symkey):
         sl, tp = valores(o, px)
         if sl >= float(o['stk']) * 0.95:
@@ -170,6 +186,11 @@ class Pendentes(object):
                         if not chegou:
                             if agora - o.get('t_px', 0) > 10:
                                 self.muda(conta, o['id'], px=px, t_px=int(agora))
+                            continue
+                        vt = '' if o.get('sem_veto') else self.veto(c, o)   # VETOS-V1: notícia forte ou posição no mesmo grupo -> espera
+                        if vt:
+                            if agora - o.get('t_vt', 0) > 30:
+                                self.muda(conta, o['id'], px=px, t_px=int(agora), t_vt=int(agora), msg='⏸ chegou na entrada, mas esperando: ' + vt)
                             continue
                         res, err = self.compra(c, u, o, px, symkey)
                         if err:

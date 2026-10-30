@@ -46,6 +46,9 @@ def piso_de(rg, mx, stk=0.0):
     z = float(rg.get('zera_em') or 0)
     if z > 0 and mx >= z:
         p = 0.0
+    zp = float(rg.get('zera_pct') or 0)          # ZERA-PCT-V1: zera o risco quando o lucro chega a X% da entrada (serve para entrada pequena ou grande)
+    if zp > 0 and stk > 0 and mx >= stk * zp / 100.0:
+        p = 0.0 if p is None else max(p, 0.0)
     t, g = float(rg.get('trava_em') or 0), float(rg.get('guarda') or 0)
     if t > 0 and mx >= t:
         p = g if p is None else max(p, g)
@@ -259,7 +262,7 @@ def register_protecao(app):
     def regras(d):
         rg = d.get('regras') or {}
         o = {'zera_em': num(rg.get('zera_em')), 'trava_em': num(rg.get('trava_em')), 'guarda': num(rg.get('guarda')), 'movel': num(rg.get('movel')),
-             'pct_ini': num(rg.get('pct_ini'), 0, 1000), 'pct_keep': num(rg.get('pct_keep'), 0, 95)}
+             'pct_ini': num(rg.get('pct_ini'), 0, 1000), 'pct_keep': num(rg.get('pct_keep'), 0, 95), 'zera_pct': num(rg.get('zera_pct'), 0, 1000)}
         if o['trava_em'] and o['guarda'] >= o['trava_em']:
             o['guarda'] = r2(o['trava_em'] * 0.75)
         return o
@@ -279,7 +282,7 @@ def register_protecao(app):
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
         rg = regras(d)
-        if not (rg['zera_em'] or rg['trava_em'] or rg['movel'] or rg['pct_keep']):
+        if not (rg['zera_em'] or rg['trava_em'] or rg['movel'] or rg['pct_keep'] or rg['zera_pct']):
             return jsonify({'ok': False, 'erro': 'escolha pelo menos uma proteção'}), 400
         conta = str(d['conta']).strip()
         u = pr.cfg(conta)

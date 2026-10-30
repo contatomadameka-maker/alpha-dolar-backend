@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.3'  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.4'  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -931,6 +931,7 @@ K_CFG, K_TOK, K_OPS, K_LOCK, K_LOG = 'mesa:cfg', 'mesa:tok', 'mesa:ops', 'mesa:l
 # MESA-AGENTES-V2: proteções. stop_dia = perda máxima da mesa no dia (Brasília); stop_ag_dia = por agente;
 # apos_n / apos_pf = com apos_n+ operações reais e fator de lucro abaixo de apos_pf o agente se aposenta sozinho.
 PROT_PADRAO = {'stop_dia': 400.0, 'stop_ag_dia': 160.0, 'apos_n': 30, 'apos_pf': 0.85,
+               'veto_noticia': 1.0, 'veto_corr': 1.0,   # VETOS-V1: 1 = ligado, 0 = desligado
                # MESA-AGENTES-V4 diretor: sombra com prom_n+ ops e fator >= prom_pf vira DEMO (até max_demo agentes na demo)
                'prom_n': 20, 'prom_pf': 1.2, 'max_demo': 10,
                # MESA-TRAVA-V1: trava de lucro. Quando o lucro chega a trava_ini x entrada, garante trava_keep do maior lucro.
@@ -1217,6 +1218,21 @@ class Mesa(object):
                 s['txt'] += ' · analistas de acordo: ' + ', '.join(AN_N[k] for k in a['an'])
         if lado and a.get('modo') == 'sombra' and fechou_agora:
             lado = 0          # igual à Fábrica: não entra na mesma vela em que saiu
+        if lado:   # VETOS-V1: Agente Notícias e Agente Correlação (só bloqueiam; o barrado vira sombra marcada, para medir)
+            vt = self.vetos(a, lado)
+            if vt:
+                if a.get('modo') != 'sombra':
+                    s['txt'] += ' · 🚫 vetado: %s (vai para a sombra para medir)' % vt
+                    self.nota('%s: 🚫 VETADO (%s) · a entrada vai para a sombra' % (a['nome'], vt))
+                else:
+                    s['txt'] += ' · 🚫 seria vetado: %s' % vt
+                if not fechou_agora:
+                    self.entra_sombra(a, s, lado, B[i], S['atr'][i], S['slL'][i] if lado > 0 else S['slS'][i])
+                    if s.get('pos') and s['pos'].get('sombra'):
+                        s['pos']['veto'] = vt
+                        if a.get('modo') != 'sombra':
+                            s['pos']['vet'] = 1
+                lado = 0
         if lado and a.get('modo') == 'sombra':
             self.entra_sombra(a, s, lado, B[i], S['atr'][i], S['slL'][i] if lado > 0 else S['slS'][i])
             lado = 0
@@ -1233,6 +1249,30 @@ class Mesa(object):
         if lado:
             self.entra(a, s, lado, px, S['atr'][i], S['slL'][i] if lado > 0 else S['slS'][i])
         self.grava_st(aid)
+
+    def vetos(self, a, lado):
+        """VETOS-V1: '' = pode entrar; senão o motivo"""
+        try:
+            import vetos_global as V
+        except Exception:
+            return ''
+        pr = self.prot()
+        if float(pr.get('veto_noticia', 1)) > 0:
+            m = V.veto_noticia(a['sym'])
+            if m:
+                return m
+        if float(pr.get('veto_corr', 1)) > 0 and a.get('modo') != 'sombra':
+            ab = []
+            for b in self.cfg().get('agentes') or []:
+                if b.get('id') == a.get('id'):
+                    continue
+                p = (self.st_ag(b['id']) or {}).get('pos') or {}
+                if p and not p.get('sombra'):
+                    ab.append((b.get('sym'), p.get('lado') or 0))
+            m = V.veto_corr(a['sym'], lado, ab)
+            if m:
+                return m
+        return ''
 
     def leitura(self, a, S, B, i, lado):
         r, px = a['regra'], B[i]['c']
@@ -1298,13 +1338,14 @@ class Mesa(object):
             if pl is not None:
                 op = {'id': 'S%s-%d' % (a['id'], p['bi']), 'ag': a['id'], 'nome': a['nome'], 'sym': a['sym'], 'g': a['g'], 'regra': a['regra'], 'lado': lado,
                       'stk': p['stk'], 'mult': p['mult'], 'ent': ent, 'sai': b['c'], 't0': p['t'], 't1': int(b['t'] + a['g']), 'pl': round(pl, 2), 'motivo': mot, 'sombra': 1,
-                      'mx': round(float(p.get('mx') or 0), 2), 'plt': p['plt'] if p.get('plt') is not None else round(pl, 2)}
+                      'mx': round(float(p.get('mx') or 0), 2), 'plt': p['plt'] if p.get('plt') is not None else round(pl, 2), 'veto': p.get('veto') or '', 'vet': p.get('vet') or 0}
                 self.kv.push(K_OPS, op)
                 self.copia(op)
                 s.pop('pos', None)
                 s['estado'] = 'analisando'
                 self.nota('%s (sombra) fechou %s em %s: %s%.2f (%s)' % (a['nome'], 'compra' if lado > 0 else 'venda', NOME.get(a['sym'], a['sym']), '+' if pl >= 0 else '−', abs(pl), mot))
-                self.diretor(a)
+                if not p.get('vet'):
+                    self.diretor(a)
                 return b['t']
         p['pl'] = round(p['K'] * lado * (B[-1]['c'] / ent - 1) - p['comm'], 2)
 
