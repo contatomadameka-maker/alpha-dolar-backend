@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.8'  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.9'  # V1.9 NUVEM-GALES-V1: até 20 gales (continua nos próximos sinais), esperar N LOSS da sala, placar da sala ·  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -280,7 +280,7 @@ class Pessoa(object):
                     u['pm'] = pm
             except Exception:
                 pass
-            u.setdefault('abertos', []).append({'cid': b.get('contract_id'), 'stake': job['stake'], 'g': job['g'], 'k': job['k'], 'sym': job['sym'],
+            u.setdefault('abertos', []).append({'cid': b.get('contract_id'), 'stake': job['stake'], 'g': job['g'], 'n': job.get('n', job['g']), 'k': job['k'], 'sym': job['sym'],
                                                 'lado': job['lado'], 't': int(time.time())})
             self.salva(u)
 
@@ -330,6 +330,12 @@ class Pessoa(object):
                     reg['chaves'] = chv      # V1.4: para descobrir o campo do dígito se a Deriv mudar de novo
                 self.nv.op_log(self.conta, reg)
                 self.nv.robo_x_sala(self.conta, u2.get('tipo'), p, pl, dg, ex)
+            cc = u2.get('ciclo') or {}                                      # NUVEM-GALES-V1
+            for p, pl, dg, ex, chv in fechados:
+                if pl is not None and p.get('k') == cc.get('k') and p.get('g') == cc.get('g'):
+                    cc['perdeu'] = pl <= 0
+                    cc['t'] = time.time()
+            u2['ciclo'] = cc
             self.salva(u2)
         if self.nv.ligado(self.conta) and u2.get('tp') and s.get('pl', 0) >= u2['tp'] and not u2['abertos']:
             self.nv.para(self.conta, 'META ATINGIDA (+$%.2f)' % s['pl'])
@@ -337,7 +343,7 @@ class Pessoa(object):
         if mx > 0 and self.nv.ligado(self.conta) and int(s.get('ciclos', 0)) >= mx and not u2['abertos']:
             c = u2.get('ciclo') or {}
             for p, pl, dg, ex, chv in fechados:
-                if pl is not None and p.get('k') == c.get('k') and p.get('g') == c.get('g') and (pl > 0 or int(p.get('g') or 0) >= int(u2.get('gales', 3))):
+                if pl is not None and p.get('k') == c.get('k') and p.get('g') == c.get('g') and (pl > 0 or int(p.get('n', p.get('g')) or 0) >= int(u2.get('gales', 3))):
                     v = float(s.get('pl', 0))
                     self.nv.para(self.conta, 'FEZ OS %d SINAIS QUE VOCÊ PEDIU · desligou sozinho (%s$%.2f)' % (mx, '+' if v >= 0 else '−', abs(v)))
                     break
@@ -419,6 +425,74 @@ class Nuvem(object):
                 pass
         threading.Thread(target=manda, daemon=True).start()
 
+    def ciclos_sala(self, dias=1):
+        """NUVEM-GALES-V1: ciclos da Sala (mais novo primeiro) dos últimos dias"""
+        hoje = datetime.now(BRT).date()
+        L = []
+        for i in range(dias):
+            d = (hoje - timedelta(days=i)).strftime('%Y-%m-%d')
+            try:
+                L += (json.loads(self.kv.get('sala_dig:dia:' + d) or 'null') or {}).get('ciclos') or []
+            except Exception:
+                pass
+        return L
+
+    def seq_loss(self):
+        c = getattr(self, '_seq_c', None)
+        if c and time.time() - c[0] < 8:
+            return c[1]
+        n = 0
+        for x in self.ciclos_sala(2):
+            if x.get('res') == 'loss':
+                n += 1
+            else:
+                break
+        self._seq_c = (time.time(), n)
+        return n
+
+    def placar_sala(self):
+        c = getattr(self, '_plc', None)
+        if c and time.time() - c[0] < 15:
+            return c[1]
+        H = self.ciclos_sala(1)
+        L2 = self.ciclos_sala(2)
+        w = len([x for x in H if x.get('res') == 'win'])
+        l = len([x for x in H if x.get('res') == 'loss'])
+        ult = next((x for x in L2 if x.get('res') == 'loss'), None)
+        depois = 0
+        for x in L2:
+            if x.get('res') == 'loss':
+                break
+            depois += 1
+        seq = 0
+        for x in L2:
+            if x.get('res') == 'loss':
+                seq += 1
+            else:
+                break
+        mx, cur = 0, 0
+        for x in reversed(H):
+            cur = cur + 1 if x.get('res') == 'loss' else 0
+            mx = max(mx, cur)
+        est = getattr(self, '_est', None)
+        if not est or time.time() - est[0] > 600:      # depois de N LOSS seguidos, o próximo sinal ganhou quantas vezes? (30 dias)
+            seqs = list(reversed(self.ciclos_sala(30)))
+            r = {}
+            for N in (0, 1, 2, 3):
+                tot = ok = 0
+                for i in range(N, len(seqs)):
+                    if all(seqs[j].get('res') == 'loss' for j in range(i - N, i)) and (N == 0 or i - N >= 0):
+                        tot += 1
+                        ok += 1 if seqs[i].get('res') == 'win' else 0
+                r[str(N)] = {'n': tot, 'win': ok, 'pct': round(ok * 100.0 / tot, 1) if tot else None}
+            est = (time.time(), r)
+            self._est = est
+        out = {'win': w, 'loss': l, 'pct': round(w * 100.0 / (w + l), 1) if (w + l) else None, 'seq_loss': seq, 'maior_seq_loss_hoje': mx,
+               'ultimo_loss': {'t': ult.get('t'), 'sym': ult.get('sym'), 'passo': ult.get('passo')} if ult else None, 'win_depois': depois if ult else None,
+               'ult': [{'t': x.get('t'), 'res': x.get('res'), 'passo': x.get('passo'), 'sym': x.get('sym')} for x in L2[:12]], 'depois_de_loss': est[1], 't': int(time.time())}
+        self._plc = (time.time(), out)
+        return out
+
     def op_log(self, conta, reg):
         k = 'nuvem_dig:ops:' + conta
         L = self.kv.jget(k, []) or []
@@ -478,14 +552,27 @@ class Nuvem(object):
     def _entra(self, conta, sym, lado, g, k):
         u = self.cfg(conta)
         ciclo = u.get('ciclo') or {}
+        gmax = int(u.get('gales', 3))                                     # NUVEM-GALES-V1
+        cont = False
         if g == 0:
-            ciclo = {'k': k, 'perda': 0.0, 'g': 0}
+            n0 = int(ciclo.get('n', ciclo.get('g', 0)) or 0)
+            cont = bool(ciclo.get('perdeu')) and n0 < gmax and time.time() - float(ciclo.get('t') or 0) < 3 * 3600
+            if cont:   # perdeu o último sinal e ainda tem gale: recupera no próximo sinal da sala
+                n, perda = n0 + 1, r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
+            else:
+                n, perda = 0, 0.0
+                esp = int(u.get('espera') or 0)
+                if esp > 0 and self.seq_loss() < esp:
+                    return                 # espera a sala dar N LOSS seguidos antes de começar
+            ciclo = {'k': k, 'perda': perda, 'g': 0, 'n': n}
         elif ciclo.get('k') != k or ciclo.get('g') != g - 1:
             return                         # ligou no meio do ciclo: não entra direto num gale
-        if g > int(u.get('gales', 3)):
+        else:
+            n = int(ciclo.get('n', ciclo.get('g', 0)) or 0) + 1
+            perda = r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
+        if n > gmax:
             return
-        perda = r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0))) if g > 0 else 0.0
-        stake = stake_gale(u.get('modo', 'rec'), float(u.get('base', 0.35)), float(u.get('fator', 2.1)), g, perda, float(u.get('pm', 0.95)))
+        stake = stake_gale(u.get('modo', 'rec'), float(u.get('base', 0.35)), float(u.get('fator', 2.1)), n, perda, float(u.get('pm', 0.95)))
         s = u.get('sessao') or {'pl': 0.0}
         aberto = sum(float(p['stake']) for p in (u.get('abertos') or []))
         P = float(s.get('pl', 0)) - aberto
@@ -497,19 +584,19 @@ class Nuvem(object):
             self.para(conta, 'PARADO: a próxima entrada ($%.2f) passaria do seu limite de perda ($%.2f)' % (stake, sl))
             return
         mx = int(u.get('max_ent') or 0)                        # NUVEM-MAX-ENT-V1
-        if g == 0 and mx > 0 and int(s.get('ciclos', 0)) >= mx:
+        if g == 0 and not cont and mx > 0 and int(s.get('ciclos', 0)) >= mx:
             self.para(conta, 'FEZ OS %d SINAIS QUE VOCÊ PEDIU · desligou sozinho (%s$%.2f)' % (mx, '+' if P >= 0 else '−', abs(P)))
             return
-        if g == 0 and mx > 0:
+        if g == 0 and not cont and mx > 0:
             s['ciclos'] = int(s.get('ciclos', 0)) + 1
             u['sessao'] = s
-        ciclo.update({'k': k, 'g': g, 'ult': stake, 'perda': perda})
+        ciclo.update({'k': k, 'g': g, 'n': n, 'ult': stake, 'perda': perda, 'perdeu': False, 't': time.time()})
         u['ciclo'] = ciclo
         self.salva(conta, u)
         p = self.pessoas.get(conta)
         if p is None:
             p = self.pessoas[conta] = Pessoa(self, conta)
-        p.q.put({'sym': sym, 'lado': lado, 'g': g, 'k': k, 'stake': stake, 't': time.time()})
+        p.q.put({'sym': sym, 'lado': lado, 'g': g, 'n': n, 'k': k, 'stake': stake, 't': time.time()})
 
 
 def register_nuvem_digitos(app):
@@ -606,7 +693,7 @@ def register_nuvem_digitos(app):
             return jsonify({'ok': False, 'erro': 'ainda tem contrato aberto; espere alguns segundos'}), 400
         u.update({'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '',
                   't_lig': int(time.time()), 'base': num(cf.get('base'), 0.35, 0.35, 500), 'modo': 'fator' if cf.get('modo') == 'fator' else 'rec',
-                  'fator': num(cf.get('fator'), 2.1, 1.0, 5.0), 'gales': int(num(cf.get('gales'), 3, 0, 3)), 'sl': num(cf.get('sl'), 15, 0, 100000),
+                  'fator': num(cf.get('fator'), 2.1, 1.0, 5.0), 'gales': int(num(cf.get('gales'), 3, 0, 30)) if 'GALE-LIVRE-V1' else 0, 'espera': int(num(cf.get('espera'), 0, 0, 5)), 'sl': num(cf.get('sl'), 15, 0, 100000),
                   'tp': num(cf.get('tp'), 5, 0, 100000), 'max_ent': int(num(cf.get('max_ent'), 0, 0, 500)),   # NUVEM-MAX-ENT-V1
                   'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
@@ -619,6 +706,14 @@ def register_nuvem_digitos(app):
         nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · entrada $%.2f · %d gale(s) · limite $%.2f · meta $%.2f' % (
             info['tipo'].upper(), u['base'], u['gales'], u['sl'], u['tp']) + (' · para depois de %d sinais' % u['max_ent'] if u.get('max_ent') else '')})
         return jsonify({'ok': True, 'cfg': publico(u)})
+
+    @app.route('/api/sala-digitos/placar', methods=['GET'])
+    def _nd_placar():
+        # NUVEM-GALES-V1: placar da Sala para quem configura o robô (público, sem dados de ninguém)
+        try:
+            return jsonify(dict(nv.placar_sala(), ok=True))
+        except Exception as e:
+            return jsonify({'ok': False, 'erro': str(e)[:120]})
 
     @app.route('/api/nuvem-digitos/desligar', methods=['POST'])
     def _nd_desligar():
