@@ -457,6 +457,7 @@ class Nuvem(object):
         H = self.ciclos_sala(1)
         L2 = self.ciclos_sala(2)
         w = len([x for x in H if x.get('res') == 'win'])
+        gx = [len([x for x in H if x.get('res') == 'win' and int(x.get('passo') or 0) == i]) for i in range(4)]   # NUVEM-PLACAR-GALE-V1
         l = len([x for x in H if x.get('res') == 'loss'])
         ult = next((x for x in L2 if x.get('res') == 'loss'), None)
         depois = 0
@@ -487,7 +488,7 @@ class Nuvem(object):
                 r[str(N)] = {'n': tot, 'win': ok, 'pct': round(ok * 100.0 / tot, 1) if tot else None}
             est = (time.time(), r)
             self._est = est
-        out = {'win': w, 'loss': l, 'pct': round(w * 100.0 / (w + l), 1) if (w + l) else None, 'seq_loss': seq, 'maior_seq_loss_hoje': mx,
+        out = {'win': w, 'loss': l, 'gale': gx, 'pct': round(w * 100.0 / (w + l), 1) if (w + l) else None, 'seq_loss': seq, 'maior_seq_loss_hoje': mx,
                'ultimo_loss': {'t': ult.get('t'), 'sym': ult.get('sym'), 'passo': ult.get('passo')} if ult else None, 'win_depois': depois if ult else None,
                'ult': [{'t': x.get('t'), 'res': x.get('res'), 'passo': x.get('passo'), 'sym': x.get('sym')} for x in L2[:12]], 'depois_de_loss': est[1], 't': int(time.time())}
         self._plc = (time.time(), out)
