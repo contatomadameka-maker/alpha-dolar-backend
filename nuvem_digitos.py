@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.9'  # V1.9 NUVEM-GALES-V1: até 20 gales (continua nos próximos sinais), esperar N LOSS da sala, placar da sala ·  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.10'  # V1.10 NUVEM-PLANO-V1: conta real so com plano ·  # V1.9 NUVEM-GALES-V1: até 20 gales (continua nos próximos sinais), esperar N LOSS da sala, placar da sala ·  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -599,6 +599,25 @@ class Nuvem(object):
         p.q.put({'sym': sym, 'lado': lado, 'g': g, 'n': n, 'k': k, 'stake': stake, 't': time.time()})
 
 
+def _nivel_plano(tok):
+    """NUVEM-PLANO-V1: pergunta ao proprio servidor (/api/plano) o nivel do plano deste login. None = nao deu para confirmar."""
+    corpo = json.dumps({'token': tok}).encode()
+    alvos = ['http://127.0.0.1:%s' % os.environ.get('PORT', '10000'), (os.environ.get('RENDER_EXTERNAL_URL', '').strip().rstrip('/') or 'https://alpha-dolar-backend.onrender.com')]
+    for base in alvos:
+        try:
+            rq = urllib.request.Request(base + '/api/plano', data=corpo, headers={'Content-Type': 'application/json'}, method='POST')
+            with urllib.request.urlopen(rq, timeout=12) as r:
+                j = json.loads(r.read().decode() or '{}')
+            if j.get('ok'):
+                return int(j.get('nivel') or 0)
+        except urllib.error.HTTPError as e:
+            if e.code == 503:
+                return None
+        except Exception:
+            pass
+    return None
+
+
 def register_nuvem_digitos(app):
     from flask import request, jsonify
     nv = Nuvem()
@@ -686,6 +705,12 @@ def register_nuvem_digitos(app):
         info, err = dono(d)
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
+        if str(info.get('tipo')) == 'real':                      # NUVEM-PLANO-V1
+            nvp = _nivel_plano(str(d.get('token') or ''))
+            if nvp is None:
+                return jsonify({'ok': False, 'erro': 'nao consegui confirmar o seu plano agora; tente de novo em instantes'}), 503
+            if nvp < 1:
+                return jsonify({'ok': False, 'erro': 'Conta real exige o plano Sinais (ou superior). Na conta demo continua liberado.'}), 403
         conta = str(d['conta'])
         cf = d.get('cfg') or {}
         u = nv.cfg(conta)
