@@ -76,7 +76,7 @@ def register_plano_api(app, supabase_client=None):
 
     def _sb(path):
         k = _key()
-        r = requests.get(URL + '/rest/v1/' + path, headers={'apikey': k, 'Authorization': 'Bearer ' + k}, timeout=15)
+        r = requests.get(URL + '/rest/v1/' + path, headers={'apikey': k, 'Authorization': 'Bearer ' + k}, timeout=8)   # PLANO-RESERVA-V1: 15 -> 8 s
         if not r.ok:
             print('[PLANO] supabase', r.status_code, r.text[:200])
             raise RuntimeError('supabase %s' % r.status_code)
@@ -101,7 +101,60 @@ def register_plano_api(app, supabase_client=None):
     def _liberados():
         return [x.strip().lower() for x in os.environ.get('ALPHA_LIBERADOS', '').split(',') if x.strip()]
 
+    # PLANO-RESERVA-V1: se o Supabase cair/ficar lento, usa o ultimo plano confirmado de cada conta (guardado no Redis 30 dias)
+    _RES = {'kv': None, 'falhou': 0.0}
+    def _kv():
+        if _RES['kv'] is None:
+            try:
+                from nuvem_digitos import KV
+                _RES['kv'] = KV()
+            except Exception as e:
+                print('[PLANO] reserva sem KV:', e)
+                _RES['kv'] = False
+        return _RES['kv'] or None
+    def _res_salva(ids, email, info):
+        kv = _kv()
+        if not kv:
+            return
+        for x in [i for i in ids if i] + ([email] if email else []):
+            try:
+                kv.jset('plano_reserva:' + str(x).lower(), dict(info, t=int(time.time())), ex=86400 * 30)
+            except Exception:
+                pass
+    def _res_le(ids, email):
+        kv = _kv()
+        if not kv:
+            return None
+        melhor = None
+        for x in [i for i in ids if i] + ([email] if email else []):
+            v = kv.jget('plano_reserva:' + str(x).lower())
+            if v and (melhor is None or v.get('nivel', 0) > melhor.get('nivel', 0)):
+                melhor = v
+        return melhor
+
     def plano_por_ids(ids, email_informado=''):
+        ids = [i for i in ids if i]
+        lib = _liberados()
+        if any(i.lower() in lib for i in ids) or (email_informado and email_informado.lower() in lib):
+            return {'plano': 'elite', 'nivel': 3, 'ferramentas': [], 'produtos': [], 'motivo': 'liberado'}
+        if time.time() - _RES['falhou'] < 60:        # Supabase falhou agora ha pouco: nem tenta (nao prende as threads)
+            v = _res_le(ids, email_informado)
+            if v:
+                v = dict(v); v['motivo'] = 'reserva'; return v
+            raise RuntimeError('supabase fora do ar e sem plano guardado desta conta')
+        try:
+            info = _plano_por_ids_sb(ids, email_informado)
+        except Exception as e:
+            _RES['falhou'] = time.time()
+            print('[PLANO] supabase falhou, usando reserva:', str(e)[:120])
+            v = _res_le(ids, email_informado)
+            if v:
+                v = dict(v); v['motivo'] = 'reserva'; return v
+            raise
+        _res_salva(ids, email_informado, info)
+        return info
+
+    def _plano_por_ids_sb(ids, email_informado=''):
         ids = [i for i in ids if i]
         lib = _liberados()
         emails_ligados = set()
