@@ -37,7 +37,10 @@ LINK_ROBO = os.environ.get('SALA_LINK', 'https://alphadolar.online/bot-digitos.h
 IMG_BASE = os.environ.get('SALA_IMG_BASE', 'https://alphadolar.online/img/sala/')
 IMG_VER = '3'
 ESTRATEGIA = 'ALPHA VIRADA'
-BOTAO = {'inline_keyboard': [[{'text': '🎲 Abrir Alpha Dígitos', 'url': LINK_ROBO}]]}
+if 'bot-digitos' in LINK_ROBO:   # SALA-CONVITE-V1: a sala agora tem robo proprio
+    LINK_ROBO = 'https://alphadolar.online/bot-sinais-vip.html'
+BOTAO = {'inline_keyboard': [[{'text': '🤖 Operar no automático · Sinais VIP', 'url': LINK_ROBO}]]}
+HORARIOS_CONVITE = [(10, 30), (14, 30), (18, 30), (22, 30)]   # SALA-CONVITE-V1: horario de Brasilia
 _FILE_IDS = {}
 
 NOMES = {
@@ -578,6 +581,19 @@ class Sala(object):
             dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M'), h['win'], h['loss'], _num(self._pct(h)),
             g[0], g[1], g[2], g[3], RODAPE)
 
+    def texto_convite(self, ep=None):   # SALA-CONVITE-V1
+        ep = ep or time.time()
+        h = self._dia(ep)
+        g = h['gale']
+        return ('🤖 <b>QUER OPERAR A SALA NO AUTOMÁTICO?</b>\n\n'
+                '📊 Hoje até agora: ✅ <b>%d</b> GAIN · ❌ <b>%d</b> LOSS · 🎯 <b>%s%%</b>\n'
+                '🥇 SG: %d · G1: %d · G2: %d · G3: %d\n━━━━━━━━━━━━━━\n'
+                'O <b>Alpha Sinais VIP</b> entra no <b>mesmo tick</b> da sala, faz o gale sozinho e roda na nuvem: '
+                'você pode fechar o celular. Sem copiar sinal na mão, sem perder o tick.\n\n'
+                '👉 Teste <b>grátis na conta demo</b>: toque no botão abaixo.\n'
+                '<i>Operar envolve risco. Resultados de hoje não garantem os próximos.</i>') % (
+            h['win'], h['loss'], _num(self._pct(h)), g[0], g[1], g[2], g[3])
+
     def _cab(self, st):
         c = self.cfg
         return ('📊 Mercado: <b>%s</b>\n🧠 Estratégia: %s\n🧩 Padrão: %s +%d = %s ATÉ %d GALE\n🎯 Sinal: <b>%s</b>'
@@ -716,6 +732,18 @@ class Sala(object):
             if novo != self.cfg:
                 self.cfg = novo
             cmd = self.kv.get(K_CMD)
+            if cmd == 'convite':   # SALA-CONVITE-V1: teste pelo admin
+                self.kv.delete(K_CMD)
+                self.manda(self.texto_convite(agora), 'vip-convite', True)
+            dtc = datetime.fromtimestamp(agora, BRT)
+            for hh, mm in HORARIOS_CONVITE:
+                alvo = dtc.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                if 0 <= (dtc - alvo).total_seconds() < 600:
+                    chave = 'sala_dig:conv:' + alvo.strftime('%Y-%m-%d-%H%M')
+                    if not self.kv.get(chave):
+                        self.kv.set(chave, '1', ex=86400)
+                        if self._dia(agora)['win'] + self._dia(agora)['loss'] > 0:
+                            self.manda(self.texto_convite(agora), 'vip-convite', True)
             if cmd == 'parcial':
                 self.kv.delete(K_CMD)
                 self.manda(self.texto_parcial(agora), None, True)
@@ -1061,6 +1089,16 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             kv.set(K_CMD, 'parcial', ex=120)
             return jsonify({'ok': True, 'msg': 'parcial na fila (sai em até 5 s)'})
         ok, erro = enviar_canal(sala.texto_parcial(), None, True)
+        return jsonify({'ok': ok, 'erro': erro})
+
+    @app.route('/api/admin/sala-digitos/convite', methods=['POST'])
+    def _sd_convite():   # SALA-CONVITE-V1: manda o convite agora (teste)
+        if not ok_admin():
+            return negado()
+        if kv.get(K_ON) == '1':
+            kv.set(K_CMD, 'convite', ex=120)
+            return jsonify({'ok': True, 'msg': 'convite na fila (sai em até 5 s)'})
+        ok, erro = enviar_canal(sala.texto_convite(), 'vip-convite', True)
         return jsonify({'ok': ok, 'erro': erro})
 
     @app.route('/api/admin/sala-digitos/config', methods=['POST'])
