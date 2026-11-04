@@ -132,8 +132,25 @@ def register_plano_api(app, supabase_client=None):
                 melhor = v
         return melhor
 
+    # PROMO-BLACK-V1: ate a data (horario de Brasilia, dia inteiro) a conta real libera tudo (Elite) para todo mundo.
+    # Termina sozinha. Mudar a data ou desligar antes: variavel ALPHA_PROMO_ATE no Render (AAAA-MM-DD ou off).
+    PROMO_ATE_PADRAO = '2026-11-30'
+    def _promo():
+        ate = (os.environ.get('ALPHA_PROMO_ATE') or PROMO_ATE_PADRAO).strip().lower()
+        if ate in ('', 'off', '0', 'nao', 'no'):
+            return ''
+        try:
+            from datetime import timedelta
+            hoje = (datetime.now(timezone.utc) - timedelta(hours=3)).strftime('%Y-%m-%d')
+            return ate if hoje <= ate else ''
+        except Exception:
+            return ''
+
     def plano_por_ids(ids, email_informado=''):
         ids = [i for i in ids if i]
+        _pr = _promo()
+        if _pr:
+            return {'plano': 'elite', 'nivel': 3, 'ferramentas': [], 'produtos': [], 'motivo': 'promo', 'promo_ate': _pr}
         lib = _liberados()
         if any(i.lower() in lib for i in ids) or (email_informado and email_informado.lower() in lib):
             return {'plano': 'elite', 'nivel': 3, 'ferramentas': [], 'produtos': [], 'motivo': 'liberado'}
