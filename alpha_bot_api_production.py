@@ -3664,6 +3664,24 @@ def admin_ao_vivo():
             marca(did, st.get('bot_name'), st.get('account_type'), nome)
     except Exception as e:
         print('AO-VIVO redis:', e)
+    try:   # AOVIVO-NUVEM-V1: quem está com o Sinais VIP / nuvem ligada aparece mesmo esperando o sinal
+        import redis as _redis2
+        r2_ = _redis2.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
+        _nl = [c for c in (_j.loads(r2_.get('nuvem_dig:lista') or '[]') or []) if r2_.get('nuvem_dig:on:' + c) == '1']
+        _nb = {}
+        if _nl:
+            try:
+                _nb = {str(x.get('deriv_id')): x.get('bot_name') for x in (_ledger_supa_req('clientes?select=deriv_id,bot_name&deriv_id=in.(' + ','.join(_nl) + ')&limit=500') or [])}
+            except Exception:
+                _nb = {}
+        for c in _nl:
+            try:
+                _u = _j.loads(r2_.get('nuvem_dig:u:' + c) or '{}')
+            except Exception:
+                _u = {}
+            marca(c, _nb.get(c), 'real' if _u.get('tipo') == 'real' else 'demo', 'Sinais VIP')
+    except Exception as e:
+        print('AO-VIVO nuvem:', e)
     try:
         desde = (_dt.utcnow() - _td(minutes=3)).strftime('%Y-%m-%dT%H:%M:%S')  # AOVIVO-CONTA-V3: ultimos 3 min
         ops = _ledger_supa_req('operacoes?select=deriv_id,cliente_id,bot_name,ferramenta,conta&criado_em=gte.' + desde + '&limit=1000') or []

@@ -325,11 +325,15 @@ class Pessoa(object):
                 s['pl'] = r2(s['pl'] + pl)
                 s['n'] += 1
                 s['w' if pl > 0 else 'l'] += 1
-                reg = {'t': int(time.time()), 'sym': p['sym'], 'lado': p['lado'], 'g': p['g'], 'stake': p['stake'], 'pl': pl, 'dig': dg, 'ex': ex}
+                reg = {'t': int(time.time()), 'sym': p['sym'], 'lado': p['lado'], 'g': p['g'], 'stake': p['stake'], 'pl': pl, 'dig': dg, 'ex': ex, 'cid': p.get('cid')}
                 if chv:
                     reg['chaves'] = chv      # V1.4: para descobrir o campo do dígito se a Deriv mudar de novo
                 self.nv.op_log(self.conta, reg)
                 self.nv.robo_x_sala(self.conta, u2.get('tipo'), p, pl, dg, ex)
+                try:
+                    nuvem_operacao(self.conta, u2.get('tipo'), p, pl)   # NUVEM-OPERACOES-V1
+                except Exception as _e_nop:
+                    log('NUVEM-OPERACOES', _e_nop)
             cc = u2.get('ciclo') or {}                                      # NUVEM-GALES-V1
             for p, pl, dg, ex, chv in fechados:
                 if pl is not None and p.get('k') == cc.get('k') and p.get('g') == cc.get('g'):
@@ -600,6 +604,118 @@ class Nuvem(object):
         p.q.put({'sym': sym, 'lado': lado, 'g': g, 'n': n, 'k': k, 'stake': stake, 't': time.time()})
 
 
+# ═══ NUVEM-OPERACOES-V1: cada contrato da nuvem (Sinais VIP / Alpha Dígitos) entra na tabela operacoes ═══
+# (é dela que o admin tira o Extrato, o lucro por pessoa e o "Ao vivo"; antes a nuvem só gravava no Redis)
+_NOP = {'cli': {}, 'pct': {}, 'tpct': 0}
+
+
+def _nop_supa(path, method='GET', body=None, extra=None):
+    url = os.environ.get('SUPABASE_URL', 'https://urlthgicnomfbyklesou.supabase.co').rstrip('/')
+    k = os.environ.get('SUPABASE_KEY') or os.environ.get('SUPABASE_SERVICE_KEY') or ''
+    if not k:
+        raise RuntimeError('sem SUPABASE_KEY')
+    h = {'apikey': k, 'Authorization': 'Bearer ' + k, 'Content-Type': 'application/json'}
+    if extra:
+        h.update(extra)
+    rq = urllib.request.Request(url + '/rest/v1/' + path, data=json.dumps(body).encode() if body is not None else None, headers=h, method=method)
+    with urllib.request.urlopen(rq, timeout=15) as r:
+        t = r.read().decode('utf-8')
+        return json.loads(t) if t else None
+
+
+def _nop_cliente(conta):
+    c = _NOP['cli'].get(conta)
+    if c and time.time() - c[0] < 900:
+        return c[1]
+    row = {}
+    try:
+        rows = _nop_supa('clientes?select=id,bot_name,deriv_id&deriv_id=eq.' + urllib.request.quote(conta) + '&limit=1') or []
+        row = rows[0] if rows else {}
+    except Exception as e:
+        log('NUVEM-OPERACOES cliente', str(e)[:120])
+    _NOP['cli'][conta] = (time.time(), row)
+    return row
+
+
+def _nop_pct(bot):
+    if time.time() - _NOP['tpct'] > 600:
+        try:
+            _NOP['pct'] = {b.get('nome'): float(b.get('markup_pct') or 0) for b in (_nop_supa('bots?select=nome,markup_pct') or [])}
+            _NOP['tpct'] = time.time()
+        except Exception:
+            pass
+    return _NOP['pct'].get(bot, 0.0)
+
+
+def _nop_linha(conta, tipo, cid, sym, lado, g, stake, pl, quando=None):
+    cli = _nop_cliente(conta)
+    bot = cli.get('bot_name') or 'sem bot'
+    real = str(tipo) == 'real'
+    stake = r2(float(stake or 0))
+    pl = r2(float(pl or 0))
+    L = {'contract_id': str(cid), 'deriv_id': conta, 'cliente_id': cli.get('id'), 'bot_name': bot, 'ferramenta': 'sinais-vip',
+         'conta': 'real' if real else 'demo', 'stake': stake, 'lucro': pl, 'resultado': 'won' if pl > 0 else 'lost',
+         'symbol': str(sym or '')[:30], 'tipo': ('%s G%d' % ('PAR' if lado == 'PAR' else 'IMPAR', int(g or 0)))[:30],
+         'markup_usd': round(stake * _nop_pct(bot) / 100, 4) if real else 0}
+    if quando:
+        L['criado_em'] = datetime.fromtimestamp(int(quando), timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+    return L
+
+
+def _nop_grava(linhas, feed=True):
+    if not linhas:
+        return 0
+    _nop_supa('operacoes?on_conflict=contract_id', 'POST', linhas, {'Prefer': 'resolution=ignore-duplicates,return=minimal'})
+    if feed:
+        try:
+            import sys as _sys
+            fr = None
+            for mn in ('alpha_bot_api_production', '__main__'):
+                fr = getattr(_sys.modules.get(mn), '_feed_registrar', None)
+                if fr:
+                    break
+            for l in linhas:
+                if fr and l['conta'] == 'real' and l['lucro'] > 0:
+                    fr(l['deriv_id'], '', 'Alpha Sinais VIP', l['symbol'], l['lucro'], l['stake'], 'real', l['contract_id'])
+        except Exception as e:
+            log('NUVEM-OPERACOES feed', str(e)[:100])
+    return len(linhas)
+
+
+def nuvem_operacao(conta, tipo, p, pl):
+    def vai():
+        for i in range(3):
+            try:
+                _nop_grava([_nop_linha(conta, tipo, p.get('cid'), p.get('sym'), p.get('lado'), p.get('g'), p.get('stake'), pl)])
+                return
+            except Exception as e:
+                log('NUVEM-OPERACOES grava', str(e)[:150])
+                time.sleep(3 + i * 5)
+    threading.Thread(target=vai, daemon=True).start()
+
+
+def nuvem_operacoes_antigas(nv, dias=7):
+    """uma vez só: as operações que já estavam no histórico da nuvem (sem número do contrato) entram no extrato"""
+    if not nv.kv.setnx('nuvem_dig:nop_backfill:v1', str(int(time.time())), 86400 * 30):
+        return
+    tot = 0
+    desde = time.time() - dias * 86400
+    for conta in nv.lista():
+        try:
+            tipo = (nv.cfg(conta) or {}).get('tipo')
+            L = []
+            for reg in nv.kv.jget('nuvem_dig:ops:' + conta, []) or []:
+                if 'pl' not in reg or reg.get('cid') or float(reg.get('t') or 0) < desde:
+                    continue
+                cid = 'nuvem-%s-%s-%s-%s' % (conta, int(reg['t']), reg.get('sym'), reg.get('g'))
+                L.append(_nop_linha(conta, tipo, cid, reg.get('sym'), reg.get('lado'), reg.get('g'), reg.get('stake'), reg.get('pl'), reg.get('t')))
+            for i in range(0, len(L), 100):
+                tot += _nop_grava(L[i:i + 100], feed=False)
+        except Exception as e:
+            log('NUVEM-OPERACOES antigas', conta[-3:], str(e)[:150])
+    log('NUVEM-OPERACOES-V1: %d operações antigas da nuvem foram para o extrato' % tot)
+
+
 def _nivel_plano(tok):
     """NUVEM-PLANO-V1: pergunta ao proprio servidor (/api/plano) o nivel do plano deste login. None = nao deu para confirmar."""
     corpo = json.dumps({'token': tok}).encode()
@@ -622,6 +738,7 @@ def _nivel_plano(tok):
 def register_nuvem_digitos(app):
     from flask import request, jsonify
     nv = Nuvem()
+    threading.Timer(25, lambda: nuvem_operacoes_antigas(nv)).start()   # NUVEM-OPERACOES-V1
     try:
         import sala_digitos as _sd
         orig = _sd.Sala.on_tick
