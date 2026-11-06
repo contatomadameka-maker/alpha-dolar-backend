@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta name="deriv-site-verification" content="b1ed53632d55307ee6bc6886e61d7e3d03ab48631e76729f97de6472d6535967">
+<script src="/js/liberar.js" charset="utf-8"></script>
+<script>
+(function(){
+    const p = new URLSearchParams(window.location.search);
+    if(p.has('code') && p.has('state')) {
+        localStorage.setItem('pkce_code_verifier', localStorage.getItem('pkce_code_verifier') || '');
+        window.location.href = '/conectar-deriv?' + window.location.search.slice(1);
+    }
+})();
+</script>
+<!-- ══ ALPHA GUARD ══ -->
+<script>
+(function(){
+  try {
+    var raw = localStorage.getItem('deriv_accounts');
+    if (!raw) throw 'sem_token';
+    var contas = JSON.parse(raw);
+    if (!contas || contas.length === 0) throw 'sem_contas';
+    var temToken = contas.some(function(c){ return c.token && c.token.length > 5; });
+    if (!temToken) throw 'token_invalido';
+  } catch(e) {
+    window.location.replace('/login');
+  }
+})();
+</script>
+<!-- ══ FIM ALPHA GUARD ══ -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Alpha Dolar 2.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080a0f;--panel:#0d1018;--border:#151a26;--blue:#0ea5e9;--cyan:#06b6d4;--gold:#f59e0b;--green:#22c55e;--red:#ef4444;--pink:#ec4899;--text:#e2e8f0;--muted:#475569}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(14,165,233,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(14,165,233,.025) 1px,transparent 1px);background-size:44px 44px}
+
+/* ══ NAV ══ */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:rgba(8,10,15,.97);border-bottom:1px solid var(--border);backdrop-filter:blur(20px)}
+nav::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--pink),var(--blue),var(--cyan))}
+.nav-logo{font-family:'Orbitron',monospace;font-size:16px;font-weight:900;background:linear-gradient(135deg,var(--blue),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;text-decoration:none;flex-shrink:0}
+.nav-logo svg{display:block;width:auto;height:32px}
+.nav-links{display:flex;align-items:center;gap:2px}
+.nav-link{color:#94a3b8;font-size:13px;font-weight:500;padding:7px 13px;border-radius:8px;cursor:pointer;transition:all .18s;text-decoration:none;border:none;background:none;font-family:inherit;white-space:nowrap}
+.nav-link:hover{color:#fff;background:rgba(255,255,255,.06)}
+.nav-link.ativo{background:var(--blue);color:#fff;font-weight:700}
+.nav-link.signals{background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.35);color:var(--blue);font-weight:600}
+.nav-link.signals:hover{background:rgba(14,165,233,.2)}
+.btn-deposito{padding:7px 14px;border-radius:8px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.25);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;text-decoration:none;transition:all .18s;white-space:nowrap}
+.btn-deposito:hover{background:rgba(14,165,233,.18)}
+.nav-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.nav-hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;border:none;background:none;flex-shrink:0}
+.nav-hamburger span{width:22px;height:2px;background:#94a3b8;border-radius:2px;transition:all .3s}
+.nav-mobile{display:none;position:fixed;top:58px;left:0;right:0;bottom:0;background:rgba(8,10,15,.98);z-index:999;flex-direction:column;padding:16px;gap:6px;border-top:1px solid var(--border);overflow-y:auto}
+.nav-mobile.open{display:flex}
+.nav-mobile .nav-link{font-size:15px;padding:13px 16px;border-radius:10px;border:1px solid var(--border);text-align:left}
+.nav-mobile .nav-link.ativo{background:var(--blue);color:#fff;border-color:var(--blue)}
+.nav-mobile .signals{background:rgba(14,165,233,.1);border-color:rgba(14,165,233,.35);color:var(--blue)}
+.btn-sair{padding:7px 12px;border-radius:8px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;font-family:inherit;white-space:nowrap}
+.btn-sair:hover{background:rgba(239,68,68,.18)}
+.btn-operar-nav{padding:8px 16px;border-radius:8px;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;font-size:12px;font-weight:700;cursor:pointer;border:none;box-shadow:0 0 16px rgba(14,165,233,.3);transition:all .2s;letter-spacing:.5px;white-space:nowrap}
+.btn-operar-nav:hover{transform:translateY(-1px);box-shadow:0 0 26px rgba(14,165,233,.5)}
+.soc-row{display:flex;gap:5px}
+.soc-btn{width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid #1e2230;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s;color:#64748b;text-decoration:none;flex-shrink:0}
+.soc-btn:hover{background:rgba(255,255,255,.09);color:#fff}
+.nav-bell{width:32px;height:32px;background:transparent;border:none;color:#64748b;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .18s;border-radius:8px;flex-shrink:0}
+.nav-bell:hover{color:#fff;background:rgba(255,255,255,.05)}
+.nav-acc{display:flex;flex-direction:column;align-items:flex-end;cursor:pointer;font-size:11px;color:#64748b;flex-shrink:0}
+.nav-acc strong{font-size:13px;color:#e2e8f0;font-family:'Orbitron',monospace}
+
+/* ══ STATS BAR ══ */
+.stats-bar{display:flex;align-items:center;justify-content:center;gap:0;padding:8px 16px;position:relative;z-index:1;background:rgba(14,165,233,.04);border-bottom:1px solid rgba(14,165,233,.1);margin-top:58px;flex-wrap:wrap}
+.st-item{display:flex;align-items:center;gap:8px;padding:6px 14px;border-right:1px solid rgba(255,255,255,.05)}
+.st-item:last-child{border-right:none}
+.st-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.st-dot.g{background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 2s infinite}
+.st-dot.b{background:var(--blue);box-shadow:0 0 7px var(--blue);animation:blink 2.5s infinite}
+.st-dot.y{background:var(--gold);box-shadow:0 0 7px var(--gold)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.st-lbl{font-size:9px;color:#64748b;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+.st-val{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;white-space:nowrap}
+.st-val.g{color:var(--green)}.st-val.b{color:var(--blue)}.st-val.y{color:var(--gold)}
+
+/* ══ MAIN ══ */
+main{position:relative;z-index:1;padding:22px 16px 60px;max-width:1380px;margin:0 auto}
+
+/* ══ BANNERS 3 ══ */
+.bg3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.bc{position:relative;border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .25s,box-shadow .25s;border:1px solid var(--border);min-height:205px}
+.bc:hover{transform:translateY(-5px);box-shadow:0 22px 55px rgba(0,0,0,.6)}
+.bc:hover .brobot{opacity:.42;transform:scale(1.06)}
+.bc-bg{position:absolute;inset:0}
+.bc-cnt{position:relative;z-index:2;padding:22px 18px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.bc-tag{display:inline-block;font-size:9px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;padding:3px 10px;border-radius:10px;margin-bottom:9px}
+.bc-h{font-size:17px;font-weight:700;line-height:1.25;margin-bottom:7px}
+.bc-p{font-size:12px;color:rgba(255,255,255,.48);line-height:1.5;margin-bottom:14px;max-width:220px}
+.bc-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:all .2s;width:fit-content}
+.brobot{position:absolute;right:-12px;bottom:-8px;width:130px;opacity:.17;filter:drop-shadow(0 0 16px rgba(14,165,233,.5));transition:opacity .3s,transform .3s;pointer-events:none}
+.bcirc{position:absolute;right:18px;top:50%;transform:translateY(-50%);width:75px;height:75px;border-radius:50%;border:1.5px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-size:28px;opacity:.18;pointer-events:none}
+
+/* ══ NOVO BAR ══ */
+.novo-bar{background:rgba(14,165,233,.04);border:1px solid rgba(14,165,233,.11);border-radius:12px;padding:13px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.novo-bar strong{font-size:14px;font-weight:700}
+.novo-bar p{font-size:12px;color:#64748b;margin-top:2px}
+.btn-criar{padding:9px 18px;border-radius:8px;white-space:nowrap;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.3);color:var(--blue);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-criar:hover{background:rgba(14,165,233,.2)}
+
+/* ══ BIG CARDS ══ */
+.bg2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:30px}
+.bcard{border-radius:16px;overflow:hidden;position:relative;border:1px solid var(--border);min-height:185px;cursor:pointer;transition:all .25s}
+.bcard:hover{transform:translateY(-4px);box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.bcard:hover .bcard-robot{opacity:.38;transform:scale(1.05) translateY(-4px)}
+.bcard-bg{position:absolute;inset:0}
+.bcard-cnt{position:relative;z-index:2;padding:24px 20px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+.bcard-title{font-size:20px;font-weight:700;margin-bottom:7px}
+.bcard-desc{font-size:12px;color:rgba(255,255,255,.48);line-height:1.5;max-width:240px}
+.bcard-robot{position:absolute;right:0;bottom:0;width:130px;opacity:.17;filter:drop-shadow(0 0 18px rgba(14,165,233,.5));transition:opacity .3s,transform .3s;pointer-events:none}
+.bcard-circ{position:absolute;right:50px;top:50%;transform:translateY(-50%);width:95px;height:95px;border-radius:50%;border:1.5px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:38px;opacity:.14;pointer-events:none}
+.small-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:all .2s}
+
+/* ══ BOTTOM GRID ══ */
+.bot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border)}
+.panel-hdr h3{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b}
+.panel-hdr a{font-size:11px;color:var(--blue);cursor:pointer;letter-spacing:1px;text-decoration:none}
+.rank-row{display:flex;align-items:center;gap:11px;padding:12px 20px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .14s}
+.rank-row:last-child{border-bottom:none}
+.rank-row:hover{background:rgba(255,255,255,.02)}
+.r-pos{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;flex-shrink:0}
+.rp1{background:rgba(245,158,11,.15);color:var(--gold);border:1px solid rgba(245,158,11,.3)}
+.rp2{background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2)}
+.rp3{background:rgba(180,83,9,.15);color:#b45309;border:1px solid rgba(180,83,9,.3)}
+.rpn{background:rgba(255,255,255,.04);color:#475569;border:1px solid rgba(255,255,255,.06)}
+.r-av{width:33px;height:33px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,rgba(14,165,233,.2),rgba(6,182,212,.1));border:1px solid rgba(14,165,233,.2);display:flex;align-items:center;justify-content:center;font-size:14px}
+.r-info{flex:1;min-width:0}
+.r-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-sub{font-size:11px;color:#475569;margin-top:1px}
+.r-pct{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;padding:3px 9px;border-radius:6px;white-space:nowrap}
+.rg{background:rgba(34,197,94,.1);color:var(--green)}
+.rr{background:rgba(239,68,68,.1);color:var(--red)}
+.ia-row{display:flex;align-items:center;gap:11px;padding:11px 20px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .14s;cursor:pointer}
+.ia-row:last-child{border-bottom:none}
+.ia-row:hover{background:rgba(255,255,255,.02)}
+.ia-ico{width:35px;height:35px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+.ia-name{font-size:13px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ia-tier{font-size:9px;letter-spacing:1px;font-weight:700;margin-top:2px}
+.ia-bw{width:55px;height:3px;background:#1e293b;border-radius:2px;overflow:hidden;flex-shrink:0}
+.ia-bf{height:100%;border-radius:2px}
+.ia-pct{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;min-width:32px;text-align:right;flex-shrink:0}
+.ia-pl{width:25px;height:25px;border-radius:50%;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.3);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--blue);cursor:pointer;transition:all .18s;flex-shrink:0}
+.ia-pl:hover{background:rgba(14,165,233,.25)}
+
+/* ══ MODAL LOJA ══ */
+.modal-ov{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:16px}
+.modal-ov.open{display:flex}
+.modal-box{background:#0b0e15;border:1px solid #1e2230;border-radius:20px;max-width:980px;width:100%;max-height:93vh;overflow-y:auto;animation:mIn .22s ease;display:flex;flex-direction:column}
+@keyframes mIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-inner{display:flex}
+.modal-side{width:155px;flex-shrink:0;border-right:1px solid #1e2230;padding:18px 0}
+.ms-ttl{font-size:10px;letter-spacing:2px;color:#475569;padding:0 18px 10px;text-transform:uppercase;font-weight:700}
+.ms-item{padding:10px 18px;font-size:13px;color:#64748b;cursor:pointer;transition:all .14s;border-left:2px solid transparent}
+.ms-item:hover{color:#e2e8f0;background:rgba(255,255,255,.03)}
+.ms-item.on{color:var(--blue);border-left-color:var(--blue);background:rgba(14,165,233,.05)}
+.modal-content{flex:1;padding:22px;min-width:0}
+.modal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.modal-top h2{font-family:'Orbitron',monospace;font-size:17px;font-weight:900}
+.btn-close{width:33px;height:33px;border-radius:50%;background:rgba(255,255,255,.05);border:1px solid #1e2230;color:#64748b;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0}
+.btn-close:hover{background:rgba(255,255,255,.1);color:#fff}
+.planos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.plano{border-radius:13px;padding:20px;border:1px solid var(--border);position:relative;overflow:hidden;transition:border-color .2s}
+.plano:hover{border-color:rgba(14,165,233,.4)}
+.plano.dest{border-color:rgba(14,165,233,.5);background:rgba(14,165,233,.04)}
+.plano.dest::after{content:'POPULAR';position:absolute;top:13px;right:-28px;background:var(--blue);color:#fff;font-size:8px;font-weight:700;letter-spacing:2px;padding:4px 42px;transform:rotate(45deg)}
+.pl-banner{width:100%;height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:12px}
+.pl-nome{font-size:13px;font-weight:700;margin-bottom:5px}
+.pl-desc{font-size:11px;color:#64748b;margin-bottom:12px;line-height:1.5}
+.pl-price{margin-bottom:12px}
+.pl-price .m{font-size:11px;color:#94a3b8;vertical-align:top;margin-top:3px}
+.pl-price .v{font-family:'Orbitron',monospace;font-size:22px;font-weight:900}
+.pl-price .p{font-size:11px;color:#64748b}
+.pl-price .a{font-size:10px;color:var(--blue);margin-top:2px}
+.pl-tog{display:flex;gap:5px;margin-bottom:11px}
+.ptog{flex:1;padding:6px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #1e2230;background:transparent;color:#64748b;transition:all .14s;font-family:inherit;text-align:center}
+.ptog.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.pl-badge{position:absolute;top:7px;right:7px;background:rgba(34,197,94,.15);color:var(--green);font-size:8px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:9px;border:1px solid rgba(34,197,94,.3)}
+.pl-feats{list-style:none;margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+.pl-feats li{font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:7px}
+.pl-feats li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.btn-cmp{width:100%;padding:11px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:all .2s;font-family:inherit}
+.btn-cmp.az{background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;box-shadow:0 4px 14px rgba(14,165,233,.25)}
+.btn-cmp.ou{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-weight:800;box-shadow:0 4px 14px rgba(245,158,11,.25)}
+.btn-cmp:hover{transform:translateY(-1px);filter:brightness(1.1)}
+.garantia{text-align:center;font-size:10px;color:#475569;margin-top:7px}
+
+footer{text-align:center;padding:26px;border-top:1px solid var(--border);color:#1e293b;font-size:11px;letter-spacing:2px;font-family:'Orbitron',monospace;position:relative;z-index:1}
+
+/* ══════════════════════════════════════
+   RESPONSIVIDADE MOBILE - CORRIGIDA
+══════════════════════════════════════ */
+
+/* TABLET (601px - 900px) */
+@media(max-width:900px){
+  .nav-links{display:none}
+  .soc-row{display:none}
+  .nav-bell{display:none}
+  .nav-acc{display:none}
+  .btn-deposito{display:none}
+  .nav-hamburger{display:flex}
+  .btn-operar-nav{font-size:11px;padding:6px 12px}
+  .bg3{grid-template-columns:1fr}
+  .bc{min-height:160px}
+  .bc-h{font-size:18px}
+  .brobot{width:110px;opacity:.12}
+  .bg2{grid-template-columns:1fr 1fr}
+  .bot-grid{grid-template-columns:1fr}
+  .stats-bar{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding:6px 12px}
+  .st-item{flex-shrink:0;padding:6px 12px}
+  main{padding:18px 14px 50px}
+}
+
+/* MOBILE (até 600px) */
+@media(max-width:600px){
+  /* NAVBAR */
+  nav{padding:0 12px;height:54px}
+  .nav-logo svg{height:26px}
+  .btn-sair{font-size:10px;padding:5px 8px}
+  .btn-operar-nav{font-size:10px;padding:5px 10px}
+  .nav-right{gap:4px}
+  .nav-mobile{top:54px;padding:12px}
+  .nav-mobile .nav-link{font-size:14px;padding:12px 14px}
+
+  /* STATS BAR */
+  .stats-bar{
+    margin-top:54px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0;
+    padding:0;
+    overflow:visible;
+    flex-wrap:unset;
+  }
+  .st-item{
+    padding:10px 12px;
+    border-right:1px solid rgba(255,255,255,.05);
+    border-bottom:1px solid rgba(255,255,255,.05);
+    justify-content:flex-start;
+  }
+  .st-item:nth-child(2n){border-right:none}
+  .st-item:nth-child(3),.st-item:nth-child(4){border-bottom:none}
+  .st-lbl{font-size:8px;letter-spacing:.5px}
+  .st-val{font-size:12px}
+
+  /* MAIN */
+  main{padding:14px 12px 50px}
+
+  /* BANNERS - 1 coluna */
+  .bg3{
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .bc{min-height:140px}
+  .bc-cnt{padding:18px 16px}
+  .bc-tag{font-size:8px;margin-bottom:6px}
+  .bc-h{font-size:17px;margin-bottom:5px}
+  .bc-p{font-size:11px;margin-bottom:12px;max-width:100%}
+  .bc-btn{font-size:10px;padding:8px 16px}
+  .brobot{width:90px;right:-5px;bottom:-5px}
+  .bcirc{width:60px;height:60px;font-size:22px;right:12px}
+
+  /* NOVO BAR */
+  .novo-bar{flex-direction:column;align-items:flex-start;gap:10px;padding:14px}
+  .btn-criar{width:100%;text-align:center}
+
+  /* BIG CARDS - 1 coluna */
+  .bg2{
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-bottom:20px;
+  }
+  .bcard{min-height:150px}
+  .bcard-cnt{padding:20px 18px}
+  .bcard-title{font-size:18px}
+  .bcard-desc{font-size:12px;max-width:100%}
+  .bcard-robot{width:110px}
+  .bcard-circ{right:40px;width:80px;height:80px;font-size:32px}
+  .small-btn{font-size:10px;padding:8px 16px}
+
+  /* RANKING + IAs - 1 coluna */
+  .bot-grid{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .rank-row{padding:10px 14px;gap:8px}
+  .r-name{font-size:12px}
+  .r-av{width:28px;height:28px;font-size:12px}
+  .ia-row{padding:10px 14px;gap:8px}
+  .ia-name{font-size:12px}
+  .ia-bw{display:none}
+
+  /* MODAL */
+  .modal-box{border-radius:14px;max-height:95vh}
+  .modal-inner{flex-direction:column}
+  .modal-side{width:100%;border-right:none;border-bottom:1px solid #1e2230;padding:10px 0;display:flex;flex-direction:row;overflow-x:auto;gap:0}
+  .ms-ttl{display:none}
+  .ms-item{padding:10px 16px;font-size:12px;white-space:nowrap;border-left:none;border-bottom:2px solid transparent}
+  .ms-item.on{border-left:none;border-bottom-color:var(--blue)}
+  .modal-content{padding:16px}
+  .planos-grid{grid-template-columns:1fr;gap:12px}
+  .modal-top h2{font-size:14px}
+}
+
+/* MUITO PEQUENO (até 380px) */
+@media(max-width:380px){
+  .nav-logo svg{height:22px}
+  .btn-sair{display:none}
+  .st-val{font-size:11px}
+  .bc-h{font-size:15px}
+}
+</style>
+<!-- ALPHA DOLAR FAVICON -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'><rect width='256' height='256' rx='52' fill='%230d1018'/%3E<rect width='256' height='256' rx='52' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'/%3E<text x='32' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='%2300d2ff'>A</text><text x='58' y='195' font-family='Arial Black,sans-serif' font-weight='900' font-size='185' fill='none' stroke='%2300d2ff' stroke-width='8' stroke-opacity='0.4'>%24</text></svg>">
+</head>
+<body>
+
+<script>
+(function(){
+  console.log('%c ALPHA DOLAR TRADING BOT 2.0 ','background:linear-gradient(90deg,#00d2ff,#0ea5e9);color:#000;font-weight:900;font-size:14px;padding:6px 12px;border-radius:4px');
+  console.log('%c CÓDIGO PROTEGIDO — USO NÃO AUTORIZADO É CRIME ','background:#dc2626;color:#fff;font-weight:700;font-size:12px;padding:6px 12px');
+  console.log('%c⚠️  Se alguém pediu para você colar algo aqui, é uma tentativa de fraude!','color:#f59e0b;font-weight:700;font-size:13px');
+  document.addEventListener('contextmenu',function(e){e.preventDefault();});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='F12'){e.preventDefault();return false;}
+    if(e.ctrlKey&&e.shiftKey&&['I','i','J','j','C','c'].includes(e.key)){e.preventDefault();return false;}
+    if(e.ctrlKey&&['u','U','s','S'].includes(e.key)){e.preventDefault();return false;}
+  });
+})();
+</script>
+
+
+<style id="hm-style">
+:root{
+  --hm-bg:#0B0E16; --hm-panel:#12141c; --hm-panel-alt:#171a24;
+  --hm-border:rgba(255,255,255,0.07); --hm-text:#F2F4F9; --hm-muted:#8891A7;
+  --hm-muted-soft:#565F76; --hm-brand:#6C5CE7; --hm-brand-dim:rgba(108,92,231,0.12);
+  --hm-up:#22C77E;
+}
+.hm-mono{ font-family:'IBM Plex Mono', monospace; }
+.hm-nav{ display:flex; align-items:center; justify-content:space-between; padding:12px 24px; border-bottom:1px solid var(--hm-border); background:var(--hm-bg); font-family:'Plus Jakarta Sans',sans-serif; color:var(--hm-text); }
+.hm-nav-left{ display:flex; align-items:center; gap:26px; }
+.hm-brand{ display:flex; align-items:center; gap:9px; text-decoration:none; color:inherit; }
+.hm-mark{ width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,#6C5CE7,#8b7cf0); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:#fff; }
+.hm-word b{ display:block; font-size:13px; letter-spacing:0.4px; }
+.hm-word span{ display:block; font-size:8px; color:var(--hm-muted-soft); letter-spacing:1.3px; }
+.hm-nav-links{ display:flex; gap:4px; }
+.hm-nav-links a, .hm-nav-links button{ color:var(--hm-muted); text-decoration:none; font-size:13px; font-weight:600; padding:7px 12px; border-radius:8px; background:none; border:none; cursor:pointer; font-family:inherit; transition:background .15s,color .15s; }
+.hm-nav-links a:hover, .hm-nav-links button:hover{ color:var(--hm-text); background:rgba(255,255,255,0.04); }
+.hm-nav-links a.active{ color:var(--hm-text); background:var(--hm-brand-dim); }
+.hm-nav-right{ display:flex; align-items:center; gap:10px; }
+.hm-balance{ text-align:right; cursor:pointer; }
+.hm-balance small{ display:block; color:var(--hm-muted-soft); font-size:9.5px; }
+.hm-balance b{ font-size:13px; }
+.hm-btn{ border:none; cursor:pointer; font-family:inherit; font-weight:700; border-radius:9px; padding:8px 14px; font-size:12.5px; text-decoration:none; display:inline-block; transition:opacity .15s; }
+.hm-btn-primary{ background:var(--hm-brand); color:#fff; }
+.hm-btn-primary:hover{ opacity:0.9; }
+.hm-btn-ghost{ background:transparent; border:1px solid var(--hm-border); color:var(--hm-text); }
+.hm-btn-ghost:hover{ border-color:var(--hm-brand); }
+.hm-icon-btn{ background:none; border:none; color:var(--hm-muted); font-size:15px; cursor:pointer; padding:6px; }
+.hm-icon-btn:hover{ color:var(--hm-text); }
+.hm-hamburger{ display:none; flex-direction:column; gap:4px; background:none; border:none; cursor:pointer; padding:6px; }
+.hm-hamburger span{ width:20px; height:2px; background:var(--hm-text); border-radius:2px; }
+@media(max-width:900px){ .hm-nav-links{ display:none; } .hm-hamburger{ display:flex; } }
+
+.hm-stats{ display:flex; height:52px; border-bottom:1px solid var(--hm-border); background:var(--hm-bg); font-family:'Plus Jakarta Sans',sans-serif; }
+.hm-stat{ flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 22px; border-right:1px solid var(--hm-border); }
+.hm-stat:last-child{ border-right:none; }
+.hm-stat .lbl{ font-size:10.5px; color:var(--hm-muted); margin-bottom:3px; }
+.hm-stat .val{ font-size:16px; font-weight:700; color:var(--hm-text); }
+.hm-stat .val.up{ color:var(--hm-up); }
+
+main.hm-main{ background:var(--hm-bg); font-family:'Plus Jakarta Sans',sans-serif; color:var(--hm-text); min-height:calc(100vh - 112px); display:grid; grid-template-columns:1.5fr 1fr; gap:16px; padding:16px 24px !important; max-width:none !important; margin:0 !important; width:100%; box-sizing:border-box; }
+@media(max-width:1100px){ main.hm-main{ grid-template-columns:1fr !important; padding:12px 14px !important; } }
+@media(max-width:600px){
+  .hm-nav { flex-wrap: wrap; row-gap: 8px; padding: 10px 14px; }
+  .hm-nav-left { gap: 12px; }
+  .hm-word span { display: none; }
+  .hm-nav-right { gap: 6px; }
+  .hm-nav-right .hm-btn-ghost,
+  .hm-nav-right .hm-icon-btn { display: none; }
+  .hm-balance { text-align: left; }
+  .hm-balance small { font-size: 8.5px; }
+  .hm-balance b { font-size: 11.5px; }
+  .hm-offers { gap: 8px; }
+  .hm-offer { min-width: 150px; padding: 8px 10px; }
+  .hm-hero { min-height: 220px; padding: 18px; }
+  .hm-hero-content h1 { font-size: 19px; max-width: 100%; }
+  .hm-hero-content p { max-width: 100%; }
+  .hm-hero-scene { width: 40%; opacity: 0.5; }
+  .hm-novo { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .hm-novo button { width: 100%; }
+  .hm-panel-body { max-height: 200px; }
+}
+.hm-col{ display:flex; flex-direction:column; gap:12px; min-width:0; }
+
+.hm-offers{ display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.hm-offer{ flex:0 0 auto; display:flex; align-items:center; gap:10px; background:var(--hm-panel); border:1px solid var(--hm-border); border-radius:12px; padding:10px 14px; cursor:pointer; transition:border-color .15s; min-width:190px; }
+.hm-offer:hover{ border-color:var(--hm-brand); }
+.hm-offer .ico{ width:30px; height:30px; border-radius:9px; background:var(--hm-panel-alt); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.hm-offer .t{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hm-offer .s{ font-size:10.5px; color:var(--hm-muted-soft); white-space:nowrap; }
+
+.hm-hero{ position:relative; border-radius:16px; overflow:hidden; border:1px solid var(--hm-border); background:radial-gradient(120% 140% at 85% 20%, rgba(108,92,231,0.22), transparent 55%), linear-gradient(160deg,#141622 0%,#0d0e16 70%); flex:1; min-height:260px; display:flex; align-items:flex-end; padding:26px; }
+.hm-hero .tag{ position:absolute; top:20px; left:26px; font-size:11px; color:var(--hm-muted); z-index:2; }
+.hm-hero .tag b{ color:#c9c2f7; }
+.hm-hero-content{ position:relative; z-index:2; }
+.hm-hero-content h1{ font-size:24px; margin:0 0 8px; max-width:400px; line-height:1.28; }
+.hm-hero-content p{ font-size:13px; color:var(--hm-muted); max-width:380px; margin:0 0 16px; line-height:1.5; }
+.hm-hero-grid{ position:absolute; inset:0; z-index:0; background-image:linear-gradient(rgba(108,92,231,0.08) 1px,transparent 1px), linear-gradient(90deg,rgba(108,92,231,0.08) 1px,transparent 1px); background-size:34px 34px; -webkit-mask-image:radial-gradient(circle at 72% 45%, black 0%, transparent 68%); mask-image:radial-gradient(circle at 72% 45%, black 0%, transparent 68%); animation:hmGridMove 7s linear infinite; }
+@keyframes hmGridMove{ from{background-position:0 0} to{background-position:34px 34px} }
+.hm-hero-scene{ position:absolute; right:-4%; top:0; bottom:0; width:56%; z-index:1; }
+.hm-ring{ position:absolute; left:50%; top:50%; border-radius:50%; border:1px dashed rgba(108,92,231,0.35); transform:translate(-50%,-50%); }
+.hm-ring.r1{ width:70%; padding-top:70%; animation:hmSpin 22s linear infinite; }
+.hm-ring.r2{ width:88%; padding-top:88%; border-color:rgba(108,92,231,0.18); animation:hmSpinRev 30s linear infinite; }
+@keyframes hmSpin{ from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+@keyframes hmSpinRev{ from{transform:translate(-50%,-50%) rotate(360deg)} to{transform:translate(-50%,-50%) rotate(0deg)} }
+.hm-cyborg{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:44%; z-index:2; filter:drop-shadow(0 0 22px rgba(108,92,231,0.35)); }
+.hm-cyborg .glow{ animation:hmPulse 2.6s ease-in-out infinite; transform-origin:center; }
+.hm-cyborg .glow.d1{ animation-delay:.3s; }
+.hm-cyborg .glow.d2{ animation-delay:.6s; }
+@keyframes hmPulse{ 0%,100%{opacity:.35} 50%{opacity:1} }
+.hm-chip{ position:absolute; z-index:3; background:rgba(18,20,32,0.8); border:1px solid rgba(108,92,231,0.4); border-radius:10px; padding:7px 11px; font-size:11px; font-weight:700; color:#c9c2f7; backdrop-filter:blur(6px); box-shadow:0 0 20px rgba(108,92,231,0.22); animation:hmFloat 3.6s ease-in-out infinite; }
+.hm-chip span{ display:block; font-size:9px; font-weight:500; color:var(--hm-muted); margin-top:1px; }
+.hm-chip.c1{ top:10%; left:2%; }
+.hm-chip.c2{ bottom:14%; left:-8%; animation-delay:1.2s; }
+.hm-chip.c3{ top:44%; right:-2%; animation-delay:2s; }
+@keyframes hmFloat{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+.hm-particles span{ position:absolute; bottom:20%; width:3px; height:3px; border-radius:50%; background:#a89bf5; opacity:0; z-index:2; animation:hmParticle 4.5s ease-in infinite; }
+@keyframes hmParticle{ 0%{transform:translateY(0);opacity:0} 12%{opacity:.9} 100%{transform:translateY(-160px);opacity:0} }
+
+.hm-novo{ display:flex; align-items:center; justify-content:space-between; padding:12px 18px; border:1px solid var(--hm-border); border-radius:12px; background:var(--hm-panel); }
+.hm-novo b{ display:block; font-size:12.5px; margin-bottom:2px; }
+.hm-novo span{ font-size:11px; color:var(--hm-muted); }
+
+.hm-panel{ background:var(--hm-panel); border:1px solid var(--hm-border); border-radius:14px; display:flex; flex-direction:column; min-height:0; }
+.hm-panel-head{ display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid var(--hm-border); }
+.hm-panel-head .title{ font-size:12px; font-weight:700; color:var(--hm-muted); letter-spacing:0.3px; }
+.hm-panel-head a{ font-size:11.5px; color:var(--hm-brand); text-decoration:none; font-weight:700; cursor:pointer; }
+.hm-panel-body{ overflow-y:auto; max-height:230px; padding:4px 8px; }
+.hm-copy{ display:flex; align-items:center; gap:14px; padding:14px 16px; border:1px solid var(--hm-border); border-radius:14px; background:var(--hm-panel); cursor:pointer; }
+.hm-copy .ico{ width:38px; height:38px; border-radius:10px; background:var(--hm-brand-dim); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+.hm-copy b{ display:block; font-size:12.5px; margin-bottom:2px; }
+.hm-copy span{ font-size:11px; color:var(--hm-muted); }
+
+/* Estilos que o JS injeta dentro de #rankList / #iaList */
+.rank-row, .ia-row{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:10px; cursor:pointer; transition:background .12s; }
+.rank-row:hover, .ia-row:hover{ background:rgba(255,255,255,0.03); }
+.r-pos{ width:20px; height:20px; border-radius:50%; background:var(--hm-panel-alt); display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; color:var(--hm-muted); flex-shrink:0; }
+.r-pos.rp1,.r-pos.rp2,.r-pos.rp3{ background:var(--hm-brand-dim); color:#c9c2f7; }
+.r-av{ width:30px; height:30px; border-radius:50%; background:var(--hm-panel-alt); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+.r-info{ flex:1; min-width:0; }
+.r-name{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.r-sub{ font-size:10.5px; color:var(--hm-muted-soft); }
+.r-pct{ font-size:12px; font-weight:700; color:var(--hm-up); background:rgba(34,199,126,0.1); padding:3px 9px; border-radius:7px; flex-shrink:0; }
+.ia-ico{ width:32px; height:32px; border-radius:9px; background:var(--hm-panel-alt); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.ia-name{ font-size:12.5px; font-weight:700; }
+.ia-tier{ font-size:10px; font-weight:700; color:var(--hm-muted-soft); }
+.ia-bw{ width:44px; height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden; flex-shrink:0; }
+.ia-bf{ height:100%; }
+.ia-pct{ font-size:11.5px; font-weight:700; width:32px; text-align:right; flex-shrink:0; }
+.ia-pl{ font-size:10px; color:var(--hm-muted-soft); }
+</style>
+
+<nav class="hm-nav">
+  <div class="hm-nav-left">
+    <a class="hm-brand" href="/home">
+      <div class="hm-mark">A</div>
+      <div class="hm-word"><b>Alpha Dolar</b><span>TRADING BOT 2.0</span></div>
+    </a>
+    <div class="hm-nav-links">
+      <a class="active" href="/home">Início</a>
+      <a href="/dashboard">Operar</a>
+      <button onclick="window.location.href='/checkout?produto=ai-signals'">Alpha Signals 🔒</button>
+      <button onclick="abrirLoja('assinaturas')">Loja</button>
+      <button onclick="location.href='/videos'">Tutoriais/Vídeos</button>
+      <button onclick="window.open('https://wa.me/5547992206579','_blank')">Suporte</button>
+    </div>
+  </div>
+  <div class="hm-nav-right">
+    <a class="hm-btn hm-btn-ghost" href="https://t.deriv.link?t=2QKC88VGYBTZ" target="_blank">Depósito</a>
+    <button class="hm-icon-btn" title="Notificações">🔔</button>
+    <div class="hm-balance" onclick="toggleContaHome()">
+      <small id="homeContaTipo">Conta demo</small>
+      <b id="homeContaSaldo" class="hm-mono">Ð — ▼</b>
+    </div>
+    <button class="hm-btn hm-btn-primary" onclick="location.href='/dashboard'">Operar</button>
+    <button class="hm-icon-btn" onclick="fazerLogout()" title="Sair">⏻</button>
+    <button class="hm-hamburger" id="hambBtn" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<!-- MENU MOBILE -->
+<div class="nav-mobile" id="navMobile">
+  <a class="nav-link ativo" href="/home">🏠 Início</a>
+  <a class="nav-link" href="/dashboard">⚡ Operar</a>
+  <button class="nav-link signals" onclick="abrirLoja('sinais');fecharMenu()">✦ Alpha Signals 🔒</button>
+  <button class="nav-link" onclick="abrirLoja('assinaturas');fecharMenu()">🛒 Loja</button>
+  <button class="nav-link" onclick="location.href='/videos'">📺 Vídeos</button>
+  <button class="nav-link" onclick="window.open('https://wa.me/5547992206579','_blank')">💬 Suporte</button>
+  <a class="nav-link" href="https://t.deriv.link?t=2QKC88VGYBTZ" target="_blank" style="background:rgba(14,165,233,.08);border-color:rgba(14,165,233,.25);color:var(--blue)">💰 Depósito Deriv</a>
+  <hr style="border-color:#1e2230;margin:4px 0">
+  <div style="display:flex;gap:10px;padding:8px 16px">
+    <a href="https://instagram.com" target="_blank" class="soc-btn">📷</a>
+    <a href="https://t.me" target="_blank" class="soc-btn">✈️</a>
+    <a href="https://youtube.com" target="_blank" class="soc-btn">▶️</a>
+  </div>
+  <button onclick="fazerLogout()" style="margin-top:4px;padding:12px 16px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#ef4444;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;text-align:left">⏻ Sair da conta</button>
+</div>
+
+<!-- STATS -->
+<div class="hm-stats">
+  <div class="hm-stat"><div class="lbl">Traders Ativos</div><div class="val hm-mono" id="sT">—</div></div>
+  <div class="hm-stat"><div class="lbl">Robôs Rodando</div><div class="val hm-mono" id="sR">—</div></div>
+  <div class="hm-stat"><div class="lbl">Lucro Acumulado Hoje</div><div class="val hm-mono up" id="sL">—</div></div>
+  <div class="hm-stat"><div class="lbl">Win Rate Médio</div><div class="val hm-mono up" id="sW">—</div></div>
+</div>
+
+<main class="hm-main">
+  <div class="hm-col">
+    <div class="hm-offers">
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=ai-signals'"><div class="ico">🤖</div><div><div class="t">AI Signals</div><div class="s">Sinais em tempo real</div></div></div>
+      <div class="hm-offer" onclick="location.href='/parceiro.html'"><div class="ico">🤝</div><div><div class="t">Seja parceiro</div><div class="s">Revenue share Deriv</div></div></div>
+      <div class="hm-offer" onclick="location.href='/dashboard'"><div class="ico">🎓</div><div><div class="t">Tutoriais</div><div class="s">Aprenda do zero</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/web/alpha-ia-contextual.html'"><div class="ico">🧠</div><div><div class="t">IA Contextual</div><div class="s">Novo · R$47</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=ia-pro'"><div class="ico">✨</div><div><div class="t">Alpha IA Pro</div><div class="s">Deep learning</div></div></div>
+      <div class="hm-offer" onclick="abrirLoja('premium')"><div class="ico">🏆</div><div><div class="t">Indicadores</div><div class="s">Estratégias premium</div></div></div>
+      <div class="hm-offer" onclick="abrirLoja('premium')"><div class="ico">⭐</div><div><div class="t">Premium</div><div class="s">Acesso vitalício</div></div></div>
+      <div class="hm-offer" onclick="abrirLoja('vip')"><div class="ico">💎</div><div><div class="t">Bots VIP</div><div class="s">Win rate até 82%</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=ia-avancado'"><div class="ico">⚙️</div><div><div class="t">IA Avançado</div><div class="s">Score de confiança</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=alpha-bank'"><div class="ico">🏦</div><div><div class="t">Alpha Bank</div><div class="s">Gestão de banca</div></div></div>
+      <div class="hm-offer" onclick="abrirLoja('alpha-shield')"><div class="ico">🛡️</div><div><div class="t">Alpha Shield</div><div class="s">Proteção</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=alpha-pattern'"><div class="ico">🔮</div><div><div class="t">Alpha Pattern</div><div class="s">Padrões</div></div></div>
+      <div class="hm-offer" onclick="window.location.href='/checkout?produto=alpha-clock'"><div class="ico">⏰</div><div><div class="t">Alpha Clock</div><div class="s">Melhores horários</div></div></div>
+    </div>
+
+    <div class="hm-hero">
+      <div class="hm-hero-grid"></div>
+      <span class="tag">Oferta por tempo limitado · <b>Alpha Signals</b></span>
+      <div class="hm-hero-scene">
+        <div class="hm-ring r2"></div>
+        <div class="hm-ring r1"></div>
+        <svg class="hm-cyborg" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+          <rect x="70" y="40" width="80" height="70" rx="18" fill="none" stroke="#6C5CE7" stroke-width="2" opacity="0.6"/>
+          <circle class="glow" cx="92" cy="72" r="9" fill="#a89bf5"/>
+          <circle class="glow d1" cx="128" cy="72" r="9" fill="#a89bf5"/>
+          <rect x="102" y="92" width="16" height="5" rx="2" fill="#6C5CE7" opacity="0.4"/>
+          <rect x="88" y="18" width="8" height="22" rx="3" fill="#6C5CE7" opacity="0.55"/>
+          <circle class="glow d2" cx="92" cy="14" r="6" fill="#a89bf5"/>
+          <rect x="55" y="118" width="110" height="110" rx="16" fill="none" stroke="#6C5CE7" stroke-width="2" opacity="0.6"/>
+          <circle class="glow" cx="110" cy="170" r="16" fill="none" stroke="#a89bf5" stroke-width="2.5"/>
+          <circle class="glow d1" cx="110" cy="170" r="6" fill="#a89bf5"/>
+          <rect x="85" y="200" width="50" height="8" rx="4" fill="#6C5CE7" opacity="0.25"/>
+          <rect x="18" y="128" width="26" height="66" rx="13" fill="none" stroke="#6C5CE7" stroke-width="1.5" opacity="0.45"/>
+          <rect x="176" y="128" width="26" height="66" rx="13" fill="none" stroke="#6C5CE7" stroke-width="1.5" opacity="0.45"/>
+          <rect x="72" y="236" width="24" height="54" rx="11" fill="none" stroke="#6C5CE7" stroke-width="1.5" opacity="0.45"/>
+          <rect x="124" y="236" width="24" height="54" rx="11" fill="none" stroke="#6C5CE7" stroke-width="1.5" opacity="0.45"/>
+        </svg>
+        <div class="hm-chip c1">+80% <span>acerto</span></div>
+        <div class="hm-chip c2">⚡ Live <span>sinal ativo</span></div>
+        <div class="hm-chip c3">R_100 <span>+0,42%</span></div>
+        <div class="hm-particles">
+          <span style="left:20%; animation-delay:0s"></span>
+          <span style="left:38%; animation-delay:.9s"></span>
+          <span style="left:55%; animation-delay:1.7s"></span>
+          <span style="left:70%; animation-delay:2.4s"></span>
+          <span style="left:85%; animation-delay:.4s"></span>
+        </div>
+      </div>
+      <div class="hm-hero-content">
+        <h1>Sinais com taxa de acerto acima de 80%</h1>
+        <p>Alertas gerados por IA em tempo real, direto na sua tela.</p>
+        <button class="hm-btn hm-btn-primary" onclick="window.location.href='/checkout?produto=ai-signals'">Saiba mais</button>
+      </div>
+    </div>
+
+    <div class="hm-novo">
+      <div><b>Você é novo por aqui?</b><span>Aprenda a plataforma e crie sua conta na corretora.</span></div>
+      <button class="hm-btn hm-btn-ghost" onclick="window.open('https://t.deriv.link?t=2QKC88VGYBTZ','_blank')">Criar conta na Deriv →</button>
+    </div>
+  </div>
+
+  <div class="hm-col">
+    <div class="hm-panel" style="flex:1.3">
+      <div class="hm-panel-head"><div class="title">🏆 Melhores Traders</div><a>Ver todos</a></div>
+      <div class="hm-panel-body" id="rankList"></div>
+    </div>
+    <div class="hm-panel" style="flex:1.1">
+      <div class="hm-panel-head"><div class="title">🤖 IAs Mais Usadas</div><a onclick="location.href='/dashboard'">Usar agora</a></div>
+      <div class="hm-panel-body" id="iaList"></div>
+    </div>
+    <div class="hm-copy" onclick="window.location.href='/checkout?produto=alpha-copy'">
+      <div class="ico">📡</div>
+      <div><b>Copy Trading</b><span>Copie os trades do Alpha Master em tempo real.</span></div>
+    </div>
+  </div>
+</main>
+<footer>ALPHA DOLAR 2.0 · TRADING AUTOMATIZADO COM IA · POWERED BY DERIV</footer>
+
+<!-- MODAL LOJA -->
+<div class="modal-ov" id="lojaModal">
+  <div class="modal-box" style="max-width:1100px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0">
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:var(--blue);font-weight:700;margin-bottom:4px">ALPHA DOLAR</div>
+        <h2 style="font-size:22px;font-weight:800;color:#e2e8f0">🛒 Loja de Produtos</h2>
+      </div>
+      <button class="btn-close" onclick="fecharLoja()">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:16px 28px;border-bottom:1px solid #1e2230;flex-wrap:wrap">
+      <button class="loja-cat on" onclick="lojaFiltrar('todos',this)">Todos</button>
+      <button class="loja-cat" onclick="lojaFiltrar('ferramentas',this)">🔧 Ferramentas</button>
+      <button class="loja-cat" onclick="lojaFiltrar('ia',this)">🧠 IA & Robôs</button>
+      <button class="loja-cat" onclick="lojaFiltrar('sinais',this)">📊 Sinais</button>
+      <button class="loja-cat" onclick="lojaFiltrar('planos',this)">⭐ Planos</button>
+    </div>
+    <div style="padding:20px 28px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px;overflow-y:auto;max-height:60vh" id="lojaGrid">
+    </div>
+  </div>
+</div>
+<style>
+.loja-cat{padding:6px 16px;border-radius:20px;border:1px solid #1e2230;background:transparent;color:#64748b;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
+.loja-cat.on{background:rgba(14,165,233,.1);border-color:var(--blue);color:var(--blue)}
+.loja-card{background:#0d1117;border:1px solid #1e2230;border-radius:14px;padding:18px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:10px}
+.loja-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.loja-card-top{display:flex;align-items:center;gap:10px}
+.loja-card-icon{font-size:28px;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.loja-card-nome{font-size:14px;font-weight:700;color:#e2e8f0}
+.loja-card-badge{font-size:9px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.loja-card-desc{font-size:12px;color:#64748b;line-height:1.5;flex:1}
+.loja-card-footer{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.loja-card-preco{font-size:16px;font-weight:800;color:#e2e8f0}
+.loja-card-btn{padding:7px 16px;border-radius:8px;border:none;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px}
+@media(max-width:600px){#lojaGrid{grid-template-columns:1fr!important}}
+</style>
+
+<script>
+// STATS SIMULADOS
+let _t=847,_r=312,_l=48320,_w=73.4;
+function osc(v,p=.025){return v*(1+(Math.random()*2-1)*p)}
+function fmt(n){return Math.round(n).toLocaleString('pt-BR')}
+function tick(){
+  _t=Math.max(200,Math.min(2000,osc(_t,.02)));
+  _r=Math.max(50,Math.min(500,osc(_r,.025)));
+  _l+=Math.random()*45-5;
+  _w=Math.max(60,Math.min(85,osc(_w,.005)));
+  document.getElementById('sT').textContent=fmt(_t);
+  document.getElementById('sR').textContent=fmt(_r);
+  document.getElementById('sL').textContent='R$ '+fmt(_l);
+  document.getElementById('sW').textContent=_w.toFixed(1)+'%';
+}
+tick();setInterval(tick,3500);
+
+// RANKING
+const TRADERS=[
+  {nome:'Pedro Santos',pais:'🇧🇷',pct:'+30%',p:1},
+  {nome:'Mariana Oliveira',pais:'🇧🇷',pct:'+29%',p:2},
+  {nome:'João Silva',pais:'🇧🇷',pct:'+28%',p:3},
+  {nome:'Carlos Mendes',pais:'🇪🇸',pct:'+25%',p:4},
+  {nome:'Ana Beatriz',pais:'🇧🇷',pct:'+23%',p:5},
+  {nome:'Lucas Ferreira',pais:'🇧🇷',pct:'+21%',p:6},
+  {nome:'Sofia Lima',pais:'🇵🇹',pct:'+19%',p:7},
+];
+const AV=['🧑','👩','👨','🧑‍💼','👩‍💼','🧔','👱'];
+const PC=['rp1','rp2','rp3','rpn','rpn','rpn','rpn'];
+const TR=['👑','🥈','🥉','','','',''];
+document.getElementById('rankList').innerHTML=TRADERS.map((t,i)=>`
+  <div class="rank-row">
+    <div class="r-pos ${PC[i]}">${t.p}</div>
+    <div class="r-av">${AV[i]}</div>
+    <div class="r-info"><div class="r-name">${t.nome} ${t.pais}</div><div class="r-sub">Trader ativo</div></div>
+    <div class="r-pct rg">${t.pct}</div>
+    ${TR[i]?`<span style="font-size:13px">${TR[i]}</span>`:''}
+  </div>
+`).join('');
+
+// IAs
+const IAS=[
+  {n:'Alpha Sniper',t:'VIP',p:94,c:'#0ea5e9',bg:'rgba(14,165,233,.1)',e:'🎯'},
+  {n:'Mega Alpha 2.0',t:'PREMIUM',p:87,c:'#f59e0b',bg:'rgba(245,158,11,.1)',e:'🔥'},
+  {n:'Quantum Trader',t:'VIP',p:81,c:'#0ea5e9',bg:'rgba(14,165,233,.1)',e:'⚡'},
+  {n:'Alpha Elite',t:'PREMIUM',p:76,c:'#f59e0b',bg:'rgba(245,158,11,.1)',e:'👑'},
+  {n:'Alpha Bot 1',t:'FREE',p:68,c:'#22c55e',bg:'rgba(34,197,94,.1)',e:'🤖'},
+  {n:'Alpha Nexus',t:'PREMIUM',p:62,c:'#f59e0b',bg:'rgba(245,158,11,.1)',e:'🧠'},
+];
+const TC={FREE:'#22c55e',VIP:'#0ea5e9',PREMIUM:'#f59e0b'};
+document.getElementById('iaList').innerHTML=IAS.map(ia=>`
+  <div class="ia-row" onclick="location.href='/dashboard'">
+    <div class="ia-ico" style="background:${ia.bg}">${ia.e}</div>
+    <div style="flex:1;min-width:0"><div class="ia-name">${ia.n}</div><div class="ia-tier" style="color:${TC[ia.t]}">${ia.t}</div></div>
+    <div class="ia-bw"><div class="ia-bf" style="width:${ia.p}%;background:${ia.c}"></div></div>
+    <div class="ia-pct" style="color:${ia.c}">${ia.p}%</div>
+    <div class="ia-pl">▶</div>
+  </div>
+`).join('');
+
+// PLANOS
+const PLANOS={
+  assinaturas:[
+    {nome:'Assinatura AI Signals',desc:'Acesso a todos os sinais em tempo real. Estatísticas, teoria e tudo que você precisa para dominar o mercado.',banner:'📡',preco:'97',periodo:'/mês',acesso:'Acesso mensal',tog:true,badge:'OFERTA',feats:['Sinais em tempo real','Análise de mercado IA','Aba Vídeos completa','Suporte prioritário','Grupo VIP Telegram'],btn:'az'},
+    {nome:'Inteligência Artificial VIP',desc:'IAs exclusivas, Modo Avançado com IA para tomar decisões automáticas de negociação.',banner:'💎',preco:'297',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'',feats:['7 IAs VIP exclusivas','Modo Avançado IA','Martingale automático','Win Rate até 82%','Suporte VIP'],btn:'az',dest:true},
+    {nome:'Recursos Premium',desc:'Modo Baixo Risco + IAs Premium com deep learning e taxa de acerto acima de 84%.',banner:'⭐',preco:'97',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'',feats:['3 IAs Premium','Modo Baixo Risco','Deep Learning','Win Rate até 88%','Alpha Elite incluído'],btn:'ou'},
+  ],
+  sinais:[
+    {nome:'Assinatura AI Signals',desc:'Acesso a todos os sinais gerados por nossos algoritmos.',banner:'📡',preco:'97',periodo:'/mês',acesso:'Acesso mensal',tog:true,badge:'OFERTA',feats:['Sinais em tempo real','Análise de mercado IA','Aba Vídeos completa','Suporte prioritário'],btn:'az'},
+  ],
+  vip:[
+    {nome:'Plano VIP Completo',desc:'7 IAs exclusivas com análise neural, detecção de padrões, scalping inteligente e martingale automático.',banner:'💎',preco:'297',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'POPULAR',feats:['Alpha Mind (78%)','Quantum Trader (80%)','Titan Core (79%)','Alpha Pulse (77%)','Alpha Smart (76%)','Alpha Analytics (78%)','Alpha Sniper (82%)'],btn:'az',dest:true},
+  ],
+  'alpha-bank':[
+    {nome:'Alpha Bank',desc:'Gestão inteligente de banca. Calcula automaticamente stake ideal, stop loss diário e meta de lucro baseados no seu saldo atual.',banner:'🏦',preco:'19.90',periodo:' vitalício',acesso:'Acesso vitalício',tog:false,badge:'NOVO',feats:['Stake automático por saldo','Stop loss diário','Meta de lucro diária','3 perfis de risco','Aplicação 1 clique no robô'],btn:'az'},
+  ],
+  'alpha-shield':[
+    {nome:'Alpha Shield',desc:'Monitora a volatilidade do mercado em tempo real via WebSocket e alerta quando as condições estão perigosas para operar.',banner:'🛡️',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Monitoramento WebSocket','Desvio padrão em tempo real','3 níveis: Seguro / Atenção / Perigo','Círculo animado de alerta','Detecta mercado automaticamente'],btn:'az'},
+  ],
+  'alpha-pattern':[
+    {nome:'Alpha Pattern',desc:'Analisa os últimos 20 dígitos em tempo real e detecta sequências raras como 4+ pares ou 5+ altos seguidos, gerando sinais de alta probabilidade.',banner:'🔮',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Últimos 20 dígitos coloridos','4 tipos de padrão detectados','Probabilidade calculada por streak','Sugestão de contrato (DIGITEVEN, etc)','Histórico de sinais da sessão'],btn:'az'},
+  ],
+  'alpha-clock':[
+    {nome:'Alpha Clock',desc:'Exibe o score de cada faixa de horário do dia no horário de Brasília. Saiba exatamente quando o mercado está mais favorável para operar.',banner:'⏰',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Relógio ao vivo (horário Brasília)','Score por faixa de 2 horas','Card AGORA destacado','Melhor horário: 14h-16h (88%)','Sem ativação — abre automático'],btn:'az'},
+  ],
+  'alpha-copy':[
+    {nome:'Alpha Copy',desc:'Copie automaticamente os trades do Alpha Master em tempo real. Configure o multiplicador de stake e lucre mesmo sem saber operar.',banner:'📡',preco:'Em breve',periodo:'',acesso:'Acesso incluído no plano',tog:false,badge:'NOVO',feats:['Cópia automática de trades','Multiplicador 0.25× até 5×','Feed ao vivo do master','Toggle liga/desliga instantâneo','Execução via WebSocket Deriv'],btn:'az'},
+  ],
+  premium:[
+    {nome:'Mega Alpha 1.0',desc:'IA preditiva de alta performance com deep learning treinado em dados históricos da Deriv.',banner:'🏆',preco:'97',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'',feats:['Deep Learning','Win Rate 84%','Volatility 100 (1s)','Martingale auto','Suporte Premium'],btn:'ou'},
+    {nome:'Mega Alpha 2.0',desc:'Machine learning com aprendizado contínuo. Melhora a cada sessão operada na plataforma.',banner:'🔥',preco:'147',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'NOVO',feats:['Aprendizado contínuo','Win Rate 86%','Multi-mercado','Análise adaptativa','Suporte 24h'],btn:'ou',dest:true},
+    {nome:'Alpha Elite',desc:'A IA mais poderosa da plataforma. Alta frequência + 5 indicadores fusão. Win Rate 88%.',banner:'👑',preco:'297',periodo:' único',acesso:'Acesso para sempre',tog:false,badge:'TOP',feats:['Win Rate 88%','Alta frequência','5 indicadores','Alpha Nexus incluído','Gestão automática'],btn:'ou'},
+  ],
+};
+
+const LOJA_PRODUTOS = [
+  {
+    id:'alpha-bank', icon:'🏦', nome:'Alpha Bank', badge:'GESTÃO DE BANCA', badgeCor:'#22c55e', badgeBg:'rgba(34,197,94,.12)',
+    tagline:'Pare de queimar banca por erro humano',
+    desc:'A maioria dos traders perde porque não sabe quanto arriscar. O Alpha Bank calcula automaticamente o stake ideal, stop loss e meta de lucro com base no seu saldo real — protegendo seu capital em qualquer condição de mercado.',
+    destaque:'Reduz perdas em até 60%', preco:'R$ 19,90', periodo:'pagamento único', tipo:'ferramentas', cor:'#22c55e'
+  },
+  {
+    id:'ia-avancado', icon:'🧠', nome:'IA Avançado', badge:'MOTOR DE IA', badgeCor:'#a855f7', badgeBg:'rgba(168,85,247,.12)',
+    tagline:'O robô que aprende com o mercado em tempo real',
+    desc:'Enquanto você dorme, o Motor IA Alpha analisa frequência de dígitos, sequências e padrões para só entrar quando o score de confiança é alto. Simula perdas virtuais antes de arriscar dinheiro real.',
+    destaque:'Score de confiança acima de 75%', preco:'R$ 97,00', periodo:'pagamento único', tipo:'ia', cor:'#a855f7'
+  },
+  {
+    id:'alpha-pattern', icon:'🔮', nome:'Alpha Pattern', badge:'DETECÇÃO DE PADRÕES', badgeCor:'#06b6d4', badgeBg:'rgba(6,182,212,.12)',
+    tagline:'Veja o que os outros traders não conseguem ver',
+    desc:'Detecta em tempo real sequências raras como 4+ pares seguidos ou 5+ altos consecutivos. Quando o mercado cria uma janela de oportunidade, você será o primeiro a saber.',
+    destaque:'4 tipos de padrão raros detectados', preco:'R$ 19,90', periodo:'pagamento único', tipo:'ferramentas', cor:'#06b6d4'
+  },
+  {
+    id:'alpha-clock', icon:'⏰', nome:'Alpha Clock', badge:'TIMING PERFEITO', badgeCor:'#f59e0b', badgeBg:'rgba(245,158,11,.12)',
+    tagline:'Opere nas horas certas, lucre mais com menos esforço',
+    desc:'Sabia que o mercado tem horários 3x mais favoráveis? O Alpha Clock mede o score de cada faixa de 2 horas e destaca o momento AGORA. Nunca mais opere no horário errado.',
+    destaque:'Melhor horário: 14h-16h com 88% de score', preco:'R$ 19,90', periodo:'/mês', tipo:'ferramentas', cor:'#f59e0b'
+  },
+  {
+    id:'alpha-copy', icon:'📡', nome:'Alpha Copy', badge:'COPY TRADE', badgeCor:'#ec4899', badgeBg:'rgba(236,72,153,.12)',
+    tagline:'Lucre copiando quem já sabe operar',
+    desc:'Conecte-se ao Alpha Master e copie cada trade automaticamente em tempo real via WebSocket. Configure o multiplicador de stake e comece a lucrar mesmo sem experiência alguma.',
+    destaque:'Execução em milissegundos via WebSocket', preco:'R$ 19,90', periodo:'/mês', tipo:'ferramentas', cor:'#ec4899'
+  },
+  {
+    id:'estrategias-vip', icon:'💎', nome:'Estratégias VIP', badge:'PLANO VIP', badgeCor:'#0ea5e9', badgeBg:'rgba(14,165,233,.12)',
+    tagline:'7 IAs que os traders VIP usam para lucrar consistente',
+    desc:'Acesso exclusivo a 7 estratégias com análise neural avançada e scalping inteligente. Cada IA foi treinada com milhões de tiques para identificar as melhores entradas.',
+    destaque:'Win Rate médio de 82% nas últimas 30 sessões', preco:'R$ 97,00', periodo:'pagamento único', tipo:'planos', cor:'#0ea5e9'
+  },
+  {
+    id:'premium-elite', icon:'⭐', nome:'Premium Elite', badge:'MELHOR OFERTA', badgeCor:'#f59e0b', badgeBg:'rgba(245,158,11,.12)',
+    tagline:'O pacote completo para traders sérios',
+    desc:'Tudo que a plataforma tem de mais avançado em um único acesso. IAs com deep learning, taxa de acerto acima de 84% e suporte VIP direto. Para quem quer resultado, não desculpa.',
+    destaque:'Acesso a TODOS os recursos Premium', preco:'R$ 147,00', periodo:'pagamento único', tipo:'planos', cor:'#f59e0b'
+  },
+  {
+    id:'ai-signals', icon:'📊', nome:'AI Signals', badge:'SINAIS AO VIVO', badgeCor:'#22c55e', badgeBg:'rgba(34,197,94,.12)',
+    tagline:'Sinais prontos para copiar — sem precisar analisar nada',
+    desc:'Nossa IA monitora o mercado 24h e envia sinais com taxa de acerto acima de 80%. Você recebe o alerta, executa em 1 clique e pronto. Ideal para quem tem pouco tempo mas quer resultados.',
+    destaque:'Taxa de acerto histórica acima de 80%', preco:'R$ 97,00', periodo:'/mês', tipo:'sinais', cor:'#22c55e'
+  },
+  {
+    id:'ia-pro', icon:'✨', nome:'Alpha IA Pro', badge:'IA PREMIUM', badgeCor:'#a855f7', badgeBg:'rgba(168,85,247,.12)',
+    tagline:'O robô mais avançado da plataforma',
+    desc:'Deep learning de última geração com gestão automática de banca integrada. O Alpha IA Pro não só opera — ele aprende e se adapta ao comportamento do mercado em cada sessão.',
+    destaque:'Deep learning adaptativo por sessão', preco:'R$ 97,00', periodo:'/mês', tipo:'ia', cor:'#a855f7'
+  },
+];
+
+function renderLojaGrid(filtro='todos') {
+  const grid = document.getElementById('lojaGrid');
+  const lista = filtro === 'todos' ? LOJA_PRODUTOS : LOJA_PRODUTOS.filter(p => p.tipo === filtro);
+  grid.innerHTML = lista.map(p => `
+    <div class="loja-card" onclick="window.location.href='/checkout?produto=${p.id}'" style="border-color:${p.cor}33;background:linear-gradient(145deg,#0d1117,#0a0e15)">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:32px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:${p.badgeBg}">${p.icon}</div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#e2e8f0;margin-bottom:3px">${p.nome}</div>
+            <span style="font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 8px;border-radius:4px;background:${p.badgeBg};color:${p.badgeCor}">${p.badge}</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:${p.cor};margin-bottom:6px;font-style:italic">"${p.tagline}"</div>
+      <div style="font-size:12px;color:#64748b;line-height:1.6;margin-bottom:12px">${p.desc}</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;border-radius:8px;background:${p.badgeBg};margin-bottom:14px">
+        <span style="color:${p.cor};font-size:11px">✓</span>
+        <span style="font-size:11px;font-weight:600;color:${p.cor}">${p.destaque}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:20px;font-weight:900;color:${p.cor}">${p.preco}</div>
+          <div style="font-size:10px;color:#475569">${p.periodo}</div>
+        </div>
+        <button style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,${p.cor},${p.cor}cc);color:#fff;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px">
+          Ver detalhes →
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function lojaFiltrar(filtro, el) {
+  document.querySelectorAll('.loja-cat').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderLojaGrid(filtro);
+}
+
+function abrirLoja(tipo='assinaturas'){
+  renderLojaGrid('todos');
+  document.getElementById('lojaModal').classList.add('open');
+}
+window.abrirLoja=abrirLoja;
+function fecharLoja(){document.getElementById('lojaModal').classList.remove('open')}
+window.fecharLoja=fecharLoja;
+document.getElementById('lojaModal').addEventListener('click',function(e){if(e.target===this)fecharLoja()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')fecharLoja()});
+
+function filtrar(cat){
+  document.querySelectorAll('.ms-item').forEach(i=>i.classList.remove('on'));
+  document.getElementById('ms-'+cat).classList.add('on');
+  if(cat==='comprados'){
+    document.getElementById('planosGrid').innerHTML='<div style="padding:40px;text-align:center;color:#475569;grid-column:1/-1">Você ainda não possui planos ativos.<br><br><button onclick="filtrar(\'assinaturas\')" style="margin-top:8px;padding:10px 24px;background:rgba(14,165,233,.1);border:1px solid rgba(14,165,233,.3);color:var(--blue);border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit">Ver planos disponíveis →</button></div>';
+    return;
+  }
+  renderPlanos('assinaturas');
+}
+
+function renderPlanos(tipo){
+  const lista=PLANOS[tipo]||PLANOS.assinaturas;
+  document.getElementById('planosGrid').innerHTML=lista.map((p,i)=>`
+    <div class="plano${p.dest?' dest':''}">
+      ${p.badge?`<div class="pl-badge">${p.badge}</div>`:''}
+      <div class="pl-banner" style="background:linear-gradient(135deg,#0a0e1a,#0d1628)">${p.banner}</div>
+      <div class="pl-nome">${p.nome}</div>
+      <div class="pl-desc">${p.desc}</div>
+      ${p.tog?`<div style="margin-bottom:7px;font-size:11px;font-weight:600;color:#64748b">Escolha seu plano:</div><div class="pl-tog" id="tog${i}"><button class="ptog on" onclick="swTog(${i},0,'97')">Mensal</button><button class="ptog" onclick="swTog(${i},1,'497')">Vitalício <span style="background:var(--green);color:#000;font-size:7px;padding:1px 4px;border-radius:3px;margin-left:2px">MELHOR</span></button></div>`:''}
+      <div class="pl-price">${p.preco==='Em breve'?'<span style="font-size:20px;font-weight:800;color:#64748b;letter-spacing:1px">EM BREVE</span>':`<span class="m">R$</span><span class="v" id="pv${i}">${p.preco}</span><span class="p">${p.periodo}</span>`}<div class="a">✦ ${p.acesso}</div></div>
+      <ul class="pl-feats">${p.feats.map(f=>`<li>${f}</li>`).join('')}</ul>
+      <button class="btn-cmp ${p.btn}" onclick="checkout('${p.nome}')">🛒 Comprar</button>
+      <div class="garantia">Garantia de 7 dias</div>
+    </div>
+  `).join('');
+}
+renderPlanos('assinaturas');
+
+function swTog(i,op,preco){
+  document.getElementById('pv'+i).textContent=preco;
+  document.getElementById('tog'+i).querySelectorAll('.ptog').forEach((b,j)=>b.classList.toggle('on',j===op));
+}
+function checkout(nome){const ids={'Alpha Bank':'alpha-bank','IA Avançado':'ia-avancado'};const id=ids[nome];if(id)window.location.href='/checkout?produto='+id;else alert('Em breve: checkout para "'+nome+'" 🚀')}
+
+// SALDO E CONTA
+function carregarContaHome(){
+  try {
+    const tipo = localStorage.getItem('alpha_account_type') || 'demo';
+    const label = tipo === 'real' ? '🔴 Conta Real' : '🔵 Conta Demo';
+    document.getElementById('homeContaTipo').textContent = label;
+    const key = tipo === 'real' ? 'deriv_balance_real' : 'deriv_balance_demo';
+    const accs = JSON.parse(localStorage.getItem('deriv_accounts') || '{}');
+    const acc = accs[tipo] || {};
+    const currency = acc.currency || 'USD';
+    const saved = localStorage.getItem(key);
+    if(saved && parseFloat(saved) > 0){
+      const val = parseFloat(saved).toLocaleString('pt-BR',{minimumFractionDigits:2});
+      document.getElementById('homeContaSaldo').innerHTML =
+        `${currency} ${val} <span style="color:var(--blue);font-size:10px">▼</span>`;
+      return;
+    }
+    fetch('/api/balance').then(r=>r.json()).then(d=>{
+      if(d.balance){
+        const val = parseFloat(d.balance).toLocaleString('pt-BR',{minimumFractionDigits:2});
+        document.getElementById('homeContaSaldo').innerHTML =
+          `${d.currency||'USD'} ${val} <span style="color:var(--blue);font-size:10px">▼</span>`;
+      }
+    }).catch(()=>{});
+  } catch(e){}
+}
+function toggleContaHome(){
+  try {
+    const tipo = localStorage.getItem('alpha_account_type') || 'demo';
+    const novo = tipo === 'demo' ? 'real' : 'demo';
+    localStorage.setItem('alpha_account_type', novo);
+    carregarContaHome();
+    const el = document.getElementById('homeContaTipo');
+    el.style.color = novo === 'real' ? '#ef4444' : '#0ea5e9';
+    setTimeout(()=>el.style.color='',1500);
+  } catch(e){}
+}
+carregarContaHome();
+setInterval(carregarContaHome, 5000);
+
+// Auto-abre modal se veio de ai-signals.html ou loja.html
+(function(){
+  const modal = sessionStorage.getItem('abrirModal');
+  if(modal){
+    sessionStorage.removeItem('abrirModal');
+    setTimeout(function(){ abrirLoja(modal); }, 300);
+  }
+})();
+
+// LOGOUT
+function fazerLogout(){
+  if(!confirm('Deseja sair da sua conta?')) return;
+  ['deriv_accounts','deriv_token_demo','deriv_token_real',
+   'deriv_balance_demo','deriv_balance_real','deriv_conta_ativa',
+   'alpha_account_type','deriv_affiliate'].forEach(k => localStorage.removeItem(k));
+  window.location.replace('/login');
+}
+
+// MENU MOBILE
+function toggleMenu(){
+  document.getElementById('navMobile').classList.toggle('open');
+}
+function fecharMenu(){
+  document.getElementById('navMobile').classList.remove('open');
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('nav') && !e.target.closest('#navMobile')){
+    document.getElementById('navMobile').classList.remove('open');
+  }
+});
+
+// SISTEMA DE ACESSO CONTROLADO
+function gerarTokenSessao() {
+  const ts = Date.now();
+  const rand = Math.random().toString(36).substring(2, 10);
+  const domain = window.location.hostname;
+  const token = btoa(ts + '|' + rand + '|' + domain);
+  const expira = ts + (4 * 60 * 60 * 1000);
+  sessionStorage.setItem('alpha_access_token', token);
+  sessionStorage.setItem('alpha_access_expira', expira);
+  sessionStorage.setItem('alpha_access_origem', 'home');
+}
+function irParaDashboard(e) {
+  if(e) e.preventDefault();
+  gerarTokenSessao();
+  window.location.href = '/dashboard';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('a[href="/dashboard"]').forEach(function(el) {
+    el.href = '#';
+    el.addEventListener('click', irParaDashboard);
+  });
+  document.querySelectorAll('[onclick*="/dashboard"]').forEach(function(el) {
+    el.removeAttribute('onclick');
+    el.addEventListener('click', irParaDashboard);
+  });
+});
+</script>
+<script src="js/i18n.js"></script>
+
+
+
+<!-- Alpha Dolar Language Selector -->
+<div id="alpha-lang-widget" style="position:fixed;bottom:16px;right:16px;z-index:2147483647;">
+  <button onclick="var m=document.getElementById('alpha-lang-menu');m.style.display=m.style.display==='none'?'block':'none'" style="background:#13151a;border:1px solid #007bff;color:#fff;border-radius:24px;padding:7px 14px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;box-shadow:0 4px 16px rgba(0,123,255,0.3);">
+    <span id="alw-flag">🌐</span>
+    <span id="alw-code" style="letter-spacing:1px;"></span>
+    <span style="color:#007bff;font-size:9px;">▲</span>
+  </button>
+  <div id="alpha-lang-menu" style="display:none;position:absolute;bottom:46px;right:0;background:#13151a;border:1px solid #1e2128;border-radius:14px;padding:6px;min-width:155px;box-shadow:0 8px 40px rgba(0,0,0,0.7);">
+    <div onclick="alwSet('pt','🇧🇷','PT')" class="alw-opt">🇧🇷 Português</div>
+    <div onclick="alwSet('en','🇺🇸','EN')" class="alw-opt">🇺🇸 English</div>
+    <div onclick="alwSet('es','🇪🇸','ES')" class="alw-opt">🇪🇸 Español</div>
+    <div onclick="alwSet('hi','🇮🇳','HI')" class="alw-opt">🇮🇳 हिन्दी</div>
+    <div onclick="alwSet('id','🇮🇩','ID')" class="alw-opt">🇮🇩 Indonesia</div>
+    <div onclick="alwSet('th','🇹🇭','TH')" class="alw-opt">🇹🇭 ภาษาไทย</div>
+    <div onclick="alwSet('vi','🇻🇳','VI')" class="alw-opt">🇻🇳 Tiếng Việt</div>
+    <div onclick="alwSet('ar','🇸🇦','AR')" class="alw-opt">🇸🇦 العربية</div>
+    <div onclick="alwSet('it','🇮🇹','IT')" class="alw-opt">🇮🇹 Italiano</div>
+    <div onclick="alwSet('fr','🇫🇷','FR')" class="alw-opt">🇫🇷 Français</div>
+    <div onclick="alwSet('de','🇩🇪','DE')" class="alw-opt">🇩🇪 Deutsch</div>
+  </div>
+</div>
+<style>
+.alw-opt{padding:7px 10px;cursor:pointer;border-radius:8px;font-size:12px;color:#aaa;transition:all .15s;}
+.alw-opt:hover{background:#1e2128;color:#fff;}
+</style>
+<script>
+(function(){
+  var FLAGS={pt:'🇧🇷',en:'🇺🇸',es:'🇪🇸',hi:'🇮🇳',id:'🇮🇩',th:'🇹🇭',vi:'🇻🇳',ar:'🇸🇦',it:'🇮🇹',fr:'🇫🇷',de:'🇩🇪'};
+  var CODES={pt:'PT',en:'EN',es:'ES',hi:'HI',id:'ID',th:'TH',vi:'VI',ar:'AR',it:'IT',fr:'FR',de:'DE'};
+
+  function updateBtn(lang){
+    var f=document.getElementById('alw-flag');
+    var c=document.getElementById('alw-code');
+    if(f)f.textContent=FLAGS[lang]||'🌐';
+    if(c)c.textContent=CODES[lang]||lang.toUpperCase();
+  }
+
+  window.alwSet=function(lang,flag,code){
+    document.getElementById('alpha-lang-menu').style.display='none';
+    localStorage.setItem('alpha_lang',lang);
+    updateBtn(lang);
+    // Aplica traducao
+    if(window.i18n && typeof window.i18n.apply==='function'){
+      window.i18n.apply(lang);
+    }
+    // Atualiza o trocarIdioma do dashboard se existir
+    if(typeof window.trocarIdioma==='function'){
+      var el=document.querySelector('[data-lang="'+lang+'"]');
+      window.trocarIdioma(lang,el||null);
+    }
+  };
+
+  // Fecha ao clicar fora
+  document.addEventListener('click',function(e){
+    var w=document.getElementById('alpha-lang-widget');
+    var m=document.getElementById('alpha-lang-menu');
+    if(w&&m&&!w.contains(e.target))m.style.display='none';
+  });
+
+  // Inicializa botao e aplica idioma salvo
+  function init(){
+    var saved=localStorage.getItem('alpha_lang')||'pt';
+    // Auto-detecta na primeira visita
+    if(!localStorage.getItem('alpha_lang')){
+      var bl=(navigator.language||'pt').split('-')[0].toLowerCase();
+      var sup=['pt','en','es','hi','id','th','vi','ar','it','fr','de'];
+      saved=sup.includes(bl)?bl:'pt';
+      if(saved!=='pt')localStorage.setItem('alpha_lang',saved);
+    }
+    updateBtn(saved);
+    // Aplica idioma com delay para dar tempo do i18n carregar
+    if(saved!=='pt'){
+      var tries=0;
+      var iv=setInterval(function(){
+        tries++;
+        if(window.i18n&&typeof window.i18n.apply==='function'){
+          clearInterval(iv);
+          window.i18n.apply(saved);
+        }
+        if(tries>20)clearInterval(iv);
+      },200);
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init);
+  } else {
+    setTimeout(init,300);
+  }
+})();
+</script>
+
+
+<script src="/js/home-v2.js?v=2" charset="utf-8"></script>
+<script src="/js/sem-boasvindas.js?v=12"></script>
+<script src="/js/feed-ganhos.js"></script>
+<script src="/js/idiomas-mobile.js?v=1"></script>
+</body>
+</html>

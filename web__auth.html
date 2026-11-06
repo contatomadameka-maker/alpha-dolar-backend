@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<!-- FAVICON-V1 -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script src="/js/liberar.js" charset="utf-8"></script>
+<script src="/js/i18n.js?v=7" charset="utf-8"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpha Dolar — Acesso</title>
+<style>
+  :root {
+    --bg: #05060a;
+    --bg-glow: #0d0a1f;
+    --accent: #7c5cfc;
+    --accent-2: #a78bfa;
+    --accent-deep: #4c3799;
+    --text: #e8e6f5;
+    --text-muted: #8b87a8;
+    --card-bg: rgba(13, 11, 26, 0.75);
+    --border: rgba(124, 92, 252, 0.25);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow-x: hidden;
+    padding: 24px;
+  }
+  canvas#bgCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0.55;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(124,92,252,0.12), transparent 60%);
+    z-index: 0;
+  }
+  .card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    background: var(--card-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px 36px 32px;
+    box-shadow: 0 0 60px rgba(124,92,252,0.12), 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .logo-badge {
+    width: 68px; height: 68px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle, rgba(124,92,252,0.15), transparent 70%);
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--accent-2);
+  }
+  h1 {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-top: 4px;
+    margin-bottom: 28px;
+  }
+  .tagline {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .input-wrap { position: relative; }
+  .input-wrap svg {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 16px; height: 16px; color: var(--text-muted);
+  }
+  .input-wrap input {
+    width: 100%;
+    padding: 13px 40px 13px 40px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .input-wrap input:focus {
+    border-color: var(--accent);
+    background: rgba(124,92,252,0.06);
+  }
+  .toggle-eye {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    cursor: pointer; color: var(--text-muted); background: none; border: none;
+    padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 0;
+  }
+  .toggle-eye svg { width: 16px; height: 16px; display: block; }
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    margin-top: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 20px rgba(124,92,252,0.3);
+  }
+  .btn-primary:hover { box-shadow: 0 6px 28px rgba(124,92,252,0.45); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .link-row {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .link-row a {
+    color: var(--accent-2);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .link-row a:hover { text-decoration: underline; }
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 24px 0 16px;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px;
+    background: rgba(255,255,255,0.08);
+  }
+  .btn-secondary {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--accent-2);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .btn-secondary:hover { background: rgba(124,92,252,0.08); border-color: var(--accent); }
+  .msg-box {
+    display: none;
+    font-size: 12.5px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+  .msg-box.error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+  .msg-box.success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+  .msg-box.show { display: block; }
+  .risk-disclaimer {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+    margin-top: 20px;
+    text-align: center;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: rgba(139,135,168,0.65);
+    padding: 0 12px;
+  }
+  #signupExtra { display: none; }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+
+<div>
+  <div class="card">
+    <div class="logo-badge">$</div>
+    <h1>Alpha Dolar</h1>
+    <div class="subtitle">Trading Bot 2.0</div>
+    <div class="tagline" id="formTagline">Entre na sua conta pra continuar</div>
+
+    <div class="msg-box error" id="msgError"></div>
+    <div class="msg-box success" id="msgSuccess"></div>
+
+    <form id="authForm">
+      <div class="field" id="nameField" style="display:none;">
+        <label>Nome</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input type="text" id="nomeInput" placeholder="Seu nome completo" autocomplete="name">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Email</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6Zm-2 0-8 5-8-5"/></svg>
+          <input type="email" id="emailInput" placeholder="seuemail@exemplo.com" autocomplete="email" required>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Senha</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="senhaInput" placeholder="••••••••" autocomplete="current-password" required minlength="6">
+          <button type="button" class="toggle-eye" id="toggleSenha">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="field" id="confirmField" style="display:none;">
+        <label>Confirmar senha</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="confirmarSenhaInput" placeholder="••••••••" autocomplete="new-password" minlength="6">
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="submitBtn">Entrar</button>
+    </form>
+
+    <div class="link-row" id="forgotRow">
+      Esqueceu a senha? <a id="forgotLink">Redefinir aqui</a>
+    </div>
+
+    <div class="divider">ou</div>
+
+    <button class="btn-secondary" id="toggleModeBtn">Não tem conta? Registre-se gratuitamente</button>
+  </div>
+
+  <div class="risk-disclaimer">
+    A Deriv oferece derivativos complexos, tais como opções e contratos por diferença ("CFDs"). Estes produtos podem não ser adequados para todos os clientes, e negociá-los coloca você em risco. Certifique-se de compreender os riscos antes de negociar. Você nunca deve negociar com dinheiro emprestado ou que não pode perder.
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Detecta link de indicacao de rede (?ref=codigo) -- mesma chave usada no /conectar-deriv
+  (function() {
+    const refParam = new URLSearchParams(window.location.search).get('ref');
+    if (refParam) {
+      localStorage.setItem('alpha_ref_code', refParam);
+    }
+  })();
+
+  const SUPABASE_URL = 'https://urlthgicnomfbyklesou.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_lBJ7c-Ye4W4mHIlhY_A4ZQ_7W9TmmMw';
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let modoCadastro = false;
+
+  const form = document.getElementById('authForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const toggleModeBtn = document.getElementById('toggleModeBtn');
+  const nameField = document.getElementById('nameField');
+  const confirmField = document.getElementById('confirmField');
+  const forgotRow = document.getElementById('forgotRow');
+  const formTagline = document.getElementById('formTagline');
+  const msgError = document.getElementById('msgError');
+  const msgSuccess = document.getElementById('msgSuccess');
+
+  function limparMensagens() {
+    msgError.classList.remove('show');
+    msgSuccess.classList.remove('show');
+  }
+  function mostrarErro(texto) {
+    limparMensagens();
+    msgError.textContent = texto;
+    msgError.classList.add('show');
+  }
+  function mostrarSucesso(texto) {
+    limparMensagens();
+    msgSuccess.textContent = texto;
+    msgSuccess.classList.add('show');
+  }
+
+  toggleModeBtn.addEventListener('click', () => {
+    modoCadastro = !modoCadastro;
+    limparMensagens();
+    if (modoCadastro) {
+      nameField.style.display = 'block';
+      confirmField.style.display = 'block';
+      forgotRow.style.display = 'none';
+      formTagline.textContent = 'Crie sua conta gratuita';
+      submitBtn.textContent = 'Criar conta';
+      toggleModeBtn.textContent = 'Já tem conta? Entrar';
+    } else {
+      nameField.style.display = 'none';
+      confirmField.style.display = 'none';
+      forgotRow.style.display = 'block';
+      formTagline.textContent = 'Entre na sua conta pra continuar';
+      submitBtn.textContent = 'Entrar';
+      toggleModeBtn.textContent = 'Não tem conta? Registre-se gratuitamente';
+    }
+  });
+
+  document.getElementById('toggleSenha').addEventListener('click', () => {
+    const inp = document.getElementById('senhaInput');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  });
+
+  document.getElementById('forgotLink').addEventListener('click', async () => {
+    const email = document.getElementById('emailInput').value.trim();
+    if (!email) { mostrarErro('Digite seu email acima primeiro, depois clique em "Redefinir aqui".'); return; }
+    limparMensagens();
+    submitBtn.disabled = true;
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/login'
+    });
+    submitBtn.disabled = false;
+    if (error) { mostrarErro('Não foi possível enviar o email: ' + error.message); return; }
+    mostrarSucesso('Enviamos um link de redefinição de senha para ' + email + '.');
+  });
+
+  async function decidirDestino() {
+    // Salva nome/email da conta Alpha Dolar (Supabase) para outras paginas usarem (ex: Perfil)
+    try {
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (user) {
+        const nomeUsuario = user.user_metadata?.nome || '';
+        if (nomeUsuario) localStorage.setItem('alpha_nome', nomeUsuario);
+        if (user.email) localStorage.setItem('alpha_email', user.email);
+      }
+    } catch (e) { console.warn('nao foi possivel salvar nome/email do usuario:', e); }
+
+    // Se este navegador ja tem uma conexao Deriv salva, vai direto pro dashboard.
+    // Senao, segue para a tela de conectar com a Deriv (fluxo ja existente).
+    const temDeriv = localStorage.getItem('deriv_bearer_token') || localStorage.getItem('deriv_accounts');
+    window.location.href = temDeriv ? '/dashboard' : '/conectar-deriv';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    limparMensagens();
+    const email = document.getElementById('emailInput').value.trim();
+    const senha = document.getElementById('senhaInput').value;
+
+    if (modoCadastro) {
+      const nome = document.getElementById('nomeInput').value.trim();
+      const confirmar = document.getElementById('confirmarSenhaInput').value;
+      if (!nome) { mostrarErro('Digite seu nome.'); return; }
+      if (senha.length < 6) { mostrarErro('A senha precisa ter pelo menos 6 caracteres.'); return; }
+      if (senha !== confirmar) { mostrarErro('As senhas não conferem.'); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Criando conta...';
+      const { data, error } = await supabaseClient.auth.signUp({
+        email, password: senha,
+        options: { data: { nome } }
+      });
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Criar conta';
+
+      if (error) { mostrarErro(traduzErro(error.message)); return; }
+      if (data.user && !data.session) {
+        mostrarSucesso('Conta criada! Verifique seu email (' + email + ') para confirmar o cadastro antes de entrar.');
+        mostrarReenvio(email);
+        return;
+      }
+      decidirDestino();
+    } else {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Entrando...';
+      const { error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Entrar';
+
+      if (error) { mostrarErro(traduzErro(error.message)); if (/not confirmed/i.test(error.message)) mostrarReenvio(email); return; }
+      decidirDestino();
+    }
+  });
+
+  // REENVIO-EMAIL-V1
+  let _reenvioEspera = 0, _reenvioTimer = null;
+  function _emailDoCampo() {
+    const el = form.querySelector('input[type=email]') || document.getElementById('emailInput');
+    return el ? el.value.trim() : '';
+  }
+  function mostrarReenvio(emailAlvo) {
+    let box = document.getElementById('reenvioBox');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'reenvioBox';
+      box.style.cssText = 'margin-top:14px;padding:12px 14px;border:1px solid rgba(255,200,60,.35);border-radius:10px;background:rgba(255,200,60,.06);font-size:13px;line-height:1.45;text-align:center';
+      box.innerHTML = '<div id="reenvioTxt" style="margin-bottom:8px;opacity:.9"></div>'
+        + '<button type="button" id="reenvioBtn" style="width:100%;padding:10px;border-radius:8px;border:0;cursor:pointer;font-weight:700;background:#f5c542;color:#111">Reenviar email de confirmação</button>'
+        + '<div id="reenvioMsg" style="margin-top:8px;font-size:12px"></div>'
+        + '<div style="margin-top:8px;font-size:11px;opacity:.65">Confira também a caixa de Spam / Lixo eletrônico e Promoções.</div>';
+      form.parentNode.insertBefore(box, form.nextSibling);
+      document.getElementById('reenvioBtn').addEventListener('click', function () {
+        reenviarConfirmacao(box.dataset.email || _emailDoCampo());
+      });
+    }
+    box.dataset.email = emailAlvo || '';
+    document.getElementById('reenvioTxt').textContent = emailAlvo
+      ? 'Não recebeu o email em ' + emailAlvo + '?'
+      : 'Digite seu email no campo acima e clique para reenviar.';
+    document.getElementById('reenvioMsg').textContent = '';
+    box.style.display = 'block';
+  }
+  async function reenviarConfirmacao(emailAlvo) {
+    const btn = document.getElementById('reenvioBtn');
+    const msg = document.getElementById('reenvioMsg');
+    if (!emailAlvo || emailAlvo.indexOf('@') < 1) {
+      msg.style.color = '#ff6b6b'; msg.textContent = 'Digite seu email no campo acima primeiro.'; return;
+    }
+    if (Date.now() < _reenvioEspera) return;
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const { error } = await supabaseClient.auth.resend({ type: 'signup', email: emailAlvo });
+      if (error) {
+        const m = error.message || '';
+        const seg = (m.match(/after (\d+) seconds/) || [])[1];
+        msg.style.color = '#ff6b6b';
+        msg.textContent = seg ? 'Aguarde ' + seg + ' segundos para reenviar.'
+          : /rate limit/i.test(m) ? 'Muitos envios agora. Tente de novo em alguns minutos.'
+          : /already|confirmed/i.test(m) ? 'Esse email já está confirmado. Pode entrar normalmente.'
+          : 'Não foi possível reenviar: ' + m;
+        btn.disabled = false; btn.textContent = 'Reenviar email de confirmação';
+        return;
+      }
+      msg.style.color = '#4ade80';
+      msg.textContent = 'Email reenviado para ' + emailAlvo + '. Pode levar até 2 minutos.';
+      _reenvioEspera = Date.now() + 60000;
+      clearInterval(_reenvioTimer);
+      _reenvioTimer = setInterval(function () {
+        const r = Math.ceil((_reenvioEspera - Date.now()) / 1000);
+        if (r <= 0) { clearInterval(_reenvioTimer); btn.disabled = false; btn.textContent = 'Reenviar email de confirmação'; return; }
+        btn.textContent = 'Reenviar de novo em ' + r + 's';
+      }, 1000);
+    } catch (e) {
+      msg.style.color = '#ff6b6b'; msg.textContent = 'Falha de conexão. Tente de novo.';
+      btn.disabled = false; btn.textContent = 'Reenviar email de confirmação';
+    }
+  }
+  (function () {
+    const a = document.createElement('a');
+    a.href = '#'; a.id = 'reenvioLink';
+    a.textContent = 'Não recebeu o email de confirmação?';
+    a.style.cssText = 'display:block;margin-top:12px;text-align:center;font-size:12.5px;color:#f5c542;text-decoration:underline;opacity:.85';
+    a.addEventListener('click', function (ev) { ev.preventDefault(); mostrarReenvio(_emailDoCampo()); });
+    form.parentNode.insertBefore(a, form.nextSibling);
+  })();
+
+  function traduzErro(msg) {
+    const mapa = {
+      'Invalid login credentials': 'Email ou senha incorretos.',
+      'User already registered': 'Esse email já tem uma conta cadastrada. Tente entrar em vez de se cadastrar.',
+      'Email not confirmed': 'Confirme seu email antes de entrar (verifique sua caixa de entrada).',
+      'Error sending confirmation email': 'Não conseguimos enviar o email de confirmação agora. Tente de novo em alguns minutos ou fale com o suporte.'
+    };
+    return mapa[msg] || msg;
+  }
+
+  // Se ja existir uma sessao Supabase ativa, pula direto a etapa de login
+  supabaseClient.auth.getSession().then(({ data }) => {
+    if (data.session) decidirDestino();
+  });
+
+  // ── Fundo animado: rede de particulas violeta, sutil ──
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles;
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  function initParticles() {
+    const qtd = Math.min(70, Math.floor((w * h) / 18000));
+    particles = Array.from({ length: qtd }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25,
+      r: Math.random() * 2.5 + 1.8
+    }));
+  }
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+    for (const p of particles) {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+    }
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const dx = particles[i].x - particles[j].x, dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 140) {
+          ctx.strokeStyle = 'rgba(124,92,252,' + (0.12 * (1 - dist / 140)) + ')';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    for (const p of particles) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(167,139,250,0.85)';
+      ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', () => { resize(); initParticles(); });
+  resize(); initParticles(); tick();
+</script>
+<script src="/js/sem-boasvindas.js?v=12"></script>
+<script src="/js/cadastro-extra.js?v=3"></script>
+</body>
+</html>
