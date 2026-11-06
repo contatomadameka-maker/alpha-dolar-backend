@@ -83,7 +83,7 @@ def salvar_operacao(bot_name, cliente_id, direcao, ganhou, lucro, stake, markup_
     except:
         pass
 
-def listar_operacoes(bot_name=None):
+def _listar_operacoes_sem_cache(bot_name=None):
     import requests as req
     import os
     SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
@@ -91,8 +91,7 @@ def listar_operacoes(bot_name=None):
     headers = {
         'apikey': SUPABASE_KEY,
         'Authorization': f'Bearer {SUPABASE_KEY}',
-        'Content-Type': 'application/json',
-        'Prefer': 'count=exact'
+        'Content-Type': 'application/json'
     }
     url = f"{SUPABASE_URL}/rest/v1/operacoes?order=criado_em.desc&limit=5000"
     if bot_name:
@@ -582,3 +581,22 @@ def timeline_rede(deriv_id, bot_name=None, limite=8):
             'criado_em': e.get('criado_em'),
         })
     return resultado
+
+
+# OPS-CACHE-V1: listar_operacoes era chamada a cada abertura do painel (/api/clock/scores, /api/ia/analytics...)
+# e lia 5.000 operacoes do Supabase toda vez (mais um count da tabela inteira). Agora guarda 10 min em memoria.
+_OPS_CACHE = {}
+def listar_operacoes(bot_name=None):
+    import time as _t
+    k = str(bot_name or '')
+    c = _OPS_CACHE.get(k)
+    if c and _t.time() - c[0] < 600:
+        return c[1]
+    rows = _listar_operacoes_sem_cache(bot_name)
+    if rows:
+        _OPS_CACHE[k] = (_t.time(), rows)
+        if len(_OPS_CACHE) > 50:
+            _OPS_CACHE.clear()
+    elif c:
+        return c[1]
+    return rows
