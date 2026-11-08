@@ -261,6 +261,9 @@ class Pessoa(object):
             self.c.symkey = 'symbol' if self.c.symkey == 'underlying_symbol' else 'underlying_symbol'
             par[self.c.symkey] = job['sym']
             r = self.c.req({'buy': 1, 'price': job['stake'], 'parameters': par}, 8)
+        if r.get('error') and 'maximum payout' in msg.lower():     # NUVEM-LIMITE-DERIV-V1
+            self.nv.para(self.conta, 'PARADO: a Deriv recusou a entrada de $%.2f porque passa do pagamento máximo dela (US$ 10.000 por operação). Diminua a entrada ou os gales.' % float(job['stake']))
+            return
         if r.get('error'):
             self.nv.op_log(self.conta, {'t': int(time.time()), 'aviso': 'Deriv recusou a entrada: ' + msg[:120]})
             with self.nv.trava(self.conta):
@@ -591,6 +594,9 @@ class Nuvem(object):
             else:
                 base = float(ciclo.get('base') or u.get('base_atual') or base)
         stake = stake_gale(u.get('modo', 'rec'), base, float(u.get('fator', 2.1)), n, perda, float(u.get('pm', 0.95)))
+        if stake * (1 + max(0.75, min(0.95, float(u.get('pm', 0.82))))) > 9990:   # NUVEM-LIMITE-DERIV-V1: a Deriv paga no máximo US$ 10.000 por operação
+            self.para(conta, 'PARADO: a entrada de $%.2f%s passaria do limite da Deriv (ela paga no máximo US$ 10.000 por operação, então cada entrada vai até ~US$ 5.490). Diminua a entrada ou os gales.' % (stake, ' (G%d)' % n if n else ''))
+            return
         s = u.get('sessao') or {'pl': 0.0}
         aberto = sum(float(p['stake']) for p in (u.get('abertos') or []))
         P = float(s.get('pl', 0)) - aberto
