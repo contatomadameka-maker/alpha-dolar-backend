@@ -577,7 +577,20 @@ class Nuvem(object):
             perda = r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
         if n > gmax:
             return
-        stake = stake_gale(u.get('modo', 'rec'), float(u.get('base', 0.35)), float(u.get('fator', 2.1)), n, perda, float(u.get('pm', 0.95)))
+        base = float(u.get('base', 0.35))
+        pct = float(u.get('base_pct') or 0)                     # NUVEM-PORCENTO-V1: entrada = % da banca
+        if pct > 0:
+            if g == 0 and not cont:   # sinal novo: recalcula com a banca de agora (saldo do começo + resultado da sessão)
+                s0 = u.get('sessao') or {}
+                banca = float(u.get('saldo_ini') or 0) + float(s0.get('pl', 0)) - sum(float(p['stake']) for p in (u.get('abertos') or []))
+                base = max(0.35, math.floor(banca * pct + 1e-6) / 100.0)
+                if float(u.get('base_max') or 0) > 0:
+                    base = min(base, float(u['base_max']))
+                ciclo['base'] = base
+                u['base_atual'] = base
+            else:
+                base = float(ciclo.get('base') or u.get('base_atual') or base)
+        stake = stake_gale(u.get('modo', 'rec'), base, float(u.get('fator', 2.1)), n, perda, float(u.get('pm', 0.95)))
         s = u.get('sessao') or {'pl': 0.0}
         aberto = sum(float(p['stake']) for p in (u.get('abertos') or []))
         P = float(s.get('pl', 0)) - aberto
@@ -840,14 +853,26 @@ def register_nuvem_digitos(app):
                   'tp': num(cf.get('tp'), 5, 0, 100000), 'max_ent': int(num(cf.get('max_ent'), 0, 0, 500)),   # NUVEM-MAX-ENT-V1
                   'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
+        u['base_pct'] = num(cf.get('base_pct'), 0, 0, 20)      # NUVEM-PORCENTO-V1
+        u['base_max'] = num(cf.get('base_max'), 0, 0, 100000)
+        u['base_atual'] = None
+        if u['base_pct'] > 0:
+            try:
+                ac = [a for a in contas_do_token(u['tok']) if str(a.get('account_id')) == conta]
+                u['saldo_ini'] = float((ac[0] if ac else {}).get('balance') or info.get('saldo') or 0)
+            except Exception:
+                u['saldo_ini'] = float(info.get('saldo') or 0)
+            if u['saldo_ini'] <= 0:
+                return jsonify({'ok': False, 'erro': 'não consegui ler o saldo da conta para calcular a porcentagem; tente de novo'}), 503
+            u['base_atual'] = max(0.35, math.floor(u['saldo_ini'] * u['base_pct'] + 1e-6) / 100.0)
         nv.salva(conta, u)
         nv.liga(conta, True)
         L = nv.lista()
         if conta not in L:
             L.append(conta)
             nv.kv.jset(K_LISTA, L)
-        nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · entrada $%.2f · %d gale(s) · limite $%.2f · meta $%.2f' % (
-            info['tipo'].upper(), u['base'], u['gales'], u['sl'], u['tp']) + (' · para depois de %d sinais' % u['max_ent'] if u.get('max_ent') else '')})
+        nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · entrada %s · %d gale(s) · limite $%.2f · meta $%.2f' % (
+            info['tipo'].upper(), ('%s%% da banca ($%.2f de $%.2f)' % (('%g' % u['base_pct']).replace('.', ','), u['base_atual'], u['saldo_ini'])) if u.get('base_pct') else '$%.2f' % u['base'], u['gales'], u['sl'], u['tp']) + (' · para depois de %d sinais' % u['max_ent'] if u.get('max_ent') else '')})
         return jsonify({'ok': True, 'cfg': publico(u)})
 
     @app.route('/api/sala-digitos/placar', methods=['GET'])
