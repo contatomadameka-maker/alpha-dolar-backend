@@ -4017,6 +4017,13 @@ try:
 except Exception as _e_nuvem:
     print('[NuvemDig] nao registrou:', _e_nuvem)
 
+# PLANILHA-ALPHA-V1: planilha de resultados de cada pessoa
+try:
+    from planilha_alpha import register_planilha
+    register_planilha(app)
+except Exception as _e_pl:
+    print('[Planilha] nao registrou:', _e_pl)
+
 # PROTECAO-LUCRO-V1: protege o lucro das posicoes de Multiplicador no servidor
 try:
     from protecao_global import register_protecao
