@@ -22,7 +22,7 @@ import os, io, json, time, math, gzip, uuid, lzma, base64, struct, zipfile, thre
 import urllib.request, urllib.error
 from datetime import datetime, timezone
 
-VERSAO = 'MESA-AGENTES-V4.6'  # V4.6 CONSENSO-V2: a mesma conta da força do Alpha Global ·  # V4.5 CONSENSO-V1: regra 'cons' (4 tempos gráficos) ·  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
+VERSAO = 'MESA-AGENTES-V4.7'  # V4.7 ORB-NY-V1: regra NY no horario de Nova York (com horario de verao) ·  # V4.6 CONSENSO-V2: a mesma conta da força do Alpha Global ·  # V4.5 CONSENSO-V1: regra 'cons' (4 tempos gráficos) ·  # V4.4 VETOS-V1: Agente Notícias + Agente Correlação ·  # V4.3 MESA-TRAVA-V1: trava de lucro na demo e medição com/sem trava na sombra ·  # V4.2: rota /api/hist/subir (histórico baixado no computador do admin) · V4.1 V4.1: download da Dukascopy guarda mês a mês e repete os recusados · V4 V4: 4 regras novas, agentes SOMBRA (virtuais), diretor (promove/aposenta) e auditor
 # V3  # V3: analistas (filtros da Fábrica V5) + cópia do placar no Supabase (tabela mesa_ops)
 # V2  # V2: stop do dia (mesa e agente) + aposentadoria automática + etapas
 API = 'https://api.derivws.com/trading/v1/options'
@@ -142,6 +142,19 @@ def ema(a, n):
         e = v * k + e * (1 - k)
         o.append(e)
     return o
+
+
+_DST = {}
+
+
+def ny_hora(ts):   # ORB-NY-V1: hora de Nova York com horario de verao dos EUA (2o domingo de marco ate 1o domingo de novembro)
+    y = datetime.fromtimestamp(ts, tz=timezone.utc).year
+    z = _DST.get(y)
+    if not z:
+        dm, dn = datetime(y, 3, 1, tzinfo=timezone.utc).weekday(), datetime(y, 11, 1, tzinfo=timezone.utc).weekday()   # segunda=0 ... domingo=6
+        z = _DST[y] = (datetime(y, 3, 1 + (6 - dm) % 7 + 7, 7, tzinfo=timezone.utc).timestamp(), datetime(y, 11, 1 + (6 - dn) % 7, 6, tzinfo=timezone.utc).timestamp())
+    loc = ts + (-4 if z[0] <= ts < z[1] else -5) * 3600
+    return (loc % 86400) / 3600.0
 
 
 def atr_s(C, n):
@@ -385,10 +398,11 @@ def sinais(B):
             elif c < aL and fLD != d:
                 S['lon'][i] = -1
                 fLD = d
-        if hr == 13:
+        nyh = ny_hora(B[i]['t'])   # ORB-NY-V1: era 13h UTC fixo (no inverno de NY isso e 8h, antes da bolsa abrir)
+        if 9 <= nyh < 10:
             nH = B[i]['h'] if nH is None else max(nH, B[i]['h'])
             nL = B[i]['l'] if nL is None else min(nL, B[i]['l'])
-        elif 14 <= hr < 18 and nH is not None:
+        elif 10 <= nyh < 14 and nH is not None:
             if c > nH and fNU != d:
                 S['ny'][i] = 1
                 fNU = d
@@ -1393,7 +1407,7 @@ class Mesa(object):
         elif r == 'lon':
             t = ('faixa da Ásia hoje %.5g a %.5g · entra se fechar fora entre 07h e 11h UTC' % (S['aH'], S['aL'])) if S.get('aH') is not None else 'esperando a faixa da Ásia (00h–07h UTC) de hoje'
         elif r == 'ny':
-            t = ('1ª hora de Nova York %.5g a %.5g · entra se fechar fora entre 14h e 18h UTC' % (S['nH'], S['nL'])) if S.get('nH') is not None else 'esperando a 1ª hora de Nova York (13h UTC) de hoje'
+            t = ('1ª hora de Nova York %.5g a %.5g · entra se fechar fora entre 10h e 14h de NY (%s de Brasília)' % (S['nH'], S['nL'], '12h e 16h' if ny_hora(time.time()) == ((time.time() - 5 * 3600) % 86400) / 3600.0 else '11h e 15h')) if S.get('nH') is not None else 'esperando a 1ª hora de Nova York (9h–10h de NY · %s de Brasília) de hoje' % ('11h–12h' if ny_hora(time.time()) == ((time.time() - 5 * 3600) % 86400) / 3600.0 else '10h–11h')
         elif r == 'don':
             t = 'canal de 55 velas %.5g a %.5g · entra quando fechar fora · preço %.5g' % (S.get('dmx', 0), S.get('dmn', 0), px)
         elif r == 'bb':
