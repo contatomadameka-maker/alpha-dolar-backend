@@ -19,7 +19,27 @@ from nuvem_digitos import KV, contas_do_token, Conexao
 TFS = {'M1': 60, 'M5': 300, 'M15': 900, 'M30': 1800, 'H1': 3600, 'H4': 14400, 'D1': 86400}
 FIM = ('alv', 'stp', 'inv', 'exp')
 
-VERSAO = 'ANALISE-IA-V2.4'  # V2.4 ESPEROU-V1: planos recusados pela IA viram sombra (placar 'esperou') ·  # V2: o servidor confere todos os sinais com as velas da Deriv e mostra o placar real (/api/analise-ia/placar)
+
+def mesmo_plano(a, b):  # ANTI-REPETE-V1: mesmo mercado, tempo, direcao e entrada (dentro de 15% do risco)
+    try:
+        if not a.get('dir') or a.get('dir') != b.get('dir') or a.get('sym') != b.get('sym') or a.get('tf') != b.get('tf'):
+            return False
+        ea, eb = float(a['ent']), float(b['ent'])
+        r = abs(ea - float(a['sl'])) or abs(ea) * 1e-4
+        return abs(ea - eb) <= r * 0.15
+    except Exception:
+        return False
+
+
+def unicos(L):  # ANTI-REPETE-V1: o mesmo plano analisado de novo enquanto o primeiro valia conta uma vez so
+    out = []
+    for s in sorted(L, key=lambda x: x.get('t', 0)):
+        if any(mesmo_plano(k, s) and s.get('t', 0) - k.get('t', 0) < max(k.get('g') or 0, 60) * 60 for k in out[-300:]):
+            continue
+        out.append(s)
+    return out
+
+VERSAO = 'ANALISE-IA-V2.5'  # V2.5 ANTI-REPETE-V1: plano repetido nao gasta analise nem conta 2x no placar; placar por tempo ·  # V2.4 ESPEROU-V1: planos recusados pela IA viram sombra (placar 'esperou') ·  # V2: o servidor confere todos os sinais com as velas da Deriv e mostra o placar real (/api/analise-ia/placar)
 BRT = timezone(timedelta(hours=-3))
 
 
@@ -161,9 +181,27 @@ def register_analise_ia(app):
         if n >= lim:
             return jsonify({'ok': False, 'erro': 'você usou as %d análises de hoje. Amanhã libera de novo.' % lim, 'restam': 0}), 200
         L = d.get('leitura') or {}
+        try:   # ANTI-REPETE-V1: plano igual a um sinal ainda aberto desta conta nao gasta analise
+            _ab = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('conta') == conta[-4:] and s.get('dir') and s.get('st') in ('val', 'and') and s.get('origem') not in ('agente', 'esperou', 'agente-esperou')]
+            _cd = {}
+            for _k, _d in (('compra', 1), ('venda', -1)):
+                _q = (L.get('planos') or {}).get(_k) or {}
+                try:
+                    _cd[_k] = {'sym': limpa(L.get('sym'), 14), 'tf': limpa(L.get('tf'), 5), 'dir': _d, 'ent': float(_q['ent']), 'sl': float(_q['sl'])}
+                except Exception:
+                    pass
+            _rp = {k: next((s for s in _ab if mesmo_plano(s, c)), None) for k, c in _cd.items()}
+        except Exception:
+            _cd, _rp = {}, {}
+        if _cd and all(_rp.values()):
+            _s = list(_rp.values())[0]
+            return jsonify({'ok': False, 'repetido': True, 'restam': lim - n, 'erro': 'esse plano já está na lista (sinal de %s, ainda aberto). Não gastou análise.' % datetime.fromtimestamp(_s['t'], BRT).strftime('%d/%m %H:%M')}), 200
         r, erro = ia(L, True)
         if r is None:
             return jsonify({'ok': False, 'erro': erro, 'restam': lim - n}), 200
+        if _rp.get(r.get('escolha')):      # ANTI-REPETE-V1: a IA escolheu o plano que ja esta aberto
+            r.update({'ok': True, 'versao': VERSAO, 'restam': lim - n, 'repetido': True, 'rep_t': _rp[r['escolha']]['t']})
+            return jsonify(r)
         kv.set(kq, str(n + 1), ex=86400 * 2)
         try:
             k = 'aia:sinais'
@@ -288,8 +326,16 @@ def register_analise_ia(app):
     @app.route('/api/analise-ia/placar', methods=['GET'])
     def _aia_placar():
         T30 = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and time.time() - s.get('t', 0) < 30 * 86400]
+        T30 = [s for s in T30 if s.get('origem') not in ('esperou',)] + unicos([s for s in T30 if s.get('origem') == 'esperou'])   # ANTI-REPETE-V1
         esp = resumo([s for s in T30 if s.get('origem') == 'esperou'])
         S = [s for s in (kv.jget('aia:sinais', []) or []) if s.get('dir') and s.get('origem') not in ('agente', 'esperou', 'agente-esperou') and time.time() - s.get('t', 0) < 30 * 86400]  # AGENTE-IA-V1: o agente tem placar proprio
+        _n0 = len(S)
+        S = unicos(S)   # ANTI-REPETE-V1
+        _rep = _n0 - len(S)
+        por_tf = {}
+        for s in S:
+            por_tf.setdefault(s.get('tf') or '?', []).append(s)
+        por_tf = {k: resumo(v) for k, v in por_tf.items()}
         alv = [s for s in S if s.get('st') == 'alv']
         stp = [s for s in S if s.get('st') == 'stp']
         r_sum = round(sum(float(s.get('rr') or 0) for s in alv) - len(stp), 2)
@@ -300,6 +346,6 @@ def register_analise_ia(app):
         n = len(alv) + len(stp)
         return jsonify({'ok': True, 'versao': VERSAO, 'resolvidos': n, 'alvo': len(alv), 'stop': len(stp), 'pc': round(len(alv) * 100.0 / n, 1) if n else None,
                         'saldo_r': r_sum, 'em_aberto': len([s for s in S if s.get('st') in ('val', 'and')]), 'invalidados': len([s for s in S if s.get('st') in ('inv', 'exp')]),
-                        'por_mercado': por, 'esperou': esp, 'forte': resumo([s for s in S if s.get('forca') == 'forte']), 'fraco': resumo([s for s in S if s.get('forca') == 'fraco']), 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
+                        'por_mercado': por, 'por_tf': por_tf, 'repetidos': _rep, 'esperou': esp, 'forte': resumo([s for s in S if s.get('forca') == 'forte']), 'fraco': resumo([s for s in S if s.get('forca') == 'fraco']), 'ult': [{'t': s['t'], 'sym': s['sym'], 'tf': s.get('tf'), 'dir': s['dir'], 'rr': s.get('rr'), 'st': s['st']} for s in sorted(alv + stp, key=lambda x: x.get('fim') or x['t'], reverse=True)][:20]})
 
     log('%s registrada' % VERSAO)
