@@ -19,7 +19,7 @@ from datetime import datetime, timezone, timedelta
 
 from nuvem_digitos import KV, Conexao, contas_do_token
 
-VERSAO = 'PROTECAO-LUCRO-V1.1'  # V1.1 PROTECAO-PCT-V1: regra em % (garante X% do maior lucro)
+VERSAO = 'PROTECAO-LUCRO-V1.2'  # V1.2 TRAVA-PCT-V1: travar lucro em % do lucro alvo ·  # V1.1 PROTECAO-PCT-V1: regra em % (garante X% do maior lucro)
 BRT = timezone(timedelta(hours=-3))
 HOST = '%s:%d' % (socket.gethostname(), os.getpid())
 K_LISTA = 'prot:lista'
@@ -40,7 +40,7 @@ def r2(v):
     return round(float(v) + 1e-9, 2)
 
 
-def piso_de(rg, mx, stk=0.0):
+def piso_de(rg, mx, stk=0.0, tp=0.0):
     """o piso (lucro mínimo garantido) para o maior lucro já visto"""
     p = None
     z = float(rg.get('zera_em') or 0)
@@ -59,6 +59,11 @@ def piso_de(rg, mx, stk=0.0):
     pk, pi = float(rg.get('pct_keep') or 0), float(rg.get('pct_ini') or 0)   # PROTECAO-PCT-V1: liga com pct_ini% da entrada e garante pct_keep% do maior lucro
     if pk > 0 and stk > 0 and mx >= stk * pi / 100.0 and mx > 0:
         v = mx * pk / 100.0
+        p = v if p is None else max(p, v)
+    tpc, tk = float(rg.get('trava_pct') or 0), float(rg.get('trava_keep') or 50)   # TRAVA-PCT-V1: chegou a X% do lucro alvo (sem alvo: da entrada), garante Y% do maior lucro
+    base = tp if tp > 0 else stk
+    if tpc > 0 and base > 0 and mx > 0 and mx >= base * tpc / 100.0:
+        v = mx * tk / 100.0
         p = v if p is None else max(p, v)
     return None if p is None else r2(p)
 
@@ -183,7 +188,11 @@ class Protecao(object):
                         p['pl'] = pl
                         p['sym'] = p['sym'] or q.get('underlying_symbol') or q.get('underlying') or ''
                         p['mx'] = pl if p['mx'] is None else max(p['mx'], pl)
-                        novo = piso_de(rg, p['mx'], float(p.get('stake') or 0))
+                        try:   # TRAVA-PCT-V1: lucro alvo da posicao
+                            p['tp'] = float(((q.get('limit_order') or {}).get('take_profit') or {}).get('order_amount') or 0)
+                        except Exception:
+                            p['tp'] = 0.0
+                        novo = piso_de(rg, p['mx'], float(p.get('stake') or 0), p.get('tp') or 0.0)
                         if novo is not None and (p['piso'] is None or novo > p['piso']):
                             if p['piso'] is None or novo - p['piso'] >= 0.5:
                                 self.ev(conta, '%s: piso subiu para %s (maior lucro %s)' % (nm(p['sym']), fm(novo), fm(p['mx'])))
@@ -262,7 +271,8 @@ def register_protecao(app):
     def regras(d):
         rg = d.get('regras') or {}
         o = {'zera_em': num(rg.get('zera_em')), 'trava_em': num(rg.get('trava_em')), 'guarda': num(rg.get('guarda')), 'movel': num(rg.get('movel')),
-             'pct_ini': num(rg.get('pct_ini'), 0, 1000), 'pct_keep': num(rg.get('pct_keep'), 0, 95), 'zera_pct': num(rg.get('zera_pct'), 0, 1000)}
+             'pct_ini': num(rg.get('pct_ini'), 0, 1000), 'pct_keep': num(rg.get('pct_keep'), 0, 95), 'zera_pct': num(rg.get('zera_pct'), 0, 1000),
+             'trava_pct': num(rg.get('trava_pct'), 0, 60), 'trava_keep': num(rg.get('trava_keep') or 50, 10, 90)}
         if o['trava_em'] and o['guarda'] >= o['trava_em']:
             o['guarda'] = r2(o['trava_em'] * 0.75)
         return o
@@ -282,7 +292,7 @@ def register_protecao(app):
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
         rg = regras(d)
-        if not (rg['zera_em'] or rg['trava_em'] or rg['movel'] or rg['pct_keep'] or rg['zera_pct']):
+        if not (rg['zera_em'] or rg['trava_em'] or rg['movel'] or rg['pct_keep'] or rg['zera_pct'] or rg['trava_pct']):
             return jsonify({'ok': False, 'erro': 'escolha pelo menos uma proteção'}), 400
         conta = str(d['conta']).strip()
         u = pr.cfg(conta)
