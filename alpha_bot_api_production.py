@@ -4024,6 +4024,13 @@ try:
 except Exception as _e_pl:
     print('[Planilha] nao registrou:', _e_pl)
 
+# CLIQUE-IA-V1: IA de gestao do Alpha Clique (modo automatico)
+try:
+    from clique_ia import register_clique_ia
+    register_clique_ia(app)
+except Exception as _e_cia:
+    print('[Clique IA] nao registrou:', _e_cia)
+
 # PROTECAO-LUCRO-V1: protege o lucro das posicoes de Multiplicador no servidor
 try:
     from protecao_global import register_protecao
