@@ -113,6 +113,23 @@ class AlphaDolar:
             self.tick_history.append(price)
             if len(self.tick_history) > self.max_tick_history:
                 self.tick_history.pop(0)
+            self._hist_n = getattr(self, '_hist_n', 0) + 1  # AUTO-EXTRA-V1
+            if tick_data.get('pip_size') is not None:
+                try: self._pip = int(tick_data.get('pip_size'))
+                except Exception: pass
+        # AUTO-EXTRA-V1: sinal guardado esperando a confirmacao (N resultados seguidos do outro lado)
+        _pend = getattr(self, '_conf_pend', None)
+        if _pend:
+            if getattr(self, '_hist_n', 0) - _pend['n0'] > 30:
+                self._conf_pend = None
+                self.log("⏭ A confirmacao nao veio em 30 ticks: sinal descartado", "INFO")
+            elif self._confirma_ok(_pend['dir'], _pend['sd']):
+                self._conf_pend = None
+                self.log(f"✅ Confirmado: {getattr(self, 'confirmar_n', 0)} do outro lado, entrando", "TRADE")
+                self.executar_trade(_pend['dir'], _pend['sd'])
+                return
+            else:
+                return
 
         pode_operar, motivo = self.stop_loss.pode_operar(self.api.balance)
         if not pode_operar and self.api.balance <= self.config.STAKE_INICIAL:
@@ -133,6 +150,10 @@ class AlphaDolar:
             self._ultimo_sinal_time = time.time()
             self._aguardando_sinal = False
             self.log(f"📊 Sinal detectado: {direction} | Confiança: {confidence:.1f}%", "TRADE")
+            if getattr(self, 'confirmar_n', 0) > 0 and not self._confirma_ok(direction, signal_data):  # AUTO-EXTRA-V1
+                self._conf_pend = {'dir': direction, 'sd': signal_data, 'n0': getattr(self, '_hist_n', 0)}
+                self.log(f"🔎 Confirmando: esperando {self.confirmar_n} do outro lado antes de entrar", "INFO")
+                return
             self.executar_trade(direction, signal_data)
         else:
             self._sem_sinal_streak += 1
@@ -235,6 +256,40 @@ class AlphaDolar:
 
     _MERCADOS_OCUPADOS = {}
     _MERCADO_LOCK = __import__('threading').Lock()
+
+    def _confirma_ok(self, direction, signal_data=None):  # AUTO-EXTRA-V1
+        n = int(getattr(self, 'confirmar_n', 0) or 0)
+        if n <= 0:
+            return True
+        h = list(self.tick_history)
+        novos = getattr(self, '_hist_n', 0) - getattr(self, '_hist_fim', -10**9)
+        sd = signal_data or {}
+        ct = str(sd.get('contract_type') or (sd.get('parameters') or {}).get('contract_type') or direction or '').upper()
+        bar = (sd.get('parameters') or {}).get('barrier', sd.get('barrier'))
+        k = 0
+        if ct.startswith('DIGIT'):
+            pip = int(getattr(self, '_pip', 2) or 2)
+            dg = [int(round(p * (10 ** pip))) % 10 for p in h]
+            try: b = int(bar)
+            except Exception: b = None
+            if 'EVEN' in ct: outro = lambda d: d % 2 == 1
+            elif 'ODD' in ct: outro = lambda d: d % 2 == 0
+            elif 'OVER' in ct: outro = lambda d: d <= (4 if b is None else b)
+            elif 'UNDER' in ct: outro = lambda d: d >= (5 if b is None else b)
+            else: return True
+            for d in reversed(dg):
+                if not outro(d): break
+                k += 1
+        elif ct in ('CALL', 'PUT', 'CALLE', 'PUTE', 'RISE', 'FALL') or direction in ('CALL', 'PUT'):
+            sobe = ct in ('CALL', 'CALLE', 'RISE') or (ct not in ('PUT', 'PUTE', 'FALL') and direction == 'CALL')
+            for i in range(len(h) - 1, 0, -1):
+                dlt = h[i] - h[i - 1]
+                if dlt == 0 or (sobe and dlt > 0) or ((not sobe) and dlt < 0): break
+                k += 1
+        else:
+            return True
+        k = min(k, max(0, novos))
+        return k >= n
 
     def executar_trade(self, direction, signal_data=None):
         if getattr(type(self), '_PAUSA_GLOBAL', False):  # RETOMAR-V1: servidor desligando, nao abre operacao nova
@@ -426,6 +481,8 @@ class AlphaDolar:
         self._ultimo_trade_time = time.time()
         self._ultimo_sinal_time = time.time()
         self._sem_sinal_streak  = 0
+        self._hist_fim = getattr(self, '_hist_n', 0)  # AUTO-EXTRA-V1
+        self._conf_pend = None
 
         if vitoria:
             self.log(f"🎉 VITÓRIA! Lucro: ${profit:.2f} | ID: {contract_id}", "WIN")
@@ -634,7 +691,10 @@ class AlphaDolar:
                                 }
 
                         self.log(f"🔧 Forçando trade {direction} para desbloquear bot", "WARNING")
-                        self.executar_trade(direction, signal_data_forcado)
+                        if getattr(self, 'confirmar_n', 0) > 0 and not self._confirma_ok(direction, signal_data_forcado):  # AUTO-EXTRA-V1
+                            self._conf_pend = {'dir': direction, 'sd': signal_data_forcado, 'n0': getattr(self, '_hist_n', 0)}
+                        else:
+                            self.executar_trade(direction, signal_data_forcado)
                     except Exception as e_force:
                         self.log(f"Erro ao forçar trade: {e_force}", "ERROR")
 

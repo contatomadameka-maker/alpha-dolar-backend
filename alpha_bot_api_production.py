@@ -593,6 +593,9 @@ def start_bot():
             if deriv_id and bot_type:
                 get_user_state(deriv_id, bot_type)['lucro_alvo'] = BotConfig.LUCRO_ALVO
                 get_user_state(deriv_id, bot_type)['_lucro_sessao'] = 0.0
+                try: get_user_state(deriv_id, bot_type)['_trava_pct'] = max(0.0, min(90.0, float(config.get('trava') or 0)))  # AUTO-EXTRA-V1
+                except Exception: get_user_state(deriv_id, bot_type)['_trava_pct'] = 0.0
+                get_user_state(deriv_id, bot_type)['_trava_arm'] = False
             BotConfig.LIMITE_PERDA  = float(config.get('stop') or config.get('limite_perda') or 1000.0)
 
             try:
@@ -643,6 +646,8 @@ def start_bot():
                 bot.limite_tentativas = False  # SEM-TRAVA-V1: recuperacao livre, quem limita e o stop loss do usuario
                 bot.stop_estrito = bot_type in ('ia', 'ia_simples') or bot_type.startswith(('unidade-', 'auto-'))  # SEM-TRAVA-V1 + ESQ-STOP-V1: Esquadrao tambem nunca passa do stop
                 bot.auto_volta_entrada = bot_type.startswith('auto-')  # AUTO-VOLTA-ENTRADA-V1: so o Alpha Automacao
+                try: bot.confirmar_n = max(0, min(5, int(config.get('confirmar') or 0)))  # AUTO-EXTRA-V1: confirmar antes de entrar
+                except Exception: bot.confirmar_n = 0
                 bot._dono = str(locals().get('deriv_id') or '')  # TRAVA-POR-CONTA-V1
             except Exception as e:
                 if _cfg_ok: _CFG_LOCK.release(); _cfg_ok = False
@@ -823,6 +828,16 @@ def start_bot():
                     get_user_state(deriv_id, bot_type)['stop_message'] = f'META ATINGIDA! Lucro: +${_lucro_sessao:.2f}'
                     # META-ORDEM-V2: 'running' so vira False depois que o robo registrar a operacao (bloco abaixo)
                     bot._parar_apos_registro = True   # META-ORDEM-V1: para so depois do robo registrar esta operacao
+                # AUTO-EXTRA-V1: trava de lucro (passou de X% da meta e veio uma perda = para guardando o lucro)
+                _st_tv = get_user_state(deriv_id, bot_type)
+                _tv = float(_st_tv.get('_trava_pct') or 0)
+                if _tv > 0 and _st_tv.get('running') and _st_tv.get('stop_reason') != 'take_profit':
+                    if _st_tv.get('_trava_arm') and not won:
+                        _st_tv['stop_reason'] = 'trava'
+                        _st_tv['stop_message'] = f'Trava de lucro: passou de {_tv:.0f}% da meta e veio uma perda. Parou com ${_lucro_sessao:.2f}.'
+                        bot._parar_apos_registro = True
+                    elif _lucro_sessao >= _target * _tv / 100.0 - 1e-9 and _lucro_sessao < _target:
+                        _st_tv['_trava_arm'] = True
                 trade = {
                     'id': int(time.time() * 1000), 'direction': direction,
                     'result': 'win' if won else 'loss', 'profit': round(profit, 2),
