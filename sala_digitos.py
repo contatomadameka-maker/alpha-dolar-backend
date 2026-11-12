@@ -35,7 +35,7 @@ WS_URL = WS_URLS[0]
 # SALA-DIGITOS-V2: cada sinal sai como foto + texto + botao para o robo
 LINK_ROBO = os.environ.get('SALA_LINK', 'https://alphadolar.online/bot-digitos.html')
 IMG_BASE = os.environ.get('SALA_IMG_BASE', 'https://alphadolar.online/img/sala/')
-IMG_VER = '3'
+IMG_VER = '4'   # SALA-NOME-VIP-V1: imagens com o nome Alpha Sinais VIP
 ESTRATEGIA = 'ALPHA VIRADA'
 if 'bot-digitos' in LINK_ROBO:   # SALA-CONVITE-V1: a sala agora tem robo proprio
     LINK_ROBO = 'https://alphadolar.online/bot-sinais-vip.html'
@@ -575,7 +575,7 @@ class Sala(object):
         h = self._dia(ep)
         g = h['gale']
         dt = datetime.fromtimestamp(ep, BRT)
-        return ('📊 <b>PARCIAL ALPHA DÍGITOS</b>\n📅 %s · %s\n━━━━━━━━━━━━━━\n'
+        return ('📊 <b>PARCIAL ALPHA SINAIS VIP</b>\n📅 %s · %s\n━━━━━━━━━━━━━━\n'
                 '✅ Win: <b>%d</b>    ❌ Loss: <b>%d</b>\n🎯 Assertividade: <b>%s%%</b>\n'
                 '🥇 Wins por gale: SG: %d · G1: %d · G2: %d · G3: %d\n━━━━━━━━━━━━━━\n%s') % (
             dt.strftime('%d/%m/%Y'), dt.strftime('%H:%M'), h['win'], h['loss'], _num(self._pct(h)),
@@ -647,7 +647,7 @@ class Sala(object):
                     pad = ['P' if x % 2 == 0 else 'I' for x in list(q)[-s:]]
                     self.post(self.st['k'] + 'a',
                               '⚠️ <b>ATENÇÃO</b> ⚠️\n\n📊 Mercado: <b>%s</b>\n🧠 Estratégia: %s\n'
-                              '🧩 Padrão em formação: %s\n\n⏳ Abra o Alpha Dígitos neste mercado e aguarde a confirmação.'
+                              '🧩 Padrão em formação: %s\n\n⏳ Abra o Alpha Sinais VIP neste mercado e aguarde a confirmação.'
                               % (NOMES[sym], ESTRATEGIA, ' · '.join(pad)), 'atencao')
             elif f == 'atencao' and sym == st['sym']:
                 seq_impar = st['lado'] == 'PAR'
@@ -1069,7 +1069,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             parar_antigo()
         if not ja:
             threading.Thread(target=enviar_canal, daemon=True, args=(
-                '🟢 <b>SALA ALPHA DÍGITOS ABERTA</b>\n\n🎲 Sinais de Par / Ímpar\n🔁 Até %d gales\n\n'
+                '🟢 <b>SALA ALPHA SINAIS VIP ABERTA</b>\n\n🎲 Sinais de Par / Ímpar\n🔁 Até %d gales\n\n'
                 'Fique atento ao ⚠️ ATENÇÃO e entre só no ✅ ENTRADA CONFIRMADA.\n\n%s'
                 % (sala._cfg_load()['gales'], RODAPE), 'aberta', True)).start()
         return jsonify({'ok': True, 'ligado': True})
