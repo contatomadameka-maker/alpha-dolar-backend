@@ -41,6 +41,21 @@ if 'bot-digitos' in LINK_ROBO:   # SALA-CONVITE-V1: a sala agora tem robo propri
     LINK_ROBO = 'https://alphadolar.online/bot-sinais-vip.html'
 BOTAO = {'inline_keyboard': [[{'text': '🤖 Operar no automático · Sinais VIP', 'url': LINK_ROBO}]]}
 HORARIOS_CONVITE = [(10, 30), (14, 30), (18, 30), (22, 30)]   # SALA-CONVITE-V1: horario de Brasilia
+# ---------- SALA-BOASVINDAS-V1: mensagem fixada com o passo a passo + lembrete "chegou agora?" ----------
+LINK_CADASTRO = os.environ.get('SALA_LINK_CADASTRO', 'https://alphadolar.online/login')
+LINK_DERIV = os.environ.get('SALA_LINK_DERIV', '').strip() or ''   # SALA-BOASVINDAS-V1: seu link de afiliado da Deriv (vazio = sem o botao)
+HORARIOS_CHEGOU = [(9, 0), (13, 0), (17, 0), (20, 0)]   # horario de Brasilia; o lembrete anterior e apagado
+K_BV, K_CHEGOU = 'sala_dig:bv_mid', 'sala_dig:chegou_mid'
+
+
+def botao_passos():
+    lin, n = [], 1
+    if LINK_DERIV.startswith('http'):
+        lin.append([{'text': '1️⃣ Criar conta grátis na Deriv (corretora)', 'url': LINK_DERIV}])
+        n = 2
+    lin.append([{'text': '%s Entrar na Alpha Dolar' % ('2️⃣' if n == 2 else '1️⃣'), 'url': LINK_CADASTRO}])
+    lin.append([{'text': '%s Ligar o robô Sinais VIP (Demo)' % ('3️⃣' if n == 2 else '2️⃣'), 'url': LINK_ROBO}])
+    return {'inline_keyboard': lin}
 _FILE_IDS = {}
 
 NOMES = {
@@ -389,7 +404,7 @@ def _guarda_foto(img, j):
 
 def postar(tg, texto, img=None, botao=True):
     """Posta (foto+legenda, ou so texto se a foto falhar). Devolve (ok, erro, message_id, tipo)."""
-    extra = {'reply_markup': BOTAO} if botao else {}
+    extra = {'reply_markup': (botao if isinstance(botao, dict) else BOTAO)} if botao else {}   # SALA-BOASVINDAS-V1
     erro_foto = ''
     if img:
         d = {'photo': _foto(img), 'caption': texto[:1024], 'parse_mode': 'HTML'}
@@ -518,6 +533,8 @@ class Sala(object):
     def _exec(self, it):
         op, k = it['op'], it.get('k')
         try:
+            if op == 'fixo':
+                return self._exec_fixo(it)
             if op == 'post' or (op == 'edit' and k not in self.msgs):
                 ok, erro, mid, tipo = postar(self.tg, it['t'], it['img'], it['b'])
                 self._conta(ok, erro, it['t'])
@@ -593,6 +610,61 @@ class Sala(object):
                 '👉 Teste <b>grátis na conta demo</b>: toque no botão abaixo.\n'
                 '<i>Operar envolve risco. Resultados de hoje não garantem os próximos.</i>') % (
             h['win'], h['loss'], _num(self._pct(h)), g[0], g[1], g[2], g[3])
+
+    def texto_boasvindas(self):   # SALA-BOASVINDAS-V1
+        return ('👋 <b>BEM-VINDO À SALA ALPHA SINAIS VIP</b>\n\n'
+                'Aqui saem sinais de <b>Par / Ímpar</b> ao vivo, com até 3 gales. Dá para seguir de dois jeitos:\n'
+                '✋ <b>Na mão:</b> quando sair 🎯 <b>ENTRADA</b>, entre no lado indicado.\n'
+                '🤖 <b>No automático:</b> o robô Sinais VIP entra no mesmo tick da sala, faz o gale sozinho '
+                'e roda na nuvem. Pode fechar o celular.\n\n'
+                '<b>Como começar:</b>\n'
+                '1️⃣ Tenha uma conta na <b>Deriv</b>, a corretora (grátis)\n'
+                '2️⃣ Entre na <b>Alpha Dolar</b> com a sua conta Deriv\n'
+                '3️⃣ Abra o robô <b>Sinais VIP</b> e ligue na conta <b>Demo</b>: dinheiro virtual, sem risco\n\n'
+                '🛡️ Entrada em % da banca, limite de perda e trava de lucro já vêm prontos.\n'
+                '<i>Sinais são análise estatística, não garantia. Comece na Demo e use sempre limite de perda.</i>')
+
+    def texto_chegou(self):   # SALA-BOASVINDAS-V1
+        return ('🆕 <b>CHEGOU AGORA NA SALA?</b>\n\n'
+                'Nunca operou com sala de sinais? É simples:\n'
+                '⚠️ <b>ATENÇÃO</b> = padrão se formando, aguarde\n'
+                '🎯 <b>ENTRADA</b> = entre no lado indicado (Par ou Ímpar)\n'
+                '🔁 <b>GALE</b> = se perder, a próxima entrada é maior para recuperar (até 3)\n'
+                '✅ <b>GAIN</b> / ❌ <b>LOSS</b> = resultado do sinal\n\n'
+                '👉 Comece pela <b>conta Demo</b> e veja a mensagem fixada no topo do canal com o passo a passo.\n'
+                '<i>Não é garantia de resultado. Use sempre limite de perda.</i>')
+
+    def _fixo(self, tipo, auto=False):   # SALA-BOASVINDAS-V1
+        if tipo == 'boasvindas':
+            self._fila({'op': 'fixo', 't': self.texto_boasvindas(), 'img': 'vip-convite', 'b': botao_passos(),
+                        'kv': K_BV, 'pin': True, 'auto': auto})
+        else:
+            self._fila({'op': 'fixo', 't': self.texto_chegou(), 'img': None, 'b': botao_passos(), 'kv': K_CHEGOU})
+
+    def _exec_fixo(self, it):   # posta, apaga a anterior do mesmo tipo e (boas-vindas) fixa no topo
+        if it.get('auto'):
+            okc, _e, j = self.tg('getChat', {})
+            pm = ((j.get('result') or {}).get('pinned_message') or {}) if okc else {}
+            if 'BEM-VINDO À SALA' in (pm.get('caption') or pm.get('text') or ''):
+                self.kv.set(it['kv'], str(pm.get('message_id')))
+                return
+        ok, erro, mid, _tipo = postar(self.tg, it['t'], it['img'], it['b'])
+        self._conta(ok, erro, it['t'])
+        if not (ok and mid):
+            return
+        velho = self.kv.get(it['kv'])
+        self.kv.set(it['kv'], str(mid))
+        if velho and str(velho) != str(mid):
+            try:
+                if it.get('pin'):
+                    self.tg('unpinChatMessage', {'message_id': int(velho)})
+                self.tg('deleteMessage', {'message_id': int(velho)})
+            except Exception:
+                pass
+        if it.get('pin'):
+            okp, errp, _j = self.tg('pinChatMessage', {'message_id': mid, 'disable_notification': True})
+            if not okp:
+                self._conta(False, 'fixar a mensagem: %s (o robo precisa ser admin com "Fixar mensagens")' % errp)
 
     def _cab(self, st):
         c = self.cfg
@@ -734,7 +806,22 @@ class Sala(object):
             cmd = self.kv.get(K_CMD)
             if cmd == 'convite':   # SALA-CONVITE-V1: teste pelo admin
                 self.kv.delete(K_CMD)
-                self.manda(self.texto_convite(agora), 'vip-convite', True)
+                self.manda(self.texto_convite(agora), 'vip-convite', botao_passos())
+            if cmd in ('boasvindas', 'chegou'):   # SALA-BOASVINDAS-V1
+                self.kv.delete(K_CMD)
+                self._fixo(cmd)
+            if not getattr(self, '_bv_conferido', False):
+                self._bv_conferido = True
+                if not self.kv.get(K_BV):
+                    self._fixo('boasvindas', auto=True)
+            dtc = datetime.fromtimestamp(agora, BRT)
+            for hh, mm in HORARIOS_CHEGOU:
+                alvo = dtc.replace(hour=hh, minute=mm, second=0, microsecond=0)
+                if 0 <= (dtc - alvo).total_seconds() < 600:
+                    chave = 'sala_dig:cheg:' + alvo.strftime('%Y-%m-%d-%H%M')
+                    if not self.kv.get(chave):
+                        self.kv.set(chave, '1', ex=86400)
+                        self._fixo('chegou')
             dtc = datetime.fromtimestamp(agora, BRT)
             for hh, mm in HORARIOS_CONVITE:
                 alvo = dtc.replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -743,7 +830,7 @@ class Sala(object):
                     if not self.kv.get(chave):
                         self.kv.set(chave, '1', ex=86400)
                         if self._dia(agora)['win'] + self._dia(agora)['loss'] > 0:
-                            self.manda(self.texto_convite(agora), 'vip-convite', True)
+                            self.manda(self.texto_convite(agora), 'vip-convite', botao_passos())
             if cmd == 'parcial':
                 self.kv.delete(K_CMD)
                 self.manda(self.texto_parcial(agora), None, True)
@@ -1100,6 +1187,14 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             return jsonify({'ok': True, 'msg': 'convite na fila (sai em até 5 s)'})
         ok, erro = enviar_canal(sala.texto_convite(), 'vip-convite', True)
         return jsonify({'ok': ok, 'erro': erro})
+
+    @app.route('/api/admin/sala-digitos/boasvindas', methods=['POST'])
+    def _sd_boasvindas():   # SALA-BOASVINDAS-V1: posta e fixa de novo (?tipo=chegou manda o lembrete)
+        if not ok_admin():
+            return negado()
+        tipo = 'chegou' if request.args.get('tipo') == 'chegou' else 'boasvindas'
+        kv.set(K_CMD, tipo, ex=120)
+        return jsonify({'ok': True, 'msg': '%s na fila (sai em até 5 s, com a sala ligada)' % tipo})
 
     @app.route('/api/admin/sala-digitos/config', methods=['POST'])
     def _sd_config():
