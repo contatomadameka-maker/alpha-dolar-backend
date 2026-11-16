@@ -4039,6 +4039,13 @@ try:
 except Exception as _e_pl:
     print('[Planilha] nao registrou:', _e_pl)
 
+# DOUBLE-LIVE-V1: live do Alpha Double (operador -> sala)
+try:
+    from double_live import register_double_live
+    register_double_live(app)
+except Exception as _e_dbl:
+    print('[Double Live] nao registrou:', _e_dbl)
+
 # CLIQUE-IA-V1: IA de gestao do Alpha Clique (modo automatico)
 try:
     from clique_ia import register_clique_ia
