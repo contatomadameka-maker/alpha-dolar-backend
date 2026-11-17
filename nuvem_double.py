@@ -24,14 +24,16 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-DOUBLE-V1.1'  # V1.1: rodadas (uma pedra a cada R s, 2º tick depois da virada), decide na virada
+VERSAO = 'NUVEM-DOUBLE-V1.2'  # V1.2: I.A entra toda rodada no lado mais forte (força mínima opcional); gale da I.A na rodada seguinte; já começa com 3000 ticks de histórico
+VERSAO_ANT = 'NUVEM-DOUBLE-V1.1'  # V1.1: rodadas (uma pedra a cada R s, 2º tick depois da virada), decide na virada
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
                        'wss://ws.derivws.com/websockets/v3?app_id=1089'] if u]
 P = 'nuvem_dbl:'
 K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
-TICKS = {s: deque(maxlen=1500) for s in MERC}   # (epoch, dígito)
+TICKS = {s: deque(maxlen=3000) for s in MERC}   # (epoch, dígito)
+PIP = {'R_10': 3, 'R_25': 3, 'R_50': 4, 'R_75': 4, 'R_100': 2}   # V1.2: casas decimais (fallback do histórico)
 SKEW = {'v': None}   # epoch da Deriv - relógio do servidor
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
 
@@ -80,16 +82,18 @@ def casa_fim(h, seq):
     return 0
 
 
-def prog(est, sym, ep=0, R=22, ate=None):
+def prog(est, sym, ep=0, R=22, ate=None, fm=0):
     """-> (k, n, lado, ok)  (só com as pedras das rodadas)"""
-    if est.get('id') == 'alpha':
+    if est.get('id') == 'alpha':   # V1.2: lado mais forte das últimas 20 a cada rodada (empate: lado da última pedra); força mínima fm
         u = digs(sym, 0, R, ate)[-20:]
         if len(u) < 20:
-            return 0, 13, None, False
+            return 0, fm or 10, None, False
         p = sum(1 for d in u if d % 2 == 0)
-        m, lado = (p, 'par') if p >= 20 - p else (20 - p, 'impar')
-        ok = m >= 13 and (not ep or len(digs(sym, ep, R, ate)) >= 3)
-        return m, 13, lado, ok
+        if p != 20 - p:
+            m, lado = (p, 'par') if p > 20 - p else (20 - p, 'impar')
+        else:
+            m, lado = 10, par(u[-1])
+        return m, fm or 10, lado, m >= fm
     seq = est.get('seq') or []
     k = casa_fim(digs(sym, ep, R, ate), seq)
     return k, len(seq), est.get('em'), bool(seq) and k >= len(seq)
@@ -195,6 +199,9 @@ class NuvemDouble(object):
                 mapa = {}
                 for i, s in enumerate(MERC):
                     mapa[i + 1] = s
+                    mapa[i + 101] = s
+                    # V1.2: já começa com o histórico (a I.A precisa de 20 rodadas; sem isso esperava ~7 min depois de cada deploy)
+                    ws.send(json.dumps({'ticks_history': s, 'end': 'latest', 'count': 3000, 'style': 'ticks', 'req_id': i + 101}))
                     ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
                 ws.settimeout(10)
                 EST['ws'] = ''
@@ -212,6 +219,22 @@ class NuvemDouble(object):
                     if not raw:
                         raise Exception('conexão fechada')
                     m = json.loads(raw)
+                    hi = m.get('history')
+                    if hi and hi.get('prices'):
+                        try:
+                            sh = (m.get('echo_req') or {}).get('ticks_history') or mapa.get(m.get('req_id'))
+                            if sh in TICKS:
+                                dec = int(m.get('pip_size') or PIP.get(sh, 2))
+                                novo = [(int(e), int(('%.*f' % (dec, float(p)))[-1])) for p, e in zip(hi['prices'], hi.get('times') or [])]
+                                junto = dict(novo)
+                                junto.update(dict(TICKS[sh]))
+                                TICKS[sh].clear()
+                                TICKS[sh].extend(sorted(junto.items())[-3000:])
+                                if SKEW['v'] is None and novo:
+                                    SKEW['v'] = novo[-1][0] - time.time()
+                        except Exception as ex:
+                            log('historico', ex)
+                        continue
                     t = m.get('tick')
                     if not t or t.get('quote') is None:
                         continue
@@ -302,6 +325,14 @@ class NuvemDouble(object):
                 return
             es = ativas(u)
             pri = [e for e in es if (e.get('id') or nome_est(e)) == g.get('est')] or es
+            if u.get('ia'):   # I.A: gale na rodada seguinte, no lado que ela ler agora
+                k, n, lado, ok = prog({'id': 'alpha'}, sym, 0, R, B, int(u.get('IAf') or 0))
+                if ok and lado:
+                    g['esp'] = False
+                    g['lado'] = lado
+                    return self.compra(conta, c, u, sym, lado, 'I.A Alpha', 'alpha', B)
+                self.fase(conta, u, 'gale %d: I.A esperando força %d de 20' % (g['nivel'], int(u.get('IAf') or 0)))
+                return
             for e in pri:
                 k, n, lado, ok = prog(e, sym, int(g.get('ep') or 0), R, B)
                 if ok and lado == g.get('lado'):
@@ -310,10 +341,10 @@ class NuvemDouble(object):
             self.fase(conta, u, 'gale %d em %s: esperando o padrão de novo' % (g['nivel'], 'PAR' if g.get('lado') == 'par' else 'ÍMPAR'))
             return
         for e in ativas(u):
-            k, n, lado, ok = prog(e, sym, 0, R, B)
+            k, n, lado, ok = prog(e, sym, 0, R, B, int(u.get('IAf') or 0))
             if ok and lado:
                 return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e), B)
-        self.fase(conta, u, 'esperando o padrão nas rodadas')
+        self.fase(conta, u, ('I.A esperando força %d de 20' % int(u.get('IAf') or 0)) if u.get('ia') else 'esperando o padrão nas rodadas')
 
     def fase(self, conta, u, txt):
         if u.get('fase') != txt:
@@ -546,7 +577,7 @@ def register_nuvem_double(app):
              'sym': cf.get('sym') if cf.get('sym') in MERC else 'R_100', 'ia': ia, 'ests': ests,
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'M': M, 'T': int(num(cf.get('T'), 1, 1, 13)), 'C': int(num(cf.get('C'), 1, 1, 10)), 'P': int(num(cf.get('P'), 0, 0, 600)),
-             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)),
+             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)),
              'pm': u.get('pm') or {}, 'erros': 0, 'ciclo': None, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}}
         nv.salva(conta, u)
