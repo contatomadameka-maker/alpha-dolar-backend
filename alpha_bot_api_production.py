@@ -3702,12 +3702,18 @@ def admin_ao_vivo():
         r3_ = _redis3.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
         for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)')):
             _nl3 = [c for c in (_j.loads(r3_.get(_pfx + 'lista') or '[]') or []) if r3_.get(_pfx + 'on:' + c) == '1']
+            _nb3 = {}
+            if _nl3:   # AOVIVO-NUVEM2-V2: nome do robô (bot) de cada conta, senão cai em "sem bot"
+                try:
+                    _nb3 = {str(x.get('deriv_id')): x.get('bot_name') for x in (_ledger_supa_req('clientes?select=deriv_id,bot_name&deriv_id=in.(' + ','.join(_nl3) + ')&limit=500') or [])}
+                except Exception:
+                    _nb3 = {}
             for c in _nl3:
                 try:
                     _u3 = _j.loads(r3_.get(_pfx + 'u:' + c) or '{}')
                 except Exception:
                     _u3 = {}
-                marca(c, None, 'real' if _u3.get('tipo') == 'real' else 'demo', _nome)
+                marca(c, _nb3.get(c), 'real' if _u3.get('tipo') == 'real' else 'demo', _nome)
     except Exception as e:
         print('AO-VIVO nuvem2:', e)
     try:
