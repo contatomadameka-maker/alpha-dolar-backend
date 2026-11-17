@@ -4,7 +4,7 @@
 O servidor só repassa: guarda a última entrada do operador e a lista das últimas 30. Cada pessoa compra na própria
 conta Deriv, com o próprio valor, gale e stop (a compra é feita pelo navegador dela). A trava de saldo ($10) fica no robô.
 
-Senha do operador: variável de ambiente DOUBLE_LIVE_SENHA (se não existir, usa ADMIN_SENHA).
+Senha do operador: a embutida (só o hash fica aqui) ou a variável DOUBLE_LIVE_SENHA, se existir.
 
 POST /api/double-live/login     {senha}                 -> {ok}
 POST /api/double-live/abrir     {senha, nome, mk}       -> {ok}
@@ -15,7 +15,8 @@ GET  /api/double-live/agora?v=<id>&s=1                  -> {ok, on, nome, mk, n,
 """
 import os, json, time, threading, re
 
-VERSAO = 'DOUBLE-LIVE-V1'
+VERSAO = 'DOUBLE-LIVE-V1.1'
+HASH_OP = 'ee913731d2e84b8688996dfc479773f300c913ca1eb9755a2a301a553983242b'
 K = 'double_live:estado'
 
 
@@ -30,8 +31,13 @@ def register_double_live(app):
     mem = {'vis': {}, 'tent': {}}
 
     def senha_ok(s):
-        cert = os.environ.get('DOUBLE_LIVE_SENHA') or os.environ.get('ADMIN_SENHA') or ''
-        return bool(cert) and str(s or '') == cert
+        # V1.1: senha propria da live (nao usa mais a do admin). A variavel DOUBLE_LIVE_SENHA, se existir, substitui a embutida.
+        import hashlib, hmac
+        s = str(s or '')
+        env = os.environ.get('DOUBLE_LIVE_SENHA') or ''
+        if env:
+            return hmac.compare_digest(s, env)
+        return bool(s) and hmac.compare_digest(hashlib.sha256(s.encode()).hexdigest(), HASH_OP)
 
     def estado():
         e = kv.jget(K, None)
