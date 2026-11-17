@@ -24,7 +24,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-DOUBLE-V1.2'  # V1.2: I.A entra toda rodada no lado mais forte (força mínima opcional); gale da I.A na rodada seguinte; já começa com 3000 ticks de histórico
+VERSAO = 'NUVEM-DOUBLE-V1.3'  # V1.3: gales seguidos dentro do ciclo; ciclo novo espera o padrão; sinal novo só depois da operação
+VERSAO_V12 = 'NUVEM-DOUBLE-V1.2'  # V1.2: I.A entra toda rodada no lado mais forte (força mínima opcional); gale da I.A na rodada seguinte; já começa com 3000 ticks de histórico
 VERSAO_ANT = 'NUVEM-DOUBLE-V1.1'  # V1.1: rodadas (uma pedra a cada R s, 2º tick depois da virada), decide na virada
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
@@ -319,29 +320,34 @@ class NuvemDouble(object):
     def decide(self, conta, c, u, sym, R=22, B=None):
         g = u.get('ciclo')
         agora = time.time()
+        if g and g.get('nivel', 0) > 0 and not g.get('esp'):
+            # V1.3: dentro do ciclo o gale entra já na rodada seguinte, no mesmo lado (a mesma operação)
+            return self.compra(conta, c, u, sym, g['lado'], g.get('nome') or ('I.A Alpha' if u.get('ia') else ''), g.get('est') or '', B)
         if g and g.get('nivel', 0) > 0:
             if g.get('esp') and float(g.get('pausa', 0)) > agora:
                 self.fase(conta, u, 'pausa entre ciclos: falta %d s' % math.ceil(float(g['pausa']) - agora))
                 return
             es = ativas(u)
             pri = [e for e in es if (e.get('id') or nome_est(e)) == g.get('est')] or es
-            if u.get('ia'):   # I.A: gale na rodada seguinte, no lado que ela ler agora
+            if u.get('ia'):   # I.A: ciclo novo no lado que ela ler agora
                 k, n, lado, ok = prog({'id': 'alpha'}, sym, 0, R, B, int(u.get('IAf') or 0))
                 if ok and lado:
                     g['esp'] = False
                     g['lado'] = lado
                     return self.compra(conta, c, u, sym, lado, 'I.A Alpha', 'alpha', B)
-                self.fase(conta, u, 'gale %d: I.A esperando força %d de 20' % (g['nivel'], int(u.get('IAf') or 0)))
+                self.fase(conta, u, 'ciclo novo (gale %d): I.A esperando força %d de 20' % (g['nivel'], int(u.get('IAf') or 0)))
                 return
             for e in pri:
                 k, n, lado, ok = prog(e, sym, int(g.get('ep') or 0), R, B)
-                if ok and lado == g.get('lado'):
+                if ok and lado:
                     g['esp'] = False
-                    return self.compra(conta, c, u, sym, g['lado'], nome_est(e), e.get('id') or nome_est(e), B)
-            self.fase(conta, u, 'gale %d em %s: esperando o padrão de novo' % (g['nivel'], 'PAR' if g.get('lado') == 'par' else 'ÍMPAR'))
+                    g['lado'] = lado
+                    g['nome'] = nome_est(e)
+                    return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e), B)
+            self.fase(conta, u, 'ciclo %d/%d (gale %d): esperando o padrão de novo' % (g['nivel'] // max(1, int(u.get('T', 1))) + 1, int(u.get('C', 1)), g['nivel']))
             return
         for e in ativas(u):
-            k, n, lado, ok = prog(e, sym, 0, R, B, int(u.get('IAf') or 0))
+            k, n, lado, ok = prog(e, sym, int(u.get('fim_b') or 0), R, B, int(u.get('IAf') or 0))   # V1.3: sinal novo só com pedras depois da última operação
             if ok and lado:
                 return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e), B)
         self.fase(conta, u, ('I.A esperando força %d de 20' % int(u.get('IAf') or 0)) if u.get('ia') else 'esperando o padrão nas rodadas')
@@ -459,6 +465,7 @@ class NuvemDouble(object):
                 s['w'] += 1
                 tx = 'Gale %d recuperou' % g['nivel'] if g.get('nivel') else 'Vitória'
                 u['ciclo'] = None
+                u['fim_b'] = int(ab.get('rb') or 0)
             elif g.get('nivel', 0) < tot:
                 s['l'] += 1
                 nv = g['nivel']
@@ -467,6 +474,7 @@ class NuvemDouble(object):
                 g['ult'] = ab['st']
                 g['lado'] = ab['lado']
                 g['est'] = ab.get('est')
+                g['nome'] = ab.get('nome')
                 g['esp'] = C > 1 and g['nivel'] % T == 0
                 pz = int(u.get('P', 0)) if g['esp'] else 0
                 g['pausa'] = time.time() + pz
@@ -479,6 +487,7 @@ class NuvemDouble(object):
                 tx = 'Perdeu os %d ciclos' % C if C > 1 else ('Ciclo perdido (todos os gales)' if tot > 0 else 'Perdeu')
                 para_cic = tot > 0 and u.get('F') == 'parar'
                 u['ciclo'] = None
+                u['fim_b'] = int(ab.get('rb') or 0)
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · saiu %s' % ('?' if saiu is None else saiu)
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'lado': ab['lado'], 'saiu': saiu, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'nome': ab.get('nome'), 'cid': cid})
