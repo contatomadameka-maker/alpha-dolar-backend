@@ -17,7 +17,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-PULSO-V1'
+VERSAO = 'NUVEM-PULSO-V1.1'
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
@@ -346,6 +346,13 @@ class NuvemPulso(object):
                 time.sleep(1.5)
 
     # ---------- gestão (igual à página) ----------
+    def nome_g(self, u, gs):   # V1.1: com ciclos, o nível vira "gale k do ciclo c" (antes aparecia "gale 4" no ciclo 2)
+        T, C = int(u.get('gal', 3)) + 1, int(u.get('cic', 1))
+        if C > 1:
+            c, k = gs // T + 1, gs % T
+            return ('entrada do ciclo %d' % c) if k == 0 else ('gale %d do ciclo %d' % (k, c))
+        return 'gale %d' % gs
+
     def tot(self, u):
         C, gal = int(u.get('cic', 1)), int(u.get('gal', 3))
         return (gal + 1) * C - 1 if C > 1 else gal
@@ -492,7 +499,7 @@ class NuvemPulso(object):
             if t:
                 s['w'] = int(s.get('w', 0)) + 1
                 if s.get('gs'):
-                    tx = 'GALE %d RECUPEROU' % s['gs']
+                    tx = '%s recuperou' % self.nome_g(u, int(s['gs']))
                 s['seqL'] = 0
                 s['rec'] = 0
                 s['gs'] = 0
@@ -513,14 +520,14 @@ class NuvemPulso(object):
                     else:
                         s['gs'] = int(s.get('gs', 0)) + 1
                         if s['gs']:
-                            tx = 'PERDEU' + (' · gale %d vem aí' % s['gs'])
+                            tx = 'PERDEU · %s vem aí' % self.nome_g(u, int(s['gs']))
                         if C > 1 and s['gs'] % T == 0:
                             pz = int(u.get('cicP', 0))
                             if pz:
                                 u['pausa_ate'] = time.time() + pz
                                 u['pausa_txt'] = 'pausa entre ciclos'
                             s['cic_novo'] = True
-                            tx = 'CICLO %d PERDIDO · o gale continua no ciclo %d/%d' % (s['gs'] // T, s['gs'] // T + 1, C)
+                            tx = 'CICLO %d PERDIDO · o ciclo %d/%d começa depois de ler o mercado de novo' % (s['gs'] // T, s['gs'] // T + 1, C)
             u['prox'] = time.time() + float(u.get('ri', 5))
             s['pico'] = max(float(s.get('pico', 0)), s['pl'])
             meta, stop = float(u.get('meta') or 0), float(u.get('stop') or 0)
@@ -532,7 +539,7 @@ class NuvemPulso(object):
                 elif -s['pl'] >= stop - 1e-9:
                     parar = 'LIMITE DE PERDA de $%.2f atingido' % stop
                 elif s['c'] >= int(u.get('maxC', 60)):
-                    parar = 'CICLOS DA SESSÃO COMPLETOS: %d ciclos' % s['c']
+                    parar = 'OPERAÇÕES DA SESSÃO COMPLETAS: %d de %d (Máx. ciclos)' % (s['c'], int(u.get('maxC', 60)))
             ps = int(u.get('ps', 3))
             if not parar and ps > 0 and s['seqL'] >= ps:
                 u['pausa_ate'] = time.time() + 60
