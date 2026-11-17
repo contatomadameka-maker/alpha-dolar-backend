@@ -3700,7 +3700,7 @@ def admin_ao_vivo():
     try:   # AOVIVO-NUVEM2-V1: Alpha Double e Alpha Clique ligados na nuvem aparecem no "Ao vivo" mesmo esperando o sinal
         import redis as _redis3
         r3_ = _redis3.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
-        for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)')):
+        for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)'), ('nuvem_pls:', 'Alpha Pulso (nuvem)')):
             _nl3 = [c for c in (_j.loads(r3_.get(_pfx + 'lista') or '[]') or []) if r3_.get(_pfx + 'on:' + c) == '1']
             _nb3 = {}
             if _nl3:   # AOVIVO-NUVEM2-V2: nome do robô (bot) de cada conta, senão cai em "sem bot"
@@ -4078,6 +4078,13 @@ try:
     register_nuvem_clique(app)
 except Exception as _e_ncq:
     print('[Nuvem Clique] nao registrou:', _e_ncq)
+
+# NUVEM-PULSO-V1: Alpha Pulso rodando no servidor
+try:
+    from nuvem_pulso import register_nuvem_pulso
+    register_nuvem_pulso(app)
+except Exception as _e_npl:
+    print('[Nuvem Pulso] nao registrou:', _e_npl)
 
 # CLIQUE-IA-V1: IA de gestao do Alpha Clique (modo automatico)
 try:
