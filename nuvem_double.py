@@ -3,7 +3,7 @@
 
 Mesma regra do robô do navegador (bot-double.html V1.6):
 - I.A Alpha (lado que saiu em 13+ das últimas 20) OU as estratégias da pessoa (sequência gatilho de até 8 PAR/ÍMPAR -> lado).
-- Depois de cada resultado espera o "tempo de análise" e então o padrão; entra no tick em que o padrão completa.
+- RODADAS (V1.1): uma pedra a cada R s (2º tick depois da virada); na virada confere as pedras e, se o padrão completou, compra nessa rodada.
 - Gale: exato (recupera + 1 entrada com o pagamento real) ou multiplicador; tentativas por ciclo x ciclos;
   TODO gale espera o padrão da mesma estratégia de novo, contando só os ticks depois da perda (ciclo novo: + pausa).
 - Stop win / stop loss em US$ (o navegador já converte % em US$ ao ligar); stop loss é teto real; teto de $10.000 da Deriv.
@@ -24,14 +24,15 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-DOUBLE-V1'
+VERSAO = 'NUVEM-DOUBLE-V1.1'  # V1.1: rodadas (uma pedra a cada R s, 2º tick depois da virada), decide na virada
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
                        'wss://ws.derivws.com/websockets/v3?app_id=1089'] if u]
 P = 'nuvem_dbl:'
 K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
-TICKS = {s: deque(maxlen=400) for s in MERC}   # (epoch, dígito)
+TICKS = {s: deque(maxlen=1500) for s in MERC}   # (epoch, dígito)
+SKEW = {'v': None}   # epoch da Deriv - relógio do servidor
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
 
 
@@ -55,8 +56,21 @@ def par(d):
 
 
 # ---------- regras (iguais às do navegador) ----------
-def digs(sym, ep=0):
-    return [d for (e, d) in list(TICKS.get(sym) or []) if e > ep]
+def pedras(sym, R, ate=None):
+    """rodadas de R s: a pedra é o 2º tick depois da virada (o dígito de um contrato de 1 tick comprado na virada)"""
+    out, cur, n = [], None, 0
+    for (e, d) in list(TICKS.get(sym) or []):
+        b = (e // R) * R
+        if b != cur:
+            cur, n = b, 0
+        n += 1
+        if n == 2 and (ate is None or b < ate):
+            out.append((b, d))
+    return out
+
+
+def digs(sym, ep=0, R=22, ate=None):
+    return [d for (b, d) in pedras(sym, R, ate) if b > ep]
 
 
 def casa_fim(h, seq):
@@ -66,18 +80,18 @@ def casa_fim(h, seq):
     return 0
 
 
-def prog(est, sym, ep=0):
-    """-> (k, n, lado, ok)"""
+def prog(est, sym, ep=0, R=22, ate=None):
+    """-> (k, n, lado, ok)  (só com as pedras das rodadas)"""
     if est.get('id') == 'alpha':
-        u = digs(sym)[-20:]
+        u = digs(sym, 0, R, ate)[-20:]
         if len(u) < 20:
             return 0, 13, None, False
         p = sum(1 for d in u if d % 2 == 0)
         m, lado = (p, 'par') if p >= 20 - p else (20 - p, 'impar')
-        ok = m >= 13 and (not ep or len(digs(sym, ep)) >= 3)
+        ok = m >= 13 and (not ep or len(digs(sym, ep, R, ate)) >= 3)
         return m, 13, lado, ok
     seq = est.get('seq') or []
-    k = casa_fim(digs(sym, ep), seq)
+    k = casa_fim(digs(sym, ep, R, ate), seq)
     return k, len(seq), est.get('em'), bool(seq) and k >= len(seq)
 
 
@@ -207,7 +221,10 @@ class NuvemDouble(object):
                     sem = time.time()
                     dec = int(t.get('pip_size') or 2)
                     d = int(('%.*f' % (dec, float(t['quote'])))[-1])
-                    TICKS[sym].append((int(t.get('epoch') or time.time()), d))
+                    ep = int(t.get('epoch') or time.time())
+                    TICKS[sym].append((ep, d))
+                    sk = ep - time.time()
+                    SKEW['v'] = sk if SKEW['v'] is None else SKEW['v'] * .8 + sk * .2
                     EST['ticks'] += 1
                     if EST['ticks'] % 50 == 0:
                         self.kv.set(K_MOTOR, str(int(time.time())), ex=60)
@@ -250,8 +267,14 @@ class NuvemDouble(object):
                     self.confere(conta, c, u['aberto'])
                     continue
                 sym = u.get('sym') or 'R_100'
-                T = TICKS.get(sym)
-                if not T or T[-1][0] <= ult_ep:
+                R = int(u.get('R') or 22)
+                if SKEW['v'] is None or not TICKS.get(sym):
+                    time.sleep(0.2)
+                    continue
+                B = int(((time.time() + SKEW['v']) // R) * R)
+                if ult_ep == 0:
+                    ult_ep = B
+                if B == ult_ep:
                     time.sleep(0.05)
                     if c and time.time() - c.ult > 20:
                         try:
@@ -261,8 +284,8 @@ class NuvemDouble(object):
                         except Exception:
                             pass
                     continue
-                ult_ep = T[-1][0]
-                self.decide(conta, c, u, sym)
+                ult_ep = B
+                self.decide(conta, c, u, sym, R, B)
             except PermissionError:
                 self.para(conta, 'SUA SESSÃO NA DERIV EXPIROU: abra o Alpha Double e ligue a nuvem de novo')
                 return
@@ -270,7 +293,7 @@ class NuvemDouble(object):
                 log('trabalha', conta[-3:], ex)
                 time.sleep(1.5)
 
-    def decide(self, conta, c, u, sym):
+    def decide(self, conta, c, u, sym, R=22, B=None):
         g = u.get('ciclo')
         agora = time.time()
         if g and g.get('nivel', 0) > 0:
@@ -280,20 +303,17 @@ class NuvemDouble(object):
             es = ativas(u)
             pri = [e for e in es if (e.get('id') or nome_est(e)) == g.get('est')] or es
             for e in pri:
-                k, n, lado, ok = prog(e, sym, int(g.get('ep') or 0))
+                k, n, lado, ok = prog(e, sym, int(g.get('ep') or 0), R, B)
                 if ok and lado == g.get('lado'):
                     g['esp'] = False
-                    return self.compra(conta, c, u, sym, g['lado'], nome_est(e), e.get('id') or nome_est(e))
+                    return self.compra(conta, c, u, sym, g['lado'], nome_est(e), e.get('id') or nome_est(e), B)
             self.fase(conta, u, 'gale %d em %s: esperando o padrão de novo' % (g['nivel'], 'PAR' if g.get('lado') == 'par' else 'ÍMPAR'))
             return
-        if agora < float(u.get('prox', 0)):
-            self.fase(conta, u, 'analisando as rodadas')
-            return
         for e in ativas(u):
-            k, n, lado, ok = prog(e, sym, 0)
+            k, n, lado, ok = prog(e, sym, 0, R, B)
             if ok and lado:
-                return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e))
-        self.fase(conta, u, 'esperando o padrão')
+                return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e), B)
+        self.fase(conta, u, 'esperando o padrão nas rodadas')
 
     def fase(self, conta, u, txt):
         if u.get('fase') != txt:
@@ -313,7 +333,7 @@ class NuvemDouble(object):
             return max(0.35, ceil2((float(g['perda']) + float(g['base']) * pm) / pm))
         return r2(max(0.35, float(g['ult']) * float(u.get('M') or 2.2)))
 
-    def compra(self, conta, c, u, sym, lado, nome, est_id):
+    def compra(self, conta, c, u, sym, lado, nome, est_id, B=None):
         s = u.setdefault('sessao', {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0})
         st = self.stake(u, lado)
         pm = float((u.get('pm') or {}).get(lado) or 0.82)
@@ -351,7 +371,7 @@ class NuvemDouble(object):
                 u.setdefault('pm', {})[lado] = p
         except Exception:
             pass
-        ab = {'cid': b.get('contract_id'), 'st': float(b.get('buy_price') or st), 'lado': lado, 'sym': sym, 'nome': nome, 'est': est_id, 't': int(time.time())}
+        ab = {'cid': b.get('contract_id'), 'st': float(b.get('buy_price') or st), 'lado': lado, 'sym': sym, 'nome': nome, 'est': est_id, 't': int(time.time()), 'rb': B}
         with self.trava(conta):
             v = self.cfg(conta)
             v['erros'] = 0
@@ -419,8 +439,8 @@ class NuvemDouble(object):
                 g['esp'] = C > 1 and g['nivel'] % T == 0
                 pz = int(u.get('P', 0)) if g['esp'] else 0
                 g['pausa'] = time.time() + pz
-                ult = TICKS.get(sym)
-                g['ep'] = (ult[-1][0] if ult else int(time.time())) + pz
+                rb = ab.get('rb') or int(((time.time() + (SKEW['v'] or 0)) // int(u.get('R') or 22)) * int(u.get('R') or 22))
+                g['ep'] = int(rb) + pz
                 tx = ('Perdeu o gale %d' % nv if nv else 'Perdeu') + (' · ciclo %d perdido, o gale continua no ciclo %d/%d' % (g['nivel'] // T, g['nivel'] // T + 1, C) if g['esp'] else '')
                 u['ciclo'] = g
             else:
@@ -428,7 +448,6 @@ class NuvemDouble(object):
                 tx = 'Perdeu os %d ciclos' % C if C > 1 else ('Ciclo perdido (todos os gales)' if tot > 0 else 'Perdeu')
                 para_cic = tot > 0 and u.get('F') == 'parar'
                 u['ciclo'] = None
-            u['prox'] = time.time() + float(u.get('A', 5))
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · saiu %s' % ('?' if saiu is None else saiu)
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'lado': ab['lado'], 'saiu': saiu, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'nome': ab.get('nome'), 'cid': cid})
@@ -527,8 +546,8 @@ def register_nuvem_double(app):
              'sym': cf.get('sym') if cf.get('sym') in MERC else 'R_100', 'ia': ia, 'ests': ests,
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'M': M, 'T': int(num(cf.get('T'), 1, 1, 13)), 'C': int(num(cf.get('C'), 1, 1, 10)), 'P': int(num(cf.get('P'), 0, 0, 600)),
-             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'A': num(cf.get('A'), 5, 0, 30),
-             'pm': u.get('pm') or {}, 'erros': 0, 'prox': time.time() + num(cf.get('A'), 5, 0, 30), 'ciclo': None, 'fase': 'ligando',
+             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)),
+             'pm': u.get('pm') or {}, 'erros': 0, 'ciclo': None, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}}
         nv.salva(conta, u)
         nv.liga(conta, True)
@@ -537,8 +556,8 @@ def register_nuvem_double(app):
             L.append(conta)
             nv.kv.jset(K_LISTA, L)
         nv.garante()
-        nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · %s · %s · entrada $%.2f · stop win %s · stop loss %s' % (
-            info['tipo'].upper(), u['sym'], 'I.A Alpha' if ia else '%d estratégia(s)' % len(ests), u['E'],
+        nv.op_log(conta, {'t': int(time.time()), 'aviso': 'NUVEM LIGADA na conta %s · %s · rodada de %d s · %s · entrada $%.2f · stop win %s · stop loss %s' % (
+            info['tipo'].upper(), u['sym'], u['R'], 'I.A Alpha' if ia else '%d estratégia(s)' % len(ests), u['E'],
             ('$%.2f' % u['W']) if u['W'] else 'sem', ('$%.2f' % u['L']) if u['L'] else 'sem')})
         return jsonify({'ok': True, 'cfg': publico(u)})
 
