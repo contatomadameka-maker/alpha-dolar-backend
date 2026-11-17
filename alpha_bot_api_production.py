@@ -4046,6 +4046,20 @@ try:
 except Exception as _e_dbl:
     print('[Double Live] nao registrou:', _e_dbl)
 
+# NUVEM-DOUBLE-V1: automatico do Alpha Double no servidor
+try:
+    from nuvem_double import register_nuvem_double
+    register_nuvem_double(app)
+except Exception as _e_ndb:
+    print('[Nuvem Double] nao registrou:', _e_ndb)
+
+# NUVEM-CLIQUE-V1: automatico do Alpha Clique no servidor
+try:
+    from nuvem_clique import register_nuvem_clique
+    register_nuvem_clique(app)
+except Exception as _e_ncq:
+    print('[Nuvem Clique] nao registrou:', _e_ncq)
+
 # CLIQUE-IA-V1: IA de gestao do Alpha Clique (modo automatico)
 try:
     from clique_ia import register_clique_ia
