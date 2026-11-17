@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE-V1'
+VERSAO = 'NUVEM-CLIQUE-V1.1'
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
@@ -327,7 +327,8 @@ class NuvemClique(object):
             return fam[0]
         melhor, nota = None, -1e9
         for a in pares:
-            n = (min(float(pm.get(a) or CART[a][3]), float(pm.get(OPOSTO[a]) or CART[OPOSTO[a]][3])) - 1) / 2 * 100 + 2 * abs(saiu(a, sym) - .5)
+            # V1.1 SEGUIR-O-MAIS-FORTE: a dupla que está mais desequilibrada nos últimos 30 ticks (a % mais longe de 50%); o pagamento só desempata
+            n = 100 * abs(saiu(a, sym) - .5) + (min(float(pm.get(a) or CART[a][3]), float(pm.get(OPOSTO[a]) or CART[OPOSTO[a]][3])) - 1) / 100.0
             if n > nota:
                 nota, melhor = n, a
         r, s = melhor, OPOSTO[melhor]
