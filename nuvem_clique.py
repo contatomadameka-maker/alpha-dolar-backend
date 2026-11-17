@@ -94,6 +94,42 @@ def seguidos_outro(card, sym, ep=0):
     return n
 
 
+
+# ═══ EXTRATO-NUVEM-V1: cada contrato da nuvem entra na tabela operacoes (Extrato e "Ao vivo" do admin) ═══
+def _extrato(conta, tipo, cid, sym, stake, pl, ferr, nome_feed, tp):
+    def vai():
+        try:
+            from nuvem_digitos import _nop_cliente, _nop_pct, _nop_supa
+        except Exception:
+            from backend.nuvem_digitos import _nop_cliente, _nop_pct, _nop_supa   # noqa
+        for i in range(3):
+            try:
+                cli = _nop_cliente(conta)
+                bot = cli.get('bot_name') or 'sem bot'
+                real = str(tipo) == 'real'
+                st, lu = r2(float(stake or 0)), r2(float(pl or 0))
+                L = {'contract_id': str(cid), 'deriv_id': conta, 'cliente_id': cli.get('id'), 'bot_name': bot, 'ferramenta': ferr,
+                     'conta': 'real' if real else 'demo', 'stake': st, 'lucro': lu, 'resultado': 'won' if lu > 0 else 'lost',
+                     'symbol': str(sym or '')[:30], 'tipo': str(tp or '')[:30],
+                     'markup_usd': round(st * _nop_pct(bot) / 100, 4) if real else 0}
+                _nop_supa('operacoes?on_conflict=contract_id', 'POST', [L], {'Prefer': 'resolution=ignore-duplicates,return=minimal'})
+                if real and lu > 0:
+                    try:
+                        import sys as _sys
+                        for mn in ('alpha_bot_api_production', '__main__'):
+                            fr = getattr(_sys.modules.get(mn), '_feed_registrar', None)
+                            if fr:
+                                fr(conta, '', nome_feed, L['symbol'], lu, st, 'real', L['contract_id'])
+                                break
+                    except Exception as e:
+                        log('extrato feed', str(e)[:100])
+                return
+            except Exception as e:
+                log('extrato grava', str(e)[:150])
+                time.sleep(3 + i * 5)
+    if cid:
+        threading.Thread(target=vai, daemon=True).start()
+
 class NuvemClique(object):
     def __init__(self):
         self.kv = KV()
@@ -471,6 +507,7 @@ class NuvemClique(object):
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · %s' % CART[card][4]
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'card': card, 'nome': CART[card][4], 'saiu': dg, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'cid': cid})
+        _extrato(conta, u.get('tipo'), cid, sym, ab['st'], pl, 'clique', 'Alpha Clique', CART[card][4])   # EXTRATO-NUVEM-V1
         if W > 0 and s['pl'] >= W - 1e-9 and not u.get('ciclo'):
             return self.para(conta, 'META BATIDA: +$%.2f em %d entradas' % (s['pl'], s['n']))
         if L > 0 and -s['pl'] >= L - 1e-9:

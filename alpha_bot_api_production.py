@@ -3697,6 +3697,19 @@ def admin_ao_vivo():
             marca(c, _nb.get(c), 'real' if _u.get('tipo') == 'real' else 'demo', 'Sinais VIP')
     except Exception as e:
         print('AO-VIVO nuvem:', e)
+    try:   # AOVIVO-NUVEM2-V1: Alpha Double e Alpha Clique ligados na nuvem aparecem no "Ao vivo" mesmo esperando o sinal
+        import redis as _redis3
+        r3_ = _redis3.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
+        for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)')):
+            _nl3 = [c for c in (_j.loads(r3_.get(_pfx + 'lista') or '[]') or []) if r3_.get(_pfx + 'on:' + c) == '1']
+            for c in _nl3:
+                try:
+                    _u3 = _j.loads(r3_.get(_pfx + 'u:' + c) or '{}')
+                except Exception:
+                    _u3 = {}
+                marca(c, None, 'real' if _u3.get('tipo') == 'real' else 'demo', _nome)
+    except Exception as e:
+        print('AO-VIVO nuvem2:', e)
     try:
         desde = (_dt.utcnow() - _td(minutes=3)).strftime('%Y-%m-%dT%H:%M:%S')  # AOVIVO-CONTA-V3: ultimos 3 min
         ops = _ledger_supa_req('operacoes?select=deriv_id,cliente_id,bot_name,ferramenta,conta&criado_em=gte.' + desde + '&limit=1000') or []
