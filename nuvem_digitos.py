@@ -171,28 +171,80 @@ class Conexao(object):
             pass
         self.ws = None
 
-    def req(self, obj, to=10):
-        for tent in range(2):
+    # NUVEM-CONEXAO-V2: conexao parada nao atrasa a compra (ping rapido antes de usar; esperas curtas)
+    # e compra NUNCA e repetida as cegas: se a resposta se perder, procura o contrato na Deriv antes.
+    def _troca(self, obj, to):
+        rid = self.n
+        self.n += 1
+        o = dict(obj)
+        o['req_id'] = rid
+        self.ws.settimeout(min(to, 1.5))
+        self.ws.send(json.dumps(o))
+        fim = time.time() + to
+        while time.time() < fim:
+            try:
+                m = json.loads(self.ws.recv())
+            except Exception as e:
+                if 'timed out' in str(e).lower() and time.time() < fim:
+                    continue
+                raise
+            if m.get('req_id') == rid:
+                self.ult = time.time()
+                return m
+        raise RuntimeError('tempo esgotado')
+
+    def _acha_compra(self, obj, t0):
+        prc = float(obj.get('price') or 0)
+        for pedido, chave in (({'profit_table': 1, 'description': 1, 'date_from': int(t0) - 5, 'limit': 10, 'sort': 'DESC'}, 'transactions'),
+                              ({'portfolio': 1}, 'contracts')):
             try:
                 if self.ws is None:
                     self.abre()
-                rid = self.n
-                self.n += 1
-                o = dict(obj)
-                o['req_id'] = rid
-                self.ws.settimeout(to)
-                self.ws.send(json.dumps(o))
-                fim = time.time() + to
-                while time.time() < fim:
-                    m = json.loads(self.ws.recv())
-                    if m.get('req_id') == rid:
-                        self.ult = time.time()
-                        return m
-                raise RuntimeError('tempo esgotado')
+                m = self._troca(pedido, 6)
+                L = (m.get(pedido.get('profit_table') and 'profit_table' or 'portfolio') or {}).get(chave) or []
+                for x in L:
+                    if float(x.get('purchase_time') or 0) >= t0 - 3 and abs(float(x.get('buy_price') or 0) - prc) < 0.011:
+                        return {'buy': {'contract_id': x.get('contract_id'), 'buy_price': x.get('buy_price'), 'payout': x.get('payout')}, 'achado': True}
             except PermissionError:
                 raise
             except Exception:
                 self.fecha()
+        return None
+
+    def req(self, obj, to=10):
+        compra = 'buy' in obj
+        if 'ping' in obj:
+            to = min(to, 3)
+        if 'proposal_open_contract' in obj:
+            to = min(to, 5)
+        if compra:
+            to = min(to, 6)
+        if self.ws is not None and 'ping' not in obj and time.time() - self.ult > 12:
+            try:
+                self._troca({'ping': 1}, 1.5)
+            except PermissionError:
+                raise
+            except Exception:
+                self.fecha()
+        t0 = time.time()
+        for tent in range(2):
+            enviou = False
+            try:
+                if self.ws is None:
+                    self.abre()
+                enviou = True
+                return self._troca(obj, to)
+            except PermissionError:
+                raise
+            except Exception:
+                self.fecha()
+                if compra and enviou:
+                    achou = self._acha_compra(obj, t0)
+                    if achou:
+                        return achou
+                    if tent:
+                        raise
+                    continue   # a Deriv confirmou que nao comprou: pode tentar de novo
                 if tent:
                     raise
         raise RuntimeError('sem resposta')
