@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE-V1.2'   # V1.2: reconecta se um mercado parar de mandar preço; batimento do robô; estado mostra a idade do último tick
+VERSAO = 'NUVEM-CLIQUE-V1.3'   # V1.3: a confirmacao so conta ticks NOVOS (depois de ligar e depois de cada operacao) · V1.2   # V1.2: reconecta se um mercado parar de mandar preço; batimento do robô; estado mostra a idade do último tick
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
@@ -380,7 +380,7 @@ class NuvemClique(object):
                 v = self.cfg(conta)
                 v['alvo'] = card
                 self.salva(conta, v)
-        k = seguidos_outro(card, sym)
+        k = seguidos_outro(card, sym, int(u.get('ep0') or 0))   # V1.3: so ticks depois de ligar / da ultima operacao
         if conf and k < conf:
             return self.fase(conta, u, 'analisando %s: esperando %d do outro lado (%d/%d)' % (CART[card][4], conf, min(k, conf), conf))
         return self.compra(conta, c, u, sym, card)
@@ -522,6 +522,8 @@ class NuvemClique(object):
                 u['pausa_ate'] = time.time() + 60
                 s['seq'] = 0
             u['prox'] = time.time() + (0.9 if u.get('ciclo') else 2.2)
+            _tq = TICKS.get(sym)
+            u['ep0'] = int(_tq[-1][0]) if _tq else int(time.time())   # V1.3: a proxima confirmacao comeca do zero
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · %s' % CART[card][4]
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'card': card, 'nome': CART[card][4], 'saiu': dg, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'cid': cid})
@@ -612,7 +614,7 @@ def register_nuvem_clique(app):
              'cicFim': 'parar' if cf.get('cicFim') == 'parar' else 'reset', 'conf': int(num(cf.get('conf'), 0, 0, 5)),
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'pausaN': int(num(cf.get('pausaN'), 3, 0, 5)),
              'pm': u.get('pm') or {}, 'erros': 0, 'prox': 0, 'ciclo': None, 'alvo': None, 'travaOn': False, 'fase': 'ligando',
-             'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'seq': 0, 'ini': int(time.time())}}
+             'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'seq': 0, 'ini': int(time.time())}, 'ep0': int(time.time())}
         nv.salva(conta, u)
         nv.liga(conta, True)
         L = nv.lista()
