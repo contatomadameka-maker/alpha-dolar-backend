@@ -37,6 +37,7 @@ TICKS = {s: deque(maxlen=3000) for s in MERC}   # (epoch, dígito)
 PIP = {'R_10': 3, 'R_25': 3, 'R_50': 4, 'R_75': 4, 'R_100': 2}   # V1.2: casas decimais (fallback do histórico)
 SKEW = {'v': None}   # epoch da Deriv - relógio do servidor
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
+LTK = {}   # NUVEM-VIGIA-V1: hora do último preço de cada mercado; mercado parado -> reconecta
 
 
 def log(*a):
@@ -241,12 +242,17 @@ class NuvemDouble(object):
                     ws.send(json.dumps({'ticks_history': s, 'end': 'latest', 'count': 3000, 'style': 'ticks', 'req_id': i + 101}))
                     ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
                 ws.settimeout(10)
+                EST['con'] = time.time()
+                EST['vistos'] = set()
                 EST['ws'] = ''
                 ult_ping, sem = time.time(), time.time()
                 while not EST['pausa']:
                     if time.time() - ult_ping > 25:
                         ws.send('{"ping": 1}')
                         ult_ping = time.time()
+                    _vel = [x for x in EST.get('vistos', ()) if time.time() - LTK.get(x, 0) > 20]
+                    if _vel and time.time() - EST.get('con', 0) > 30:   # NUVEM-VIGIA-V1: um mercado parou sozinho -> reconecta
+                        raise Exception('sem preço de %s há 20 s' % ','.join(_vel))
                     if time.time() - sem > 45:
                         raise Exception('nenhum tick em 45 s')
                     try:
@@ -286,6 +292,14 @@ class NuvemDouble(object):
                     sk = ep - time.time()
                     SKEW['v'] = sk if SKEW['v'] is None else SKEW['v'] * .8 + sk * .2
                     EST['ticks'] += 1
+                    LTK[sym] = time.time()
+                    EST.setdefault('vistos', set()).add(sym)
+                    if time.time() - EST.get('tkw', 0) > 4:
+                        EST['tkw'] = time.time()
+                        try:
+                            self.kv.set(P + 'tk:' + self.eu, json.dumps(LTK), ex=60)
+                        except Exception:
+                            pass
                     if EST['ticks'] % 50 == 0:
                         self.kv.set(K_MOTOR, str(int(time.time())), ex=60)
             except Exception as e:
@@ -315,7 +329,7 @@ class NuvemDouble(object):
 
     # ---------- um trabalhador por conta ----------
     def trabalha(self, conta):
-        c, ult_ep = None, 0
+        c, ult_ep, hb = None, 0, 0
         while self.ligado(conta) and not EST['pausa'] and self.lider:
             try:
                 u = self.cfg(conta)
@@ -327,6 +341,12 @@ class NuvemDouble(object):
                     self.confere(conta, c, u['aberto'])
                     continue
                 sym = u.get('sym') or 'R_100'
+                if time.time() - hb > 5:   # NUVEM-VIGIA-V1: batimento do robô desta conta
+                    hb = time.time()
+                    self.kv.set(P + 'hb:' + conta, str(int(hb)), ex=600)
+                if time.time() - LTK.get(sym, time.time()) > 20:   # preço deste mercado parado: não decide com preço velho
+                    time.sleep(0.5)
+                    continue
                 R = int(u.get('R') or 22)
                 if SKEW['v'] is None or not TICKS.get(sym):
                     time.sleep(0.2)
@@ -728,8 +748,18 @@ def register_nuvem_double(app):
         if u:
             u['ligado'] = nv.ligado(conta)
         mt = float(nv.kv.get(K_MOTOR) or 0)
+        _ti, _hb = None, None
+        try:   # NUVEM-VIGIA-V1: idade do último preço do mercado desta conta no robô líder + batimento
+            _ld = nv.kv.get(K_LIDER) or ''
+            _tk = nv.kv.jget(P + 'tk:' + _ld, {}) if _ld else {}
+            if u and _tk.get(u.get('sym') or 'R_100'):
+                _ti = int(time.time() - float(_tk[u.get('sym') or 'R_100']))
+            _h = nv.kv.get(P + 'hb:' + conta)
+            _hb = int(time.time() - float(_h)) if _h else None
+        except Exception:
+            pass
         return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:40],
-                        'motor': time.time() - mt < 60, 'saldo': info.get('saldo')})
+                        'motor': (time.time() - mt < 60) if _ti is None else _ti < 25, 'tick_idade': _ti, 'robo_idade': _hb, 'saldo': info.get('saldo')})
 
     @app.route('/api/admin/nuvem-double', methods=['GET'])
     def _ndb_admin():
