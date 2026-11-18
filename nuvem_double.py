@@ -77,11 +77,40 @@ def digs(sym, ep=0, R=22, ate=None):
     return [d for (b, d) in pedras(sym, R, ate) if b > ep]
 
 
+def bate(x, d):   # DOUBLE-NUMEROS-V1: PAR, IMPAR ou um numero (d0..d9)
+    if x == 'par':
+        return int(d) % 2 == 0
+    if x == 'impar':
+        return int(d) % 2 == 1
+    try:
+        return int(str(x)[1:]) == int(d)
+    except Exception:
+        return False
+
+
 def casa_fim(h, seq):
     for k in range(min(len(seq), len(h)), 0, -1):
-        if all(par(h[len(h) - k + j]) == seq[j] for j in range(k)):
+        if all(bate(seq[j], h[len(h) - k + j]) for j in range(k)):
             return k
     return 0
+
+
+def casa_w(h, seq, W):
+    """-> (k, ok, wt): com W > 0 o padrao tem que ter completado W rodadas atras"""
+    L = len(seq)
+
+    def full(off):
+        n = len(h) - off
+        return n >= L and all(bate(seq[j], h[n - L + j]) for j in range(L))
+    if not W:
+        k = casa_fim(h, seq)
+        return k, k >= L, -1
+    if full(W):
+        return L, True, W
+    for w in range(W - 1, -1, -1):
+        if full(w):
+            return L, False, w
+    return casa_fim(h, seq), False, -1
 
 
 def prog(est, sym, ep=0, R=22, ate=None, fm=0):
@@ -97,8 +126,8 @@ def prog(est, sym, ep=0, R=22, ate=None, fm=0):
             m, lado = 10, par(u[-1])
         return m, fm or 10, lado, m >= fm
     seq = est.get('seq') or []
-    k = casa_fim(digs(sym, ep, R, ate), seq)
-    return k, len(seq), est.get('em'), bool(seq) and k >= len(seq)
+    k, ok, wt = casa_w(digs(sym, ep, R, ate), seq, int(est.get('w') or 0))
+    return k, len(seq), est.get('em'), bool(seq) and ok
 
 
 def nome_est(e):
@@ -686,10 +715,10 @@ def register_nuvem_double(app):
     def limpa_ests(L):
         out = []
         for e in (L or [])[:12]:
-            seq = [('par' if x == 'par' else 'impar') for x in (e.get('seq') or [])][:8]
+            seq = [x if x in ('par', 'impar') or (isinstance(x, str) and len(x) == 2 and x[0] == 'd' and x[1].isdigit()) else 'impar' for x in (e.get('seq') or [])][:8]
             if not seq:
                 continue
-            out.append({'id': str(e.get('id') or '')[:20], 'nome': str(e.get('nome') or '').replace('<', '').replace('>', '')[:30], 'seq': seq, 'em': 'par' if e.get('em') == 'par' else 'impar'})
+            out.append({'id': str(e.get('id') or '')[:20], 'nome': str(e.get('nome') or '').replace('<', '').replace('>', '')[:30], 'seq': seq, 'em': 'par' if e.get('em') == 'par' else 'impar', 'w': max(0, min(10, int(e.get('w') or 0)))})
         return out
 
     @app.route('/api/nuvem-double/ligar', methods=['POST'])
