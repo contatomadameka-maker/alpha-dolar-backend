@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE-V1.1'
+VERSAO = 'NUVEM-CLIQUE-V1.2'   # V1.2: reconecta se um mercado parar de mandar preço; batimento do robô; estado mostra a idade do último tick
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://api.derivws.com/trading/v1/options/ws/public',
@@ -29,6 +29,7 @@ K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
 TICKS = {s: deque(maxlen=200) for s in MERC}   # (epoch, dígito, subiu 0/1/None)
 ULTQ = {}
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
+LTK = {}   # NUVEM-CLIQUE-V1.2: hora (relógio do servidor) do último tick de cada mercado
 # cartões: contrato, barreira, duração, pagamento inicial, predicado de "ganha", nome
 CART = {'par': ('DIGITEVEN', None, 1, .818, 'Par'), 'impar': ('DIGITODD', None, 1, .818, 'Ímpar'),
         'over': ('DIGITOVER', '4', 1, .80, 'Over 4'), 'under': ('DIGITUNDER', '5', 1, .80, 'Under 5'),
@@ -217,12 +218,17 @@ class NuvemClique(object):
                     mapa[i + 1] = s
                     ws.send(json.dumps({'ticks': s, 'subscribe': 1, 'req_id': i + 1}))
                 ws.settimeout(10)
+                EST['con'] = time.time()
+                EST['vistos'] = set()
                 EST['ws'] = ''
                 ult_ping, sem = time.time(), time.time()
                 while not EST['pausa']:
                     if time.time() - ult_ping > 25:
                         ws.send('{"ping": 1}')
                         ult_ping = time.time()
+                    _vel = [x for x in EST.get('vistos', ()) if time.time() - LTK.get(x, 0) > 20]
+                    if _vel and time.time() - EST.get('con', 0) > 30:   # V1.2: um mercado parou sozinho (ex.: R_100) -> reconecta
+                        raise Exception('sem preço de %s há 20 s' % ','.join(_vel))
                     if time.time() - sem > 45:
                         raise Exception('nenhum tick em 45 s')
                     try:
@@ -246,6 +252,14 @@ class NuvemClique(object):
                     ULTQ[sym] = q
                     TICKS[sym].append((int(t.get('epoch') or time.time()), d, up))
                     EST['ticks'] += 1
+                    LTK[sym] = time.time()
+                    EST.setdefault('vistos', set()).add(sym)
+                    if time.time() - EST.get('tkw', 0) > 4:
+                        EST['tkw'] = time.time()
+                        try:
+                            self.kv.set(P + 'tk:' + self.eu, json.dumps(LTK), ex=60)
+                        except Exception:
+                            pass
                     if EST['ticks'] % 50 == 0:
                         self.kv.set(K_MOTOR, str(int(time.time())), ex=60)
             except Exception as e:
@@ -283,7 +297,7 @@ class NuvemClique(object):
             u['fase'] = txt
 
     def trabalha(self, conta):
-        c, ult_ep = None, 0
+        c, ult_ep, hb = None, 0, 0
         while self.ligado(conta) and not EST['pausa'] and self.lider:
             try:
                 u = self.cfg(conta)
@@ -295,6 +309,9 @@ class NuvemClique(object):
                     self.confere(conta, c, u['aberto'])
                     continue
                 sym = u.get('sym') or 'R_100'
+                if time.time() - hb > 5:   # V1.2: batimento do robô desta conta
+                    hb = time.time()
+                    self.kv.set(P + 'hb:' + conta, str(int(hb)), ex=600)
                 T = TICKS.get(sym)
                 if not T or T[-1][0] <= ult_ep:
                     time.sleep(0.05)
@@ -630,8 +647,18 @@ def register_nuvem_clique(app):
         if u:
             u['ligado'] = nv.ligado(conta)
         mt = float(nv.kv.get(K_MOTOR) or 0)
+        _ti, _hb = None, None
+        try:   # V1.2: idade do último preço do mercado desta conta no robô líder + batimento
+            _ld = nv.kv.get(K_LIDER) or ''
+            _tk = nv.kv.jget(P + 'tk:' + _ld, {}) if _ld else {}
+            if u and _tk.get(u.get('sym') or 'R_100'):
+                _ti = int(time.time() - float(_tk[u.get('sym') or 'R_100']))
+            _h = nv.kv.get(P + 'hb:' + conta)
+            _hb = int(time.time() - float(_h)) if _h else None
+        except Exception:
+            pass
         return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:40],
-                        'motor': time.time() - mt < 60, 'saldo': info.get('saldo')})
+                        'motor': (time.time() - mt < 60) if _ti is None else _ti < 25, 'tick_idade': _ti, 'robo_idade': _hb, 'saldo': info.get('saldo')})
 
     @app.route('/api/admin/nuvem-clique', methods=['GET'])
     def _ncq_admin():
