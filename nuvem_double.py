@@ -354,6 +354,8 @@ class NuvemDouble(object):
                 time.sleep(1.5)
 
     def decide(self, conta, c, u, sym, R=22, B=None):
+        if self.sombra(conta, u, sym, R, B):   # ENTRAR-APOS-HIT-V1
+            return
         g = u.get('ciclo')
         agora = time.time()
         if g and g.get('nivel', 0) > 0 and not g.get('esp'):
@@ -386,7 +388,70 @@ class NuvemDouble(object):
             k, n, lado, ok = prog(e, sym, int(u.get('fim_b') or 0), R, B, int(u.get('IAf') or 0))   # V1.3: sinal novo só com pedras depois da última operação
             if ok and lado:
                 return self.compra(conta, c, u, sym, lado, nome_est(e), e.get('id') or nome_est(e), B)
-        self.fase(conta, u, ('I.A esperando força %d de 20' % int(u.get('IAf') or 0)) if u.get('ia') else 'esperando o padrão nas rodadas')
+        self.fase(conta, u, ('🎯 hit confirmado: próxima entrada de verdade · ' if int(u.get('HIT') or 0) else '') + (('I.A esperando força %d de 20' % int(u.get('IAf') or 0)) if u.get('ia') else 'esperando o padrão nas rodadas'))
+
+    # ENTRAR-APOS-HIT-V1: modo virtual. Simula a estrategia (a mao + os gales de 1 ciclo) sem comprar; quando der
+    # LOSS completo (o "hit") HIT vezes seguidas, a proxima entrada vai de verdade. Terminou a entrada real, volta ao virtual.
+    def vsave(self, conta, u, **kw):
+        with self.trava(conta):
+            v = self.cfg(conta)
+            if v:
+                v.update(kw)
+                self.salva(conta, v)
+        u.update(kw)
+
+    def sombra(self, conta, u, sym, R, B):
+        need = int(u.get('HIT') or 0)
+        sb = dict(u.get('sb') or {'v': True, 'k': 0})
+        if not need or not sb.get('v', True):
+            return False
+        vab, vc = u.get('vab'), u.get('vc')
+        T = max(1, int(u.get('T', 1)))
+        fim_b = int(u.get('fim_b') or 0)
+        if vab:
+            d = None
+            for (b, dd) in pedras(sym, R):
+                if b == int(vab.get('rb') or 0):
+                    d = dd
+            if d is None and B is not None and B - int(vab.get('rb') or 0) <= 3 * R:
+                self.fase(conta, u, 'virtual: esperando a pedra da rodada')
+                return True
+            if d is not None:
+                won = par(d) == vab.get('lado')
+                niv = int((vc or {}).get('nivel') or 0)
+                lado_tx = 'PAR' if vab.get('lado') == 'par' else 'ÍMPAR'
+                if won:
+                    sb['k'] = 0
+                    vc, fim_b = None, int(vab['rb'])
+                    tx = 'WIN' + (' no gale %d' % niv if niv else '') + ' · zera a contagem de hits'
+                elif niv < T - 1:
+                    vc = {'nivel': niv + 1, 'lado': vab.get('lado'), 'nome': vab.get('nome')}
+                    tx = 'LOSS · vai para o gale %d (virtual)' % (niv + 1)
+                else:
+                    sb['k'] = int(sb.get('k') or 0) + 1
+                    vc, fim_b = None, int(vab['rb'])
+                    tx = 'HIT %d de %d (perdeu a mão e os gales)' % (sb['k'], need)
+                    if sb['k'] >= need:
+                        sb = {'v': False, 'k': 0}
+                        tx += ' · a próxima entrada vai na conta de verdade'
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '👻 Virtual · %s · saiu %s · %s' % (lado_tx, d, tx)})
+            self.vsave(conta, u, sb=sb, vab=None, vc=vc, fim_b=fim_b)
+            if not sb.get('v', True):
+                self.fase(conta, u, '🎯 hit confirmado no virtual: esperando o padrão para entrar de verdade')
+                return False
+        hits = '%d/%d' % (int(sb.get('k') or 0), need)
+        if vc and int(vc.get('nivel') or 0) > 0:
+            self.vsave(conta, u, vab={'lado': vc['lado'], 'rb': B, 'nome': vc.get('nome')})
+            self.fase(conta, u, '👻 virtual · gale %d em %s · hits %s' % (vc['nivel'], 'PAR' if vc['lado'] == 'par' else 'ÍMPAR', hits))
+            return True
+        for e in ativas(u):
+            k, n, lado, ok = prog(e, sym, fim_b, R, B, int(u.get('IAf') or 0))
+            if ok and lado:
+                self.vsave(conta, u, vab={'lado': lado, 'rb': B, 'nome': nome_est(e)}, vc={'nivel': 0, 'lado': lado, 'nome': nome_est(e)})
+                self.fase(conta, u, '👻 virtual · entrou em %s (%s) · hits %s' % ('PAR' if lado == 'par' else 'ÍMPAR', nome_est(e), hits))
+                return True
+        self.fase(conta, u, '👻 virtual · esperando o padrão · hits %s' % hits)
+        return True
 
     def fase(self, conta, u, txt):
         if u.get('fase') != txt:
@@ -525,6 +590,9 @@ class NuvemDouble(object):
                 u['ciclo'] = None
                 u['fim_b'] = int(ab.get('rb') or 0)
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · saiu %s' % ('?' if saiu is None else saiu)
+            if int(u.get('HIT') or 0) and not u.get('ciclo'):   # ENTRAR-APOS-HIT-V1: terminou a entrada real, volta ao virtual
+                u['sb'] = {'v': True, 'k': 0}
+                u['fase'] += ' · volta para o virtual'
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'lado': ab['lado'], 'saiu': saiu, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'nome': ab.get('nome'), 'cid': cid})
         _extrato(conta, u.get('tipo'), cid, sym, ab['st'], pl, 'double', 'Alpha Double', ('PAR' if ab['lado'] == 'par' else 'IMPAR') + ' ' + str(ab.get('nome') or '')[:20])   # EXTRATO-NUVEM-V1
@@ -623,7 +691,7 @@ def register_nuvem_double(app):
              'sym': cf.get('sym') if cf.get('sym') in MERC else 'R_100', 'ia': ia, 'ests': ests,
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'M': M, 'T': int(num(cf.get('T'), 1, 1, 13)), 'C': int(num(cf.get('C'), 1, 1, 10)), 'P': int(num(cf.get('P'), 0, 0, 600)),
-             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)),
+             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)), 'HIT': int(num(cf.get('HIT'), 0, 0, 3)), 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None,
              'pm': u.get('pm') or {}, 'erros': 0, 'ciclo': None, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}}
         nv.salva(conta, u)
