@@ -592,7 +592,7 @@ def register_nuvem_clique(app):
              'lei': 'contrariar' if cf.get('lei') == 'contrariar' else 'seguir',
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'gales': int(num(cf.get('gales'), 2, 0, 12)), 'cic': int(num(cf.get('cic'), 1, 1, 10)), 'cicP': int(num(cf.get('cicP'), 0, 0, 600)),
-             'cicFim': 'parar' if cf.get('cicFim') == 'parar' else 'reset', 'conf': int(num(cf.get('conf'), 0, 0, 4)),
+             'cicFim': 'parar' if cf.get('cicFim') == 'parar' else 'reset', 'conf': int(num(cf.get('conf'), 0, 0, 5)),
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'pausaN': int(num(cf.get('pausaN'), 3, 0, 5)),
              'pm': u.get('pm') or {}, 'erros': 0, 'prox': 0, 'ciclo': None, 'alvo': None, 'travaOn': False, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'seq': 0, 'ini': int(time.time())}}
