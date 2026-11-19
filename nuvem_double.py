@@ -787,7 +787,7 @@ def register_nuvem_double(app):
             _hb = int(time.time() - float(_h)) if _h else None
         except Exception:
             pass
-        return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:40],
+        return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:max(1, min(200, int(d.get('n') or 40)))],   # DOUBLE-HIST-TUDO-V1
                         'motor': (time.time() - mt < 60) if _ti is None else _ti < 25, 'tick_idade': _ti, 'robo_idade': _hb, 'saldo': info.get('saldo')})
 
     @app.route('/api/admin/nuvem-double', methods=['GET'])
