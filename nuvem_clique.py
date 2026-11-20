@@ -28,6 +28,7 @@ P = 'nuvem_clq:'
 K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
 TICKS = {s: deque(maxlen=200) for s in MERC}   # (epoch, dígito, subiu 0/1/None)
 ULTQ = {}
+QT = {s: deque(maxlen=60) for s in MERC}   # CLIQUE-HIT-V1: preço de cada tick (para simular Sobe/Desce no virtual)
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
 LTK = {}   # NUVEM-CLIQUE-V1.2: hora (relógio do servidor) do último tick de cada mercado
 # cartões: contrato, barreira, duração, pagamento inicial, predicado de "ganha", nome
@@ -251,6 +252,7 @@ class NuvemClique(object):
                     up = None if sym not in ULTQ else (1 if q > ULTQ[sym] else 0)
                     ULTQ[sym] = q
                     TICKS[sym].append((int(t.get('epoch') or time.time()), d, up))
+                    QT[sym].append((int(t.get('epoch') or time.time()), q))   # CLIQUE-HIT-V1
                     EST['ticks'] += 1
                     LTK[sym] = time.time()
                     EST.setdefault('vistos', set()).add(sym)
@@ -287,7 +289,108 @@ class NuvemClique(object):
                 log('vigia', e)
             time.sleep(4)
 
+    # CLIQUE-HIT-V1: modo virtual. Simula a estrategia (confirmacao + entrada + os gales de 1 ciclo) sem comprar; quando der
+    # LOSS completo (o "hit") HIT vezes seguidas, a proxima entrada vai de verdade. Terminou o ciclo real, volta ao virtual.
+    def vsave(self, conta, u, **kw):
+        with self.trava(conta):
+            v = self.cfg(conta)
+            if v:
+                v.update(kw)
+                self.salva(conta, v)
+        u.update(kw)
+
+    def vres(self, vab, sym):
+        card, ep = vab['card'], int(vab.get('ep') or 0)
+        if CART[card][2] == 1:
+            L = [x for x in list(TICKS.get(sym) or []) if x[0] > ep]
+            if not L:
+                return None
+            return ganha(card, L[0][1], None), str(L[0][1])
+        Q = [x for x in list(QT.get(sym) or []) if x[0] > ep]
+        n = CART[card][2]
+        if len(Q) < n + 1:
+            return None
+        a, b = Q[0][1], Q[n][1]
+        return ((b > a) if card == 'sobe' else (b < a)), ('subiu' if b > a else 'desceu' if b < a else 'empatou')
+
+    def sombra(self, conta, u, sym):
+        need = int(u.get('HIT') or 0)
+        sb = dict(u.get('sb') or {'v': True, 'k': 0})
+        if not need or not sb.get('v', True):
+            return False
+        T = int(u.get('gales', 0)) + 1
+        tq = TICKS.get(sym)
+        ult = int(tq[-1][0]) if tq else int(time.time())
+        hits = ('wins ' if u.get('HITm') == 'win' else 'hits ') + '%d/%d' % (int(sb.get('k') or 0), need)
+        vab, vc = u.get('vab'), u.get('vc')
+        if vab:
+            r = self.vres(vab, sym)
+            if r is None:
+                if time.time() - float(vab.get('t') or 0) > 60:
+                    self.vsave(conta, u, vab=None)
+                self.fase(conta, u, '👻 virtual · %s · esperando o resultado · %s' % (CART[vab['card']][4], hits))
+                return True
+            won, saiu_tx = r
+            niv = int(vab.get('niv') or 0)
+            if u.get('HITm') == 'win':   # CLIQUE-HIT-V2: conta WIN seguidos (sem gale no virtual)
+                vc = None
+                if won:
+                    sb['k'] = int(sb.get('k') or 0) + 1
+                    tx = 'WIN %d de %d' % (sb['k'], need)
+                    if sb['k'] >= need:
+                        sb = {'v': False, 'k': 0}
+                        tx += ' · a próxima entrada vai na conta de verdade'
+                else:
+                    sb['k'] = 0
+                    tx = 'LOSS · zera a contagem de wins'
+            elif won:
+                sb['k'] = 0
+                vc = None
+                tx = 'WIN' + (' no gale %d' % niv if niv else '') + ' · zera a contagem de hits'
+            elif niv < T - 1:
+                vc = {'nivel': niv + 1, 'card': vab['card'], 'ep': ult}
+                tx = 'LOSS · vai para o gale %d (virtual)' % (niv + 1)
+            else:
+                sb['k'] = int(sb.get('k') or 0) + 1
+                vc = None
+                tx = 'HIT %d de %d (perdeu a entrada e os gales)' % (sb['k'], need)
+                if sb['k'] >= need:
+                    sb = {'v': False, 'k': 0}
+                    tx += ' · a próxima entrada vai na conta de verdade'
+            self.op_log(conta, {'t': int(time.time()), 'aviso': '👻 Virtual · %s · saiu %s · %s' % (CART[vab['card']][4], saiu_tx, tx)})
+            self.vsave(conta, u, sb=sb, vab=None, vc=vc, alvo=None, ep0=ult, prox=time.time() + 0.9)
+            if not sb.get('v', True):
+                self.fase(conta, u, '🎯 hit confirmado no virtual: esperando o padrão para entrar de verdade')
+                return False
+            return True
+        hits = ('wins ' if u.get('HITm') == 'win' else 'hits ') + '%d/%d' % (int(sb.get('k') or 0), need)
+        conf = int(u.get('conf', 0))
+        if vc:
+            card = vc['card']
+            k = seguidos_outro(card, sym, int(vc.get('ep') or 0))
+            if conf and k < conf:
+                self.fase(conta, u, '👻 virtual · gale %d em %s: esperando %d do outro lado (%d/%d) · %s' % (vc['nivel'], CART[card][4], conf, min(k, conf), conf, hits))
+                return True
+            self.vsave(conta, u, vab={'card': card, 'ep': ult, 'niv': vc['nivel'], 't': time.time()})
+            self.fase(conta, u, '👻 virtual · gale %d em %s · %s' % (vc['nivel'], CART[card][4], hits))
+            return True
+        if time.time() < float(u.get('prox', 0)):
+            return True
+        card = u.get('alvo')
+        if not card:
+            card = self.escolhe(u, sym)
+            self.vsave(conta, u, alvo=card)
+        k = seguidos_outro(card, sym, int(u.get('ep0') or 0))
+        if conf and k < conf:
+            self.fase(conta, u, '👻 virtual · analisando %s: esperando %d do outro lado (%d/%d) · %s' % (CART[card][4], conf, min(k, conf), conf, hits))
+            return True
+        self.vsave(conta, u, vab={'card': card, 'ep': ult, 'niv': 0, 't': time.time()})
+        self.fase(conta, u, '👻 virtual · entrou em %s · %s' % (CART[card][4], hits))
+        return True
+
     def fase(self, conta, u, txt):
+        if int(u.get('HIT') or 0) and not (u.get('sb') or {}).get('v', True) and not str(txt).startswith(('👻', '🎯')):   # CLIQUE-HIT-V1
+            txt = txt + ' · 🎯 vale de verdade (hit confirmado)'
         if u.get('fase') != txt:
             with self.trava(conta):
                 v = self.cfg(conta)
@@ -356,6 +459,8 @@ class NuvemClique(object):
         return r if (cr > cs) == seguir else s
 
     def decide(self, conta, c, u, sym):
+        if self.sombra(conta, u, sym):   # CLIQUE-HIT-V1
+            return
         g, agora = u.get('ciclo'), time.time()
         conf = int(u.get('conf', 0))
         if g and g.get('nivel', 0) > 0:
@@ -525,6 +630,9 @@ class NuvemClique(object):
             _tq = TICKS.get(sym)
             u['ep0'] = int(_tq[-1][0]) if _tq else int(time.time())   # V1.3: a proxima confirmacao comeca do zero
             u['fase'] = ('ganhou' if ganhou else 'perdeu') + ' · %s' % CART[card][4]
+            if int(u.get('HIT') or 0) and not u.get('ciclo'):   # CLIQUE-HIT-V1: terminou o ciclo real, volta ao virtual
+                u['sb'], u['vab'], u['vc'] = {'v': True, 'k': 0}, None, None
+                u['fase'] += ' · volta para o virtual'
             self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'sym': sym, 'card': card, 'nome': CART[card][4], 'saiu': dg, 'stake': ab['st'], 'pl': pl, 'tx': tx, 'cid': cid})
         _extrato(conta, u.get('tipo'), cid, sym, ab['st'], pl, 'clique', 'Alpha Clique', CART[card][4])   # EXTRATO-NUVEM-V1
@@ -612,7 +720,7 @@ def register_nuvem_clique(app):
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'gales': int(num(cf.get('gales'), 2, 0, 12)), 'cic': int(num(cf.get('cic'), 1, 1, 10)), 'cicP': int(num(cf.get('cicP'), 0, 0, 600)),
              'cicFim': 'parar' if cf.get('cicFim') == 'parar' else 'reset', 'conf': int(num(cf.get('conf'), 0, 0, 6)),
-             'trava': int(num(cf.get('trava'), 0, 0, 90)), 'pausaN': int(num(cf.get('pausaN'), 3, 0, 5)),
+             'HIT': int(num(cf.get('HIT'), 0, 0, 10)), 'HITm': 'win' if cf.get('HITm') == 'win' else 'loss', 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None, 'trava': int(num(cf.get('trava'), 0, 0, 90)), 'pausaN': int(num(cf.get('pausaN'), 3, 0, 5)),
              'pm': u.get('pm') or {}, 'erros': 0, 'prox': 0, 'ciclo': None, 'alvo': None, 'travaOn': False, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'seq': 0, 'ini': int(time.time())}, 'ep0': int(time.time())}
         nv.salva(conta, u)
