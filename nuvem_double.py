@@ -469,7 +469,18 @@ class NuvemDouble(object):
                 won = par(d) == vab.get('lado')
                 niv = int((vc or {}).get('nivel') or 0)
                 lado_tx = 'PAR' if vab.get('lado') == 'par' else 'ÍMPAR'
-                if won:
+                if u.get('HITm') == 'win':   # DOUBLE-HIT-WIN-V1: conta WIN seguidos (sem gale no virtual)
+                    vc, fim_b = None, int(vab['rb'])
+                    if won:
+                        sb['k'] = int(sb.get('k') or 0) + 1
+                        tx = 'WIN %d de %d' % (sb['k'], need)
+                        if sb['k'] >= need:
+                            sb = {'v': False, 'k': 0}
+                            tx += ' · a próxima entrada vai na conta de verdade'
+                    else:
+                        sb['k'] = 0
+                        tx = 'LOSS · zera a contagem de wins'
+                elif won:
                     sb['k'] = 0
                     vc, fim_b = None, int(vab['rb'])
                     tx = 'WIN' + (' no gale %d' % niv if niv else '') + ' · zera a contagem de hits'
@@ -488,18 +499,18 @@ class NuvemDouble(object):
             if not sb.get('v', True):
                 self.fase(conta, u, '🎯 hit confirmado no virtual: esperando o padrão para entrar de verdade')
                 return False
-        hits = '%d/%d' % (int(sb.get('k') or 0), need)
+        hits = ('wins ' if u.get('HITm') == 'win' else 'hits ') + '%d/%d' % (int(sb.get('k') or 0), need)
         if vc and int(vc.get('nivel') or 0) > 0:
             self.vsave(conta, u, vab={'lado': vc['lado'], 'rb': B, 'nome': vc.get('nome')})
-            self.fase(conta, u, '👻 virtual · gale %d em %s · hits %s' % (vc['nivel'], 'PAR' if vc['lado'] == 'par' else 'ÍMPAR', hits))
+            self.fase(conta, u, '👻 virtual · gale %d em %s · %s' % (vc['nivel'], 'PAR' if vc['lado'] == 'par' else 'ÍMPAR', hits))
             return True
         for e in ativas(u):
             k, n, lado, ok = prog(e, sym, fim_b, R, B, int(u.get('IAf') or 0))
             if ok and lado:
                 self.vsave(conta, u, vab={'lado': lado, 'rb': B, 'nome': nome_est(e)}, vc={'nivel': 0, 'lado': lado, 'nome': nome_est(e)})
-                self.fase(conta, u, '👻 virtual · entrou em %s (%s) · hits %s' % ('PAR' if lado == 'par' else 'ÍMPAR', nome_est(e), hits))
+                self.fase(conta, u, '👻 virtual · entrou em %s (%s) · %s' % ('PAR' if lado == 'par' else 'ÍMPAR', nome_est(e), hits))
                 return True
-        self.fase(conta, u, '👻 virtual · esperando o padrão · hits %s' % hits)
+        self.fase(conta, u, '👻 virtual · esperando o padrão · %s' % hits)
         return True
 
     def fase(self, conta, u, txt):
@@ -740,7 +751,7 @@ def register_nuvem_double(app):
              'sym': cf.get('sym') if cf.get('sym') in MERC else 'R_100', 'ia': ia, 'ests': ests,
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'M': M, 'T': int(num(cf.get('T'), 1, 1, 13)), 'C': int(num(cf.get('C'), 1, 1, 10)), 'P': int(num(cf.get('P'), 0, 0, 600)),
-             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)), 'HIT': int(num(cf.get('HIT'), 0, 0, 3)), 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None,
+             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)), 'HIT': int(num(cf.get('HIT'), 0, 0, 5)), 'HITm': 'win' if cf.get('HITm') == 'win' else 'loss', 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None,
              'pm': u.get('pm') or {}, 'erros': 0, 'ciclo': None, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}}
         nv.salva(conta, u)
