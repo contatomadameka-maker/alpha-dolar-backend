@@ -19,7 +19,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
+VERSAO = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
+VERSAO_ANT = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -470,7 +471,10 @@ class NuvemVisao(object):
                 NOME[mk], a['n'], 'ALTA' if a['dir'] == 'u' else 'BAIXA', a['mot'], (' · GALE %d' % u['ciclo']['nivel']) if u['ciclo']['nivel'] else '')})
             self.compra(conta, c, u)
             return True
-        melhor = self.varre(u)
+        so = None
+        if g and g.get('esp') and g.get('fora'):   # V2.4: troca de mercado depois do LOSS (se só sobrar ele, fica)
+            so = [m for m in u['mks'] if m not in g['fora']] or [m for m in u['mks'] if m != g['fora'][-1]] or None
+        melhor = self.varre(u, so)
         if not melhor:
             espera = int(time.time() - float(u.get('t_busca') or time.time()))
             u.setdefault('t_busca', time.time())
@@ -676,6 +680,12 @@ class NuvemVisao(object):
         T, C = int(u.get('G') or 0) + 1, max(1, int(u.get('C') or 1))
         g['nivel'] = int(g['nivel']) + 1
         g.setdefault('cic', 1)
+        if u.get('troca') and ((g['nivel'] % T) or g['cic'] < C):   # V2.4: o mercado que perdeu fica de fora até o ciclo acabar
+            fo = g.setdefault('fora', [])
+            if ab['mk'] not in fo:
+                fo.append(ab['mk'])
+            if len([m for m in u['mks'] if m not in fo]):
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '🔀 Saiu de %s depois do LOSS: a IA analisa os outros mercados para o gale.' % NOME[ab['mk']]})
         if g['nivel'] % T:   # ainda tem gale neste ciclo: a IA analisa de novo e entra já
             g['esp'] = True
             u['ciclo'] = g
@@ -797,11 +807,13 @@ def register_nuvem_visao(app):
             return jsonify({'ok': False, 'erro': 'o stop loss precisa ser pelo menos o valor da entrada ($%.2f)' % E}), 400
         modo = cf.get('modo') if cf.get('modo') in MODOS else 'moderado'
         G = 0 if cf.get('unica') else MODOS[modo]
+        if not cf.get('unica') and cf.get('G') is not None:   # V2.4: gales por ciclo escolhidos na configuração (0 a 6)
+            G = int(num(cf.get('G'), G, 0, 6))
         u = {'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '', 't_lig': int(time.time()),
              'op': op, 'mks': mks, 'un': 'pct' if pct else 'usd', 'Ep': num(cf.get('E'), 1, 0, 5000), 'Wp': num(cf.get('W'), 0, 0, 1000000), 'Lp': num(cf.get('L'), 0, 0, 1000000),
              'E': E, 'W': W, 'L': L, 'modo': modo, 'unica': bool(cf.get('unica')), 'G': G, 'rec': 'exata' if cf.get('rec') == 'exata' else 'mult',
              'M': num(cf.get('M'), 2.2, 1.01, 10), 'C': int(num(cf.get('C'), 1, 1, 5)), 'cFim': 'parar' if cf.get('cFim') == 'parar' else 'reset',
-             'teto': int(num(cf.get('teto'), 0, 0, 90)), 'cmin': int(num(cf.get('cmin'), 3, 3, 5)), 'pausa': int(num(cf.get('pausa'), 0, 0, 600)),
+             'troca': cf.get('troca') == 'troca', 'teto': int(num(cf.get('teto'), 0, 0, 90)), 'cmin': int(num(cf.get('cmin'), 3, 3, 5)), 'pausa': int(num(cf.get('pausa'), 0, 0, 600)),
              'pm': u0.get('pm') or {}, 'banca0': b0,
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': bool(u0.get('travaOn')) if continua else False,
              'qtd': int(num(cf.get('qtd'), 1, 0, 50)), 'pia': int(num(cf.get('pia'), 60, 0, 900)), 'rw': 0,
