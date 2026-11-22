@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
+VERSAO = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -651,6 +651,10 @@ class NuvemVisao(object):
             s['w'] += 1
             s['cw'] += 1
             u['ciclo'], u['prox'] = None, time.time() + int(u.get('pausa') or 0)
+            tv = int(u.get('trava') or 0)   # NUVEM-VISAO-V2.1: trava de lucro
+            if tv and W > 0 and not u.get('travaOn') and s['pl'] >= W * tv / 100.0 - 1e-9:
+                u['travaOn'] = True
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '🔒 Trava de lucro ligada: passou de %d%% da meta (+$%.2f). Se vier um LOSS, o robô para e segura o lucro.' % (tv, s['pl'])})
             u['fase'] = 'WIN %s · %s +$%.2f' % (tipo, NOME[ab['mk']], pl)
             if W > 0 and s['pl'] >= W - 1e-9:
                 self.para(conta, u, 'META BATIDA: +$%.2f em %d entradas' % (s['pl'], s['n']))
@@ -660,6 +664,10 @@ class NuvemVisao(object):
                 return 'parou'
             return 'parou' if self.fim_ciclo(conta, u, 'CICLO CONCLUÍDO · WIN +$%.2f%s · resultado da sessão %s$%.2f' % (pl, (' no gale %d' % ab['nivel']) if ab.get('nivel') else '', sinal, abs(s['pl'])), True) else 'ok'
         s['l'] += 1
+        if u.get('travaOn'):
+            u['ciclo'] = None
+            self.para(conta, u, 'TRAVA DE LUCRO: perdeu depois de passar de %d%% da meta · resultado %s$%.2f' % (int(u.get('trava') or 0), sinal, abs(s['pl'])))
+            return 'parou'
         if (u.get('op') or 'ia') == 'manual':
             u['ciclo'] = None
             self.para(conta, u, 'MANUAL · LOSS −$%.2f · resultado da sessão %s$%.2f' % (abs(pl), sinal, abs(s['pl'])))
@@ -750,7 +758,7 @@ def register_nuvem_visao(app):
         """a sessão continua entre os cliques, até bater meta/perda, a pessoa zerar ou virar o dia"""
         if not u0 or not u0.get('sess'):
             return False
-        if str(u0.get('parado') or '').startswith(('META BATIDA', 'PERDA MÁXIMA', 'PAROU', 'SUA SESSÃO')):
+        if str(u0.get('parado') or '').startswith(('META BATIDA', 'PERDA MÁXIMA', 'PAROU', 'SUA SESSÃO', 'TRAVA DE LUCRO')):
             return False
         return datetime.fromtimestamp(float(u0.get('t_sess') or 0), BRT).date() == datetime.now(BRT).date()
 
@@ -795,6 +803,7 @@ def register_nuvem_visao(app):
              'M': num(cf.get('M'), 2.2, 1.01, 10), 'C': int(num(cf.get('C'), 1, 1, 5)), 'cFim': 'parar' if cf.get('cFim') == 'parar' else 'reset',
              'teto': int(num(cf.get('teto'), 0, 0, 90)), 'cmin': int(num(cf.get('cmin'), 3, 3, 5)), 'pausa': int(num(cf.get('pausa'), 0, 0, 600)),
              'pm': u0.get('pm') or {}, 'banca0': b0,
+             'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': bool(u0.get('travaOn')) if continua else False,
              'qtd': int(num(cf.get('qtd'), 1, 0, 50)), 'pia': int(num(cf.get('pia'), 60, 0, 900)), 'rw': 0,
              'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,
              'sess': u0['sess'] if continua else {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'cw': 0, 'cl': 0},
