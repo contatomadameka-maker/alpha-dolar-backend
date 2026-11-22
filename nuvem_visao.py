@@ -39,7 +39,7 @@ INDS = ['tf', 'mm', 'fb', 'td', 'rsi']
 NIND = {'tf': 'Topo e Fundo', 'mm': 'Médias Móveis', 'fb': 'Fibonacci', 'td': 'Tendência', 'rsi': 'RSI'}
 MODOS = {'conservador': 1, 'moderado': 2, 'agressivo': 4}
 PAY0 = .80
-T_ANALISE, T_ANALISE_GALE = 4.0, 1.8       # segundos de análise mostrados na tela antes de entrar
+T_ANALISE, T_ANALISE_GALE = 7.0, 3.0       # segundos de análise mostrados na tela antes de entrar
 
 
 def log(*a):
