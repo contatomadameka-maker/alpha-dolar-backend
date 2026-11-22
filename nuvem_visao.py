@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V1'
+VERSAO = 'NUVEM-VISAO-V2'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -39,7 +39,7 @@ INDS = ['tf', 'mm', 'fb', 'td', 'rsi']
 NIND = {'tf': 'Topo e Fundo', 'mm': 'Médias Móveis', 'fb': 'Fibonacci', 'td': 'Tendência', 'rsi': 'RSI'}
 MODOS = {'conservador': 1, 'moderado': 2, 'agressivo': 4}
 PAY0 = .80
-T_ANALISE, T_ANALISE_GALE = 7.0, 3.0       # segundos de análise mostrados na tela antes de entrar
+T_ANALISE, T_ANALISE_GALE = 7.0, 6.0       # segundos de análise mostrados na tela antes de entrar
 
 
 def log(*a):
@@ -385,6 +385,8 @@ class NuvemVisao(object):
                             return
                 elif not self.ligado(conta):
                     break
+                elif u.get('vab'):
+                    mudou = self.virtual(conta, u) or mudou
                 elif time.time() - ta > 0.5:
                     ta = time.time()
                     mudou = self.passo(conta, c, u) or mudou
@@ -452,10 +454,18 @@ class NuvemVisao(object):
             a['t'] = int(time.time())
             u['an'] = a
             lado = 'CALL' if a['dir'] == 'u' else 'PUT'
+            hit = int(u.get('hit') or 0)
+            if not g and hit > 0 and int(u.get('hseq') or 0) < hit:   # HIT: entrada virtual (sem dinheiro) até vir a sequência escolhida
+                T = list(TICKS.get(mk) or [])
+                u['vab'] = {'mk': mk, 'lado': lado, 'e0': T[-1][0] if T else int(time.time()), 'p0': T[-1][1] if T else a['p'], 't': time.time()}
+                u['fase'] = 'HIT · entrada VIRTUAL (sem dinheiro): %s %s · esperando %d %s seguido(s) · %d/%d' % (
+                    'Compra' if lado == 'CALL' else 'Venda', NOME[mk], hit, 'WIN' if u.get('hitm') == 'win' else 'LOSS', int(u.get('hseq') or 0), hit)
+                return True
             if g and g.get('esp'):
                 g.update({'mk': mk, 'lado': lado, 'esp': False, 'V': a['V']})
             elif not g:
                 u['ciclo'] = {'nivel': 0, 'perda': 0.0, 'base': self.base(u), 'mk': mk, 'lado': lado, 'cic': 1, 'V': a['V']}
+                u['hseq'] = 0
             self.op_log(conta, {'t': int(time.time()), 'aviso': '👁 %s: %d de 5 indicadores para %s (%s)%s' % (
                 NOME[mk], a['n'], 'ALTA' if a['dir'] == 'u' else 'BAIXA', a['mot'], (' · GALE %d' % u['ciclo']['nivel']) if u['ciclo']['nivel'] else '')})
             self.compra(conta, c, u)
@@ -475,8 +485,9 @@ class NuvemVisao(object):
         mk, a = melhor
         a['mk'] = mk
         a['t'] = int(time.time())
+        a['dur'] = T_ANALISE_GALE if g else T_ANALISE
         u['an'] = a
-        u['an_ate'] = time.time() + (T_ANALISE_GALE if g else T_ANALISE)
+        u['an_ate'] = time.time() + a['dur']
         u['fase'] = 'IA analisando o gráfico de %s%s' % (NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else '')
         return True
 
@@ -492,12 +503,47 @@ class NuvemVisao(object):
             return max(0.35, ceil2((g['perda'] + g['base'] * a) / a))
         return max(0.35, r2(g['base'] * math.pow(float(u.get('M') or 2.2), g['nivel'])))
 
-    def fim_ciclo(self, conta, u, txt):
-        """no modo 'ia' (um clique = um ciclo) o robô descansa depois de cada ciclo; a sessão continua"""
-        if (u.get('op') or 'ia') != 'nuvem':
-            self.para(conta, u, txt)
-            return True
-        return False
+    def fim_ciclo(self, conta, u, txt, ganhou=False):
+        """modo 'ia': 1 = um clique, um ciclo; N = continua até N ciclos ganhos; 0 = até a meta. A sessão continua."""
+        op = u.get('op') or 'ia'
+        if op == 'nuvem':
+            return False
+        if op == 'ia':
+            q = int(u.get('qtd', 1) if u.get('qtd') is not None else 1)
+            if ganhou:
+                u['rw'] = int(u.get('rw') or 0) + 1
+            if q == 0 or (q > 1 and int(u.get('rw') or 0) < q):
+                pz = int(u.get('pia') if u.get('pia') is not None else 60)
+                u['prox'] = time.time() + pz
+                u['fase'] = '%s · %s · próxima análise em %d s' % (txt, ('WIN %d de %d' % (u['rw'], q)) if q else ('%d WIN até a meta' % int(u.get('rw') or 0)), pz)
+                self.op_log(conta, {'t': int(time.time()), 'aviso': u['fase']})
+                return False
+            if q > 1:
+                txt = 'CONCLUÍDO %d de %d WIN · %s' % (int(u.get('rw') or 0), q, txt)
+        self.para(conta, u, txt)
+        return True
+
+    def virtual(self, conta, u):
+        """HIT: confere a entrada virtual pelos ticks (5 ticks depois do tick de entrada), como a Deriv faria"""
+        v = u['vab']
+        T = [t for t in list(TICKS.get(v['mk']) or []) if t[0] > v['e0']]
+        if len(T) < 6:
+            if time.time() - float(v['t']) > 90:
+                u.pop('vab', None)
+                return True
+            return False
+        ent, sai = T[0][1], T[5][1]
+        won = sai > ent if v['lado'] == 'CALL' else sai < ent
+        quer = u.get('hitm') == 'win'
+        hit = int(u.get('hit') or 0)
+        u['hseq'] = int(u.get('hseq') or 0) + 1 if won == quer else 0
+        u.pop('vab', None)
+        self.op_log(conta, {'t': int(time.time()), 'virt': 1, 'mk': v['mk'], 'lado': v['lado'], 'res': 'w' if won else 'l', 'pe': ent,
+                            'aviso': '👻 Virtual %s %s → %s · %s %d de %d' % ('Compra' if v['lado'] == 'CALL' else 'Venda', NOME[v['mk']], 'WIN' if won else 'LOSS',
+                                                                         'WIN' if quer else 'LOSS', min(u['hseq'], hit), hit)})
+        u['fase'] = ('HIT completo (%d %s): a próxima entrada é REAL' % (hit, 'WIN' if quer else 'LOSS')) if u['hseq'] >= hit else ('HIT %d/%d · analisando de novo' % (u['hseq'], hit))
+        u['vres'] = {'res': 'w' if won else 'l', 't': int(time.time()), 'mk': v['mk']}
+        return True
 
     def compra(self, conta, c, u):
         g, s = u['ciclo'], u.setdefault('sess', {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'cw': 0, 'cl': 0})
@@ -612,7 +658,7 @@ class NuvemVisao(object):
             if (u.get('op') or 'ia') == 'manual':
                 self.para(conta, u, 'MANUAL · WIN +$%.2f · resultado da sessão %s$%.2f' % (pl, sinal, abs(s['pl'])))
                 return 'parou'
-            return 'parou' if self.fim_ciclo(conta, u, 'CICLO CONCLUÍDO · WIN +$%.2f%s · resultado da sessão %s$%.2f' % (pl, (' no gale %d' % ab['nivel']) if ab.get('nivel') else '', sinal, abs(s['pl']))) else 'ok'
+            return 'parou' if self.fim_ciclo(conta, u, 'CICLO CONCLUÍDO · WIN +$%.2f%s · resultado da sessão %s$%.2f' % (pl, (' no gale %d' % ab['nivel']) if ab.get('nivel') else '', sinal, abs(s['pl'])), True) else 'ok'
         s['l'] += 1
         if (u.get('op') or 'ia') == 'manual':
             u['ciclo'] = None
@@ -749,9 +795,13 @@ def register_nuvem_visao(app):
              'M': num(cf.get('M'), 2.2, 1.01, 10), 'C': int(num(cf.get('C'), 1, 1, 5)), 'cFim': 'parar' if cf.get('cFim') == 'parar' else 'reset',
              'teto': int(num(cf.get('teto'), 0, 0, 90)), 'cmin': int(num(cf.get('cmin'), 3, 3, 5)), 'pausa': int(num(cf.get('pausa'), 0, 0, 600)),
              'pm': u0.get('pm') or {}, 'banca0': b0,
+             'qtd': int(num(cf.get('qtd'), 1, 0, 50)), 'pia': int(num(cf.get('pia'), 60, 0, 900)), 'rw': 0,
+             'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,
              'sess': u0['sess'] if continua else {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'cw': 0, 'cl': 0},
              't_sess': u0.get('t_sess') if continua else int(time.time()),
              'ciclo': None, 'prox': 0, 'erros': 0, 'fase': 'IA analisando os mercados…', 'saldo': saldo, 'an': None}
+        if op == 'ia' and u['qtd'] == 0 and not W > 0:
+            return jsonify({'ok': False, 'erro': 'para operar "até a meta" coloque o stop win (meta) em Configurar'}), 400
         if op == 'manual':
             mm = cf.get('mk') if cf.get('mk') in MERC else mks[0]
             u.update({'mmk': mm, 'lado': 'CALL' if cf.get('lado') == 'CALL' else 'PUT', 'G': 0, 'fase': 'enviando a entrada manual'})
