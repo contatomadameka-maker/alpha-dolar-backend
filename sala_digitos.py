@@ -365,6 +365,18 @@ def _es_markup(m):
         return m
 
 
+IMG_VER_ES = '1'   # SALA-ES-V2: banners em espanhol em web/img/sala/es/
+_FILE_IDS_ES = {}
+
+
+def _img_nome(ph):
+    if not isinstance(ph, str):
+        return None
+    if ph.startswith(IMG_BASE):
+        return ph[len(IMG_BASE):].split('.jpg')[0]
+    return next((k for k, v in list(_FILE_IDS.items()) if v == ph), None)
+
+
 def tg_espelho(kv, base=None):
     """Chama o canal em portugues (como antes) e repete a mesma acao no canal em espanhol, traduzida."""
     base = base or _tg_http
@@ -376,6 +388,15 @@ def tg_espelho(kv, base=None):
                                                'editMessageText', 'deleteMessage', 'pinChatMessage', 'unpinChatMessage'):
                 d = json.loads(json.dumps(dados))
                 d['chat_id'] = CANAL_ES
+                img = None   # SALA-ES-V2: a foto do canal ES e o banner em espanhol
+                if d.get('photo'):
+                    img = _img_nome(d['photo'])
+                    if img:
+                        d['photo'] = _FILE_IDS_ES.get(img) or (IMG_BASE + 'es/' + img + '.jpg?v=' + IMG_VER_ES)
+                if isinstance(d.get('media'), dict) and d['media'].get('media'):
+                    img = _img_nome(d['media']['media'])
+                    if img:
+                        d['media']['media'] = _FILE_IDS_ES.get(img) or (IMG_BASE + 'es/' + img + '.jpg?v=' + IMG_VER_ES)
                 for k in ('text', 'caption'):
                     if d.get(k):
                         d[k] = _es(d[k])
@@ -389,6 +410,18 @@ def tg_espelho(kv, base=None):
                         return r
                     d['message_id'] = int(es_mid)
                 ok2, e2, j2 = _tg_raw(metodo, d)
+                if img and not ok2 and 'not modified' not in (e2 or ''):   # SALA-ES-V2: banner ES falhou -> manda o de sempre
+                    _FILE_IDS_ES.pop(img, None)
+                    if d.get('photo'):
+                        d['photo'] = dados.get('photo')
+                    if isinstance(d.get('media'), dict):
+                        d['media']['media'] = (dados.get('media') or {}).get('media')
+                    ok2, e2, j2 = _tg_raw(metodo, d)
+                elif img and ok2:
+                    try:
+                        _FILE_IDS_ES[img] = j2['result']['photo'][-1]['file_id']
+                    except Exception:
+                        pass
                 if metodo in ('sendPhoto', 'sendMessage') and ok2:
                     pt_mid = ((r[2] or {}).get('result') or {}).get('message_id')
                     es_mid = (j2.get('result') or {}).get('message_id')
@@ -973,8 +1006,8 @@ class Sala(object):
                 self._bv_conferido = True
                 if not self.kv.get(K_BV):
                     self._fixo('boasvindas', auto=True)
-            if CANAL_ES and self.tg is not _tg_http and not self.kv.get('sala_dig:es_bv1'):   # SALA-ES-V1: posta e fixa a boas-vindas uma vez (sai nos dois canais)
-                self.kv.set('sala_dig:es_bv1', '1')
+            if CANAL_ES and self.tg is not _tg_http and not self.kv.get('sala_dig:es_bv2'):   # SALA-ES-V1: posta e fixa a boas-vindas uma vez (sai nos dois canais)
+                self.kv.set('sala_dig:es_bv2', '1')   # SALA-ES-V2: reposta uma vez com o banner em espanhol
                 self._fixo('boasvindas')
             dtc = datetime.fromtimestamp(agora, BRT)
             for hh, mm in HORARIOS_CHEGOU:
