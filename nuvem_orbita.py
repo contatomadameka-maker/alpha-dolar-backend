@@ -458,8 +458,16 @@ class NuvemOrbita(object):
             s['cw'] += 1
             u['ciclo'], u['prox'] = None, time.time() + pausa
             u['fase'] = 'WIN %s · %s +$%.2f' % (tipo, NOME[ab['mk']], pl)
+            tv = int(u.get('trava') or 0)   # NUVEM-ORBITA-TRAVA-V1: arma quando passa da % da meta e o lucro cobre uma entrada
+            if tv and W > 0 and not u.get('travaOn') and s['pl'] >= max(W * tv / 100.0, self.base(u)) - 1e-9:
+                u['travaOn'] = True
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '🔒 Trava de lucro ligada: passou de %d%% da meta (+$%.2f). Se vier um LOSS, o robô para e segura o lucro.' % (tv, s['pl'])})
         else:
             s['l'] += 1
+            if u.get('travaOn'):   # NUVEM-ORBITA-TRAVA-V1
+                u['ciclo'] = None
+                self.para(conta, u, 'TRAVA DE LUCRO: perdeu depois de passar de %d%% da meta · resultado %s$%.2f' % (int(u.get('trava') or 0), '+' if s['pl'] >= 0 else '−', abs(s['pl'])))
+                return 'parou'
             g['perda'] = r2(float(g['perda']) + ab['st'])
             T, C = int(u.get('G') or 0) + 1, max(1, int(u.get('C') or 1))
             g['nivel'] = int(g['nivel']) + 1
@@ -571,7 +579,8 @@ def register_nuvem_orbita(app):
             return jsonify({'ok': False, 'erro': 'coloque a perda máxima antes de ligar'}), 400
         if L < E:
             return jsonify({'ok': False, 'erro': 'a perda máxima precisa ser pelo menos o valor da entrada'}), 400
-        u = {'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '', 't_lig': int(time.time()),
+        u = {'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': False,   # NUVEM-ORBITA-TRAVA-V1: trava de lucro (% da meta)
+             'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '', 't_lig': int(time.time()),
              'mks': mks, 'E': E, 'W': num(cf.get('W'), 0, 0, 1000000), 'L': L, 'modo': 'exata' if cf.get('modo') == 'exata' else 'mult',
              'M': num(cf.get('M'), 2.3, 1.2, 5), 'G': int(num(cf.get('G'), 2, 0, 5)), 'inv': cf.get('inv') is not False,
              'sens': cf.get('sens') if cf.get('sens') in SENS else 'equilibrado', 'pm': nv.cfg(conta).get('pm') or {},
