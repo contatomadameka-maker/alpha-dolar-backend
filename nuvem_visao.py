@@ -19,7 +19,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
+VERSAO = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
+VERSAO_V26 = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
 VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
 VERSAO_V24 = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
 VERSAO_ANT = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
@@ -658,7 +659,7 @@ class NuvemVisao(object):
             s['cw'] += 1
             u['ciclo'], u['prox'] = None, time.time() + int(u.get('pausa') or 0)
             tv = int(u.get('trava') or 0)   # NUVEM-VISAO-V2.1: trava de lucro
-            if tv and W > 0 and not u.get('travaOn') and s['pl'] >= W * tv / 100.0 - 1e-9:
+            if tv and W > 0 and not u.get('travaOn') and s['pl'] >= max(W * tv / 100.0, self.base(u)) - 1e-9:   # V2.7
                 u['travaOn'] = True
                 self.op_log(conta, {'t': int(time.time()), 'aviso': '🔒 Trava de lucro ligada: passou de %d%% da meta (+$%.2f). Se vier um LOSS, o robô para e segura o lucro.' % (tv, s['pl'])})
             u['fase'] = 'WIN %s · %s +$%.2f' % (tipo, NOME[ab['mk']], pl)
@@ -670,6 +671,8 @@ class NuvemVisao(object):
                 return 'parou'
             return 'parou' if self.fim_ciclo(conta, u, 'CICLO CONCLUÍDO · WIN +$%.2f%s · resultado da sessão %s$%.2f' % (pl, (' no gale %d' % ab['nivel']) if ab.get('nivel') else '', sinal, abs(s['pl'])), True) else 'ok'
         s['l'] += 1
+        if u.get('travaOn') and r2(s['pl'] - pl) < max(W * int(u.get('trava') or 0) / 100.0, 0.01) - 1e-9:   # V2.7: trava velha (de outra sessão): desarma
+            u['travaOn'] = False
         if u.get('travaOn'):
             u['ciclo'] = None
             self.para(conta, u, 'TRAVA DE LUCRO: perdeu depois de passar de %d%% da meta · resultado %s$%.2f' % (int(u.get('trava') or 0), sinal, abs(s['pl'])))
