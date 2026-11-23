@@ -19,7 +19,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
+VERSAO = 'NUVEM-VISAO-V3'   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
+VERSAO_V27 = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
 VERSAO_V26 = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
 VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
 VERSAO_V24 = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
@@ -95,7 +96,10 @@ def _mm(cs, n):
 
 
 def analisa(cs):
-    """voto de cada indicador ('u' alta, 'd' baixa, 'n' neutro), confluência e direção, a partir das velas de 1 min"""
+    """NUVEM-VISAO-V3: os 5 indicadores leem a MESMA coisa (a favor da tendência), quase sem NEUTRO:
+    Topo e Fundo = estrutura (topos e fundos subindo ou descendo) · Médias 9/21 · Fibonacci da última perna
+    (a correção ainda respeita a perna?) · Tendência (inclinação de 30 velas) · RSI como força (acima/abaixo de 50,
+    neutro só no exagero, acima de 80 ou abaixo de 20, para não comprar o topo nem vender o fundo)."""
     if len(cs) < 40:
         return None
     hi, lo, ih, il = -1e18, 1e18, 0, 0
@@ -128,11 +132,34 @@ def analisa(cs):
             cruz = j
             break
     tend = sl * 10 / atr
-    V = {'tf': 'u' if pos < .12 else 'd' if pos > .88 else 'n',
-         'mm': 'd' if p < m9[k] < m21[k] else 'u' if p > m9[k] > m21[k] else 'n',
-         'fb': 'd' if pos < .382 else 'u' if pos > .618 else 'n',
-         'td': 'd' if tend < -.5 else 'u' if tend > .5 else 'n',
-         'rsi': 'd' if rsi > 70 else 'u' if rsi < 30 else ('d' if p < cs[k - 3][4] else 'u')}
+    # Topo e Fundo: estrutura das últimas 24 velas (2 blocos de 12): topo e fundo mais altos = alta, mais baixos = baixa
+    a1, a2 = cs[k - 23:k - 11], cs[k - 11:k + 1]
+    h1, h2 = max(v[2] for v in a1), max(v[2] for v in a2)
+    l1, l2 = min(v[3] for v in a1), min(v[3] for v in a2)
+    if h2 > h1 and l2 > l1:
+        tf = 'u'
+    elif h2 < h1 and l2 < l1:
+        tf = 'd'
+    else:   # estrutura misturada: vale o lado do extremo mais recente
+        tf = 'u' if ih > il else 'd'
+    # Fibonacci da última perna: perna de alta (fundo antes do topo) segue valendo enquanto o preço não perde 61,8% dela
+    if il < ih:
+        fb = 'u' if pos > .382 else 'd'
+    else:
+        fb = 'd' if pos < .618 else 'u'
+    # Médias: preço e MM9 do mesmo lado da MM21; se misturado, vale a MM9 virando
+    if m9[k] is not None and m21[k] is not None:
+        if p > m9[k] > m21[k]:
+            mm = 'u'
+        elif p < m9[k] < m21[k]:
+            mm = 'd'
+        else:
+            mm = 'u' if (m9[k] - (m9[k - 3] or m9[k])) > 0 else 'd'
+    else:
+        mm = 'n'
+    td = 'u' if tend > .15 else 'd' if tend < -.15 else 'n'
+    r_ = 'n' if rsi >= 80 or rsi <= 20 else ('u' if rsi > 50 else 'd')
+    V = {'tf': tf, 'mm': mm, 'fb': fb, 'td': td, 'rsi': r_}
     u = sum(1 for x in V.values() if x == 'u')
     d = sum(1 for x in V.values() if x == 'd')
     dr = 'u' if u > d else 'd'
@@ -353,6 +380,7 @@ class NuvemVisao(object):
         self.liga(conta, False)
         u['parado'], u['t_parou'], u['fase'] = motivo, int(time.time()), 'parado'
         u.pop('an_ate', None)
+        u.pop('tk_ate', None)
         self.salva(conta, u)
         self.op_log(conta, {'t': int(time.time()), 'aviso': motivo})
         log('%s…%s parado: %s' % (conta[:3], conta[-3:], motivo))
@@ -458,6 +486,22 @@ class NuvemVisao(object):
             a['t'] = int(time.time())
             u['an'] = a
             lado = 'CALL' if a['dir'] == 'u' else 'PUT'
+            # NUVEM-VISAO-V3: entra só quando os últimos ticks andam para o lado da análise (até 15 s; senão analisa de novo)
+            T3 = list(TICKS.get(mk) or [])
+            if len(T3) >= 4:
+                mv = float(T3[-1][1]) - float(T3[-4][1])
+                if not ((mv > 0) if a['dir'] == 'u' else (mv < 0)):
+                    lim = float(u.get('tk_ate') or 0) or (time.time() + 15)
+                    u['tk_ate'] = lim
+                    if time.time() < lim:
+                        u['an_ate'] = time.time() + 1
+                        u['fase'] = 'IA esperando o tick confirmar %s em %s%s' % ('a ALTA' if a['dir'] == 'u' else 'a BAIXA', NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else '')
+                        return True
+                    u.pop('tk_ate', None)
+                    u['an'] = None
+                    u['fase'] = 'o tick não confirmou em 15 s: a IA analisa de novo'
+                    return True
+            u.pop('tk_ate', None)
             hit = int(u.get('hit') or 0)
             if not g and hit > 0 and int(u.get('hseq') or 0) < hit:   # HIT: entrada virtual (sem dinheiro) até vir a sequência escolhida
                 T = list(TICKS.get(mk) or [])
@@ -636,14 +680,14 @@ class NuvemVisao(object):
         s['pl'], s['n'] = r2(s['pl'] + pl), s['n'] + 1
         self.dia(conta, pl)
         if g.get('V'):   # placar honesto: o indicador acertou se tinha votado no lado que de fato andou
-            pc = self.kv.jget(P + 'plac:' + conta, {}) or {}
+            pc = self.kv.jget(P + 'plac3:' + conta, {}) or {}
             lado_ok = ('u' if ab['lado'] == 'CALL' else 'd') if won else ('d' if ab['lado'] == 'CALL' else 'u')
             for i, v in g['V'].items():
                 if v in ('u', 'd'):
                     a = pc.setdefault(i, [0, 0])
                     a[1] += 1
                     a[0] += 1 if v == lado_ok else 0
-            self.kv.jset(P + 'plac:' + conta, pc, ex=86400 * 60)
+            self.kv.jset(P + 'plac3:' + conta, pc, ex=86400 * 60)
         tipo = 'Compra' if ab['lado'] == 'CALL' else 'Venda'
         self.op_log(conta, {'t': int(time.time()), 'mk': ab['mk'], 'nome': NOME[ab['mk']], 'tipo': tipo, 'st': ab['st'], 'pl': pl, 'g': ab.get('nivel') or 0,
                             'cid': ab['cid'], 'pe': ab.get('pe'), 'px': q.get('exit_tick') or q.get('sell_spot'), 'op': u.get('op') or 'ia'})
@@ -922,7 +966,7 @@ def register_nuvem_visao(app):
                 an_local = None
         return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:int(num(d.get('n'), 60, 1, 200))],
                         'dias': nv.dias(conta), 'mk': mk, 'cd': cd.get('c') or [], 'tk': cd.get('t') or [], 'an0': an_local,
-                        'plac': nv.kv.jget(P + 'plac:' + conta, {}) or {}, 'motor': time.time() - mt < 60,
+                        'plac': nv.kv.jget(P + 'plac3:' + conta, {}) or {}, 'motor': time.time() - mt < 60,
                         'robo_idade': int(time.time() - float(h)) if h else None, 'saldo': info.get('saldo'), 'agora': time.time()})
 
     @app.route('/api/admin/nuvem-visao', methods=['GET'])
