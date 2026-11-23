@@ -19,7 +19,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
+VERSAO = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
+VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
 VERSAO_V24 = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
 VERSAO_ANT = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
@@ -855,6 +856,8 @@ def register_nuvem_visao(app):
             return jsonify({'ok': False, 'erro': err}), 403
         conta = str(d['conta'])
         u = nv.cfg(conta)
+        if u and not nv.ligado(conta) and not u.get('ab') and u.get('parado'):   # V2.6: já estava parado (meta, perda, trava): não troca o motivo
+            return jsonify({'ok': True, 'ja': True})
         mot = 'encerrado por você' + (' (o contrato aberto termina normalmente)' if u.get('ab') else '')
         nv.kv.set(P + 'pmot:' + conta, mot, ex=86400)
         nv.liga(conta, False)
