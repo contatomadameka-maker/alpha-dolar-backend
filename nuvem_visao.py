@@ -19,7 +19,8 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
+VERSAO = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
+VERSAO_V24 = 'NUVEM-VISAO-V2.4'   # V2.4: quantidade de gale por ciclo escolhida pela pessoa + opção de trocar de mercado depois do LOSS
 VERSAO_ANT = 'NUVEM-VISAO-V2.1'   # V2: quantidade de WIN no modo IA, HIT (entradas virtuais antes da real), análise completa em cada gale
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
@@ -871,6 +872,9 @@ def register_nuvem_visao(app):
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
         conta = str(d['conta'])
+        if d.get('hist'):   # V2.5: lixeira do histórico (não mexe no resultado da sessão)
+            nv.kv.jset(P + 'ops:' + conta, [], ex=86400 * 30)
+            return jsonify({'ok': True})
         if nv.ligado(conta):
             return jsonify({'ok': False, 'erro': 'encerre antes de zerar a sessão'}), 400
         u = nv.cfg(conta)
