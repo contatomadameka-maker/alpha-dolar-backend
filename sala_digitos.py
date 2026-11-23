@@ -262,6 +262,154 @@ MSG_CEL = ('Volte ao Alpha Dígitos e toque em <b>Seguir a Sala de Sinais</b>.\n
            'O robô libera sozinho em poucos segundos.')   # SALA-TG-V5
 
 
+# ---------- SALA-ES-V1: o mesmo sinal no canal em espanhol (Alpha Señales VIP) ----------
+CANAL_ES = os.environ.get('SALA_CANAL_ES', '-1004302381488').strip()
+CANAL_ES_LINK = os.environ.get('SALA_CANAL_ES_LINK', 'https://t.me/+U8rDEyamlVpjODFh').strip()
+ES_TR = [
+    ('BEM-VINDO À SALA ALPHA SINAIS VIP', 'BIENVENIDO A LA SALA ALPHA SEÑALES VIP'),
+    ('Aqui saem sinais de <b>Par / Ímpar</b> ao vivo, com até 3 gales. Dá para seguir de dois jeitos:',
+     'Aquí salen señales de <b>Par / Impar</b> en vivo, con hasta 3 gales. Puedes seguirlas de dos formas:'),
+    ('<b>Na mão:</b> quando sair 🎯 <b>ENTRADA</b>, entre no lado indicado.', '<b>A mano:</b> cuando salga 🎯 <b>ENTRADA</b>, entra en el lado indicado.'),
+    ('<b>No automático:</b> o robô Sinais VIP entra no mesmo tick da sala, faz o gale sozinho e roda na nuvem. Pode fechar o celular.',
+     '<b>En automático:</b> el robot Señales VIP entra en el mismo tick de la sala, hace el gale solo y funciona en la nube. Puedes cerrar el celular.'),
+    ('<b>Como começar:</b>', '<b>Cómo empezar:</b>'),
+    ('Tenha uma conta na <b>Deriv</b>, a corretora (grátis)', 'Ten una cuenta en <b>Deriv</b>, el bróker (gratis)'),
+    ('Entre na <b>Alpha Dolar</b> com a sua conta Deriv', 'Entra en <b>Alpha Dolar</b> con tu cuenta Deriv'),
+    ('Abra o robô <b>Sinais VIP</b> e ligue na conta <b>Demo</b>: dinheiro virtual, sem risco',
+     'Abre el robot <b>Señales VIP</b> y enciéndelo en la cuenta <b>Demo</b>: dinero virtual, sin riesgo'),
+    ('Entrada em % da banca, limite de perda e trava de lucro já vêm prontos.', 'Entrada en % de la banca, límite de pérdida y bloqueo de ganancia ya vienen listos.'),
+    ('Sinais são análise estatística, não garantia. Comece na Demo e use sempre limite de perda.',
+     'Las señales son análisis estadístico, no una garantía. Empieza en Demo y usa siempre límite de pérdida.'),
+    ('CHEGOU AGORA NA SALA?', '¿ACABAS DE LLEGAR A LA SALA?'),
+    ('Nunca operou com sala de sinais? É simples:', '¿Nunca operaste con una sala de señales? Es simple:'),
+    ('= padrão se formando, aguarde', '= patrón formándose, espera'),
+    ('= entre no lado indicado (Par ou Ímpar)', '= entra en el lado indicado (Par o Impar)'),
+    ('= se perder, a próxima entrada é maior para recuperar (até 3)', '= si pierdes, la próxima entrada es mayor para recuperar (hasta 3)'),
+    ('= resultado do sinal', '= resultado de la señal'),
+    ('Comece pela <b>conta Demo</b> e veja a mensagem fixada no topo do canal com o passo a passo.',
+     'Empieza con la <b>cuenta Demo</b> y mira el mensaje fijado arriba del canal con el paso a paso.'),
+    ('Não é garantia de resultado. Use sempre limite de perda.', 'No es garantía de resultado. Usa siempre límite de pérdida.'),
+    ('QUER OPERAR A SALA NO AUTOMÁTICO?', '¿QUIERES OPERAR LA SALA EN AUTOMÁTICO?'),
+    ('Hoje até agora:', 'Hoy hasta ahora:'),
+    ('entra no <b>mesmo tick</b> da sala, faz o gale sozinho e roda na nuvem: você pode fechar o celular. Sem copiar sinal na mão, sem perder o tick.',
+     'entra en el <b>mismo tick</b> de la sala, hace el gale solo y funciona en la nube: puedes cerrar el celular. Sin copiar señales a mano, sin perder el tick.'),
+    ('Teste <b>grátis na conta demo</b>: toque no botão abaixo.', 'Pruébalo <b>gratis en la cuenta demo</b>: toca el botón de abajo.'),
+    ('Operar envolve risco. Resultados de hoje não garantem os próximos.', 'Operar implica riesgo. Los resultados de hoy no garantizan los próximos.'),
+    ('O <b>Alpha Sinais VIP</b>', 'El <b>Alpha Señales VIP</b>'),
+    ('Assertividade', 'Acierto'),
+    ('ATENÇÃO', 'ATENCIÓN'),
+    ('Padrão em formação:', 'Patrón en formación:'),
+    ('Padrão:', 'Patrón:'),
+    ('Estratégia:', 'Estrategia:'),
+    ('Abra o Alpha Sinais VIP neste mercado e aguarde a confirmação.', 'Abre Alpha Señales VIP en este mercado y espera la confirmación.'),
+    ('Sinal:', 'Señal:'),
+    ('Entrar: depois de', 'Entrar: después de'),
+    ('➡️ Faça o <b>', '➡️ Haz el <b>'),
+    ('</b> agora (x', '</b> ahora (x'),
+    ('ENTRADA ABORTADA', 'ENTRADA CANCELADA'),
+    ('Aguarde o próximo sinal.', 'Espera la próxima señal.'),
+    ('O mercado parou de mandar ticks', 'El mercado dejó de enviar ticks'),
+    ('O padrão se desfez antes da confirmação', 'El patrón se deshizo antes de la confirmación'),
+    ('WIN DE PRIMEIRA (SG)', 'WIN A LA PRIMERA (SG)'),
+    ('Faz parte. Respeite seu stop e sua gestão.', 'Es parte del juego. Respeta tu stop y tu gestión.'),
+    ('Análise estatística — não é garantia de resultado.', 'Análisis estadístico — no es garantía de resultado.'),
+    ('Operar no automático', 'Operar en automático'),
+    ('Criar conta grátis na Deriv (corretora)', 'Crear cuenta gratis en Deriv (bróker)'),
+    ('Entrar na Alpha Dolar', 'Entrar en Alpha Dolar'),
+    ('Ligar o robô Sinais VIP (Demo)', 'Encender el robot Señales VIP (Demo)'),
+    ('Entrar no canal da Sala', 'Entrar al canal de la Sala'),
+    ('Voltar ao Alpha Dígitos', 'Volver a Alpha Señales VIP'),
+    ('Seu Telegram já está conectado.', 'Tu Telegram ya está conectado.'),
+    ('Você já está no canal da Sala. ', 'Ya estás en el canal de la Sala. '),
+    ('Falta entrar no canal da Sala no botão abaixo. ', 'Falta entrar al canal de la Sala con el botón de abajo. '),
+    ('Falta só um passo: entre no canal da Sala de Sinais no botão abaixo. Depois: ', 'Falta solo un paso: entra al canal de la Sala de Señales con el botón de abajo. Después: '),
+    ('Telegram conectado!', '¡Telegram conectado!'),
+    ('Volte ao Alpha Dígitos e toque em <b>Seguir a Sala de Sinais</b>.', 'Vuelve al robot <b>Señales VIP</b> en tu navegador.'),
+    ('📱 <b>No celular:</b> volte para o navegador onde você já abriu o robô (Chrome ou Safari), não pelo botão abaixo. Se o robô abrir dentro do Telegram, toque em ⋮ e em <b>Abrir no navegador</b>. O robô libera sozinho em poucos segundos.',
+     '📱 <b>En el celular:</b> vuelve al navegador donde ya abriste el robot (Chrome o Safari), no por el botón de abajo. Si el robot se abre dentro de Telegram, toca ⋮ y <b>Abrir en el navegador</b>. El robot se libera solo en pocos segundos.'),
+    ('Olá! Para liberar o <b>Seguir a Sala</b> no Alpha Dígitos, toque em <b>Conectar meu Telegram</b> dentro do robô.',
+     '¡Hola! Para liberar el robot, toca <b>Conectar mi Telegram</b> dentro del robot.'),
+    ('ÍMPAR', 'IMPAR'),
+    ('Alpha Sinais VIP', 'Alpha Señales VIP'),
+    ('ALPHA SINAIS VIP', 'ALPHA SEÑALES VIP'),
+    ('Sinais VIP', 'Señales VIP'),
+]
+
+
+def _es(txt):
+    import re
+    if not txt:
+        return txt
+    for a, b in ES_TR:
+        txt = txt.replace(a, b)
+    txt = re.sub(r'ATÉ (\d+) GALE', r'HASTA \1 GALE', txt)
+    txt = re.sub(r'Até (\d+) gale', r'Hasta \1 gale', txt)
+    txt = re.sub(r'WIN NO (\d+)º GALE', r'WIN EN EL \1º GALE', txt)
+    txt = re.sub(r'(\d+) tick(s?)</b> · contrato de 1 tick', r'\1 tick\2</b> · contrato de 1 tick', txt)
+    return txt
+
+
+def _es_url(u):
+    if 'alphadolar.online' in u and 'lang=' not in u:
+        return u + ('&' if '?' in u else '?') + 'lang=es'
+    if 'YHItYk9rqLAxZjRh' in u:
+        return CANAL_ES_LINK
+    return u
+
+
+def _es_markup(m):
+    try:
+        return {'inline_keyboard': [[dict(b, text=_es(b.get('text', '')), **({'url': _es_url(b['url'])} if b.get('url') else {}))
+                                     for b in linha] for linha in (m or {}).get('inline_keyboard', [])]}
+    except Exception:
+        return m
+
+
+def tg_espelho(kv, base=None):
+    """Chama o canal em portugues (como antes) e repete a mesma acao no canal em espanhol, traduzida."""
+    base = base or _tg_http
+
+    def tg(metodo, dados):
+        r = base(metodo, dados)
+        try:
+            if CANAL_ES and r[0] and metodo in ('sendPhoto', 'sendMessage', 'editMessageMedia', 'editMessageCaption',
+                                               'editMessageText', 'deleteMessage', 'pinChatMessage', 'unpinChatMessage'):
+                d = json.loads(json.dumps(dados))
+                d['chat_id'] = CANAL_ES
+                for k in ('text', 'caption'):
+                    if d.get(k):
+                        d[k] = _es(d[k])
+                if isinstance(d.get('media'), dict) and d['media'].get('caption'):
+                    d['media']['caption'] = _es(d['media']['caption'])
+                if d.get('reply_markup'):
+                    d['reply_markup'] = _es_markup(d['reply_markup'])
+                if 'message_id' in d:
+                    es_mid = kv.get('sala_dig:es:%s' % d['message_id'])
+                    if not es_mid:
+                        return r
+                    d['message_id'] = int(es_mid)
+                ok2, e2, j2 = _tg_raw(metodo, d)
+                if metodo in ('sendPhoto', 'sendMessage') and ok2:
+                    pt_mid = ((r[2] or {}).get('result') or {}).get('message_id')
+                    es_mid = (j2.get('result') or {}).get('message_id')
+                    if pt_mid and es_mid:
+                        kv.set('sala_dig:es:%s' % pt_mid, str(es_mid), ex=86400 * 3)
+                if not ok2 and 'not modified' not in (e2 or ''):
+                    print('[SalaDigitos] canal ES recusou %s: %s' % (metodo, e2))
+        except Exception as e:
+            print('[SalaDigitos] espelho ES: %s' % e)
+        return r
+    return tg
+
+
+def _canal_req():
+    try:
+        from flask import request
+        return CANAL_ES_LINK if (request.args.get('lang') or '')[:2].lower() == 'es' and CANAL_ES_LINK else CANAL_LINK
+    except Exception:
+        return CANAL_LINK
+
+
 class Ponte(object):
     """Liga a pessoa do site ao Telegram dela: /start <codigo> no bot -> confere se e membro do canal."""
 
@@ -296,6 +444,11 @@ class Ponte(object):
         r = j.get('result') or {}
         st = r.get('status') or ''
         mem = st in ('creator', 'administrator', 'member') or (st == 'restricted' and bool(r.get('is_member')))
+        if not mem and CANAL_ES:   # SALA-ES-V1: estar no canal em espanhol tambem vale
+            ok3, _e3, j3 = _tg_raw('getChatMember', {'chat_id': CANAL_ES, 'user_id': int(uid)})
+            r3 = (j3.get('result') or {}) if ok3 else {}
+            st3 = r3.get('status') or ''
+            mem = st3 in ('creator', 'administrator', 'member') or (st3 == 'restricted' and bool(r3.get('is_member')))
         self.cache[pessoa] = (True, bool(mem), time.time())
         return True, bool(mem)
 
@@ -315,6 +468,11 @@ class Ponte(object):
         return ant[0], ant[1]
 
     def _responde(self, uid, texto):
+        if getattr(self, '_es_now', False):   # SALA-ES-V1: quem usa o Telegram em espanhol recebe em espanhol
+            _tg_raw('sendMessage', {'chat_id': uid, 'text': _es(texto), 'parse_mode': 'HTML', 'disable_web_page_preview': True,
+                                    'reply_markup': {'inline_keyboard': [[{'text': '📣 Entrar al canal de la Sala', 'url': CANAL_ES_LINK}],
+                                                                         [{'text': '🤖 Volver a Alpha Señales VIP', 'url': _es_url(LINK_ROBO)}]]}}, timeout=10)
+            return
         _tg_raw('sendMessage', {'chat_id': uid, 'text': texto, 'parse_mode': 'HTML', 'disable_web_page_preview': True,
                                 'reply_markup': {'inline_keyboard': [[{'text': '📣 Entrar no canal da Sala', 'url': CANAL_LINK}],
                                                                      [{'text': '🎲 Voltar ao Alpha Dígitos', 'url': LINK_ROBO}]]}},
@@ -324,6 +482,7 @@ class Ponte(object):
         m = u.get('message') or {}
         txt = (m.get('text') or '').strip()
         uid = (m.get('from') or {}).get('id')
+        self._es_now = bool(CANAL_ES) and str((m.get('from') or {}).get('language_code') or '').startswith('es')   # SALA-ES-V1
         if not uid or not txt.startswith('/start'):
             return
         partes = txt.split()
@@ -814,6 +973,9 @@ class Sala(object):
                 self._bv_conferido = True
                 if not self.kv.get(K_BV):
                     self._fixo('boasvindas', auto=True)
+            if CANAL_ES and self.tg is not _tg_http and not self.kv.get('sala_dig:es_bv1'):   # SALA-ES-V1: posta e fixa a boas-vindas uma vez (sai nos dois canais)
+                self.kv.set('sala_dig:es_bv1', '1')
+                self._fixo('boasvindas')
             dtc = datetime.fromtimestamp(agora, BRT)
             for hh, mm in HORARIOS_CHEGOU:
                 alvo = dtc.replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -1035,7 +1197,7 @@ class Sala(object):
 def register_sala_digitos(app, get_redis=None, parar_antigo=None):
     from flask import request, jsonify
     kv = KV(get_redis)
-    sala = Sala(kv, parar_antigo=parar_antigo)
+    sala = Sala(kv, tg=tg_espelho(kv), parar_antigo=parar_antigo)   # SALA-ES-V1
 
     def ok_admin():
         s = os.environ.get('ADMIN_SENHA', '')
@@ -1317,7 +1479,7 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
             return jsonify({'ok': False, 'erro': 'preparando o bot, tente de novo em alguns segundos'}), 503
         cod = uuid.uuid4().hex[:12]
         kv.set('sala_dig:tgcod:' + cod, p, ex=900)
-        return jsonify({'ok': True, 'link': 'https://t.me/%s?start=%s' % (bu, cod), 'canal': CANAL_LINK})
+        return jsonify({'ok': True, 'link': 'https://t.me/%s?start=%s' % (bu, cod), 'canal': _canal_req()})
 
     @app.route('/api/sala-digitos/tg/status', methods=['GET'])
     def _sd_tg_status():
@@ -1328,6 +1490,6 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         if forca:
             kv.set('sala_dig:tgf:' + p, '1', ex=8)
         lig, mem = ponte.membro(p, forca=forca)
-        return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': CANAL_LINK})
+        return jsonify({'ok': True, 'conectado': lig, 'membro': mem, 'canal': _canal_req()})
     print('[SalaDigitos] SALA-DIGITOS-V4.4 registrada (processo %s)' % os.getpid())
     return sala
