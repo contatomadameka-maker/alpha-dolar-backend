@@ -488,18 +488,23 @@ class NuvemVisao(object):
             lado = 'CALL' if a['dir'] == 'u' else 'PUT'
             # NUVEM-VISAO-V3: entra só quando os últimos ticks andam para o lado da análise (até 15 s; senão analisa de novo)
             T3 = list(TICKS.get(mk) or [])
-            if len(T3) >= 4:
-                mv = float(T3[-1][1]) - float(T3[-4][1])
-                if not ((mv > 0) if a['dir'] == 'u' else (mv < 0)):
-                    lim = float(u.get('tk_ate') or 0) or (time.time() + 15)
+            nc = int(u.get('conf') or 0)   # NUVEM-VISAO-CONF-V1: N ticks seguidos do outro lado antes de entrar
+            if len(T3) >= max(4, nc + 1):
+                if nc > 0:
+                    ok3 = all(((float(T3[-k][1]) < float(T3[-k - 1][1])) if a['dir'] == 'u' else (float(T3[-k][1]) > float(T3[-k - 1][1]))) for k in range(1, nc + 1))
+                else:
+                    mv = float(T3[-1][1]) - float(T3[-4][1])
+                    ok3 = (mv > 0) if a['dir'] == 'u' else (mv < 0)
+                if not ok3:
+                    lim = float(u.get('tk_ate') or 0) or (time.time() + (45 if nc else 15))
                     u['tk_ate'] = lim
                     if time.time() < lim:
                         u['an_ate'] = time.time() + 1
-                        u['fase'] = 'IA esperando o tick confirmar %s em %s%s' % ('a ALTA' if a['dir'] == 'u' else 'a BAIXA', NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else '')
+                        u['fase'] = ('IA esperando %d tick(s) seguidos do outro lado para entrar %s em %s%s' % (nc, 'na ALTA' if a['dir'] == 'u' else 'na BAIXA', NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else '')) if nc else ('IA esperando o tick confirmar %s em %s%s' % ('a ALTA' if a['dir'] == 'u' else 'a BAIXA', NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else ''))
                         return True
                     u.pop('tk_ate', None)
                     u['an'] = None
-                    u['fase'] = 'o tick não confirmou em 15 s: a IA analisa de novo'
+                    u['fase'] = 'a confirmação dos ticks não veio a tempo: a IA analisa de novo'
                     return True
             u.pop('tk_ate', None)
             hit = int(u.get('hit') or 0)
@@ -866,6 +871,7 @@ def register_nuvem_visao(app):
              'pm': u0.get('pm') or {}, 'banca0': b0,
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': bool(u0.get('travaOn')) if continua else False,
              'qtd': int(num(cf.get('qtd'), 1, 0, 50)), 'pia': int(num(cf.get('pia'), 60, 0, 900)), 'rw': 0,
+             'conf': int(num(cf.get('conf'), 0, 0, 5)),   # NUVEM-VISAO-CONF-V1
              'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,
              'sess': u0['sess'] if continua else {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'cw': 0, 'cl': 0},
              't_sess': u0.get('t_sess') if continua else int(time.time()),

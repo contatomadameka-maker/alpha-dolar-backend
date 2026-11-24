@@ -343,6 +343,25 @@ class NuvemOrbita(object):
             hit = int(u.get('hit') or 0)
             self.op_log(conta, {'t': int(time.time()), 'aviso': '👻 HIT virtual em %s: %s · %d/%d %s seguido(s)%s' % (NOME[vb['mk']], 'WIN' if ganhou else 'LOSS', u['hseq'], hit, 'WIN' if quer else 'LOSS', ' → a próxima entrada é REAL' if u['hseq'] >= hit else '')})
             return True
+        ec = u.get('espc')   # NUVEM-ORBITA-CONF-V1: espera N ticks seguidos do outro lado antes de entrar
+        if ec:
+            nc = int(u.get('conf') or 0)
+            for (e, p) in list(TICKS.get(ec['mk']) or []):
+                if e > ec['ue']:
+                    contra = float(p) < ec['up'] if ec['lado'] == 'CALL' else float(p) > ec['up']
+                    ec['n'] = ec['n'] + 1 if contra else 0
+                    ec['ue'], ec['up'] = e, float(p)
+            if ec['n'] >= nc:
+                u['espc'] = None
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '✔ %s: vieram %d tick(s) seguidos do outro lado → entra' % (NOME[ec['mk']], nc)})
+                return self.entra_novo(conta, c, u, ec['mk'], ec['lado'], ec['tx'])
+            if time.time() - float(ec['t']) > 45:
+                u['espc'] = None
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '⏱ %s: em 45 s não vieram %d tick(s) seguidos do outro lado · sinal descartado' % (NOME[ec['mk']], nc)})
+                return True
+            u['alvo'] = None
+            u['fase'] = 'sinal em %s → %s · esperando %d tick(s) seguidos do outro lado: %d/%d' % (NOME[ec['mk']], 'Aumento' if ec['lado'] == 'CALL' else 'Queda', nc, ec['n'], nc)
+            return True
         if time.time() < float(u.get('prox') or 0):
             u['fase'] = 'pausa depois do ciclo: volta a varrer em %d s' % max(1, int(float(u['prox']) - time.time()))
             return True
@@ -370,6 +389,17 @@ class NuvemOrbita(object):
             self.compra(conta, c, u)
             return True
         f, s, lado, tx = melhor
+        nc = int(u.get('conf') or 0)
+        if nc > 0:   # NUVEM-ORBITA-CONF-V1
+            T = TICKS.get(s)
+            if T:
+                u['espc'] = {'mk': s, 'lado': lado, 'tx': tx, 't': time.time(), 'ue': T[-1][0], 'up': float(T[-1][1]), 'n': 0}
+                u['alvo'] = None
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '🛰 Sinal em %s (%s) → %s · esperando %d tick(s) seguidos do outro lado' % (NOME[s], tx, 'Aumento' if lado == 'CALL' else 'Queda', nc)})
+            return True
+        return self.entra_novo(conta, c, u, s, lado, tx)
+
+    def entra_novo(self, conta, c, u, s, lado, tx):
         hit = int(u.get('hit') or 0)
         if hit > 0 and int(u.get('hseq') or 0) < hit:   # NUVEM-ORBITA-HIT-V1: antes de cada ciclo novo, espera N resultados virtuais
             T = TICKS.get(s)
@@ -613,7 +643,8 @@ def register_nuvem_orbita(app):
             return jsonify({'ok': False, 'erro': 'coloque a perda máxima antes de ligar'}), 400
         if L < E:
             return jsonify({'ok': False, 'erro': 'a perda máxima precisa ser pelo menos o valor da entrada'}), 400
-        u = {'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,   # NUVEM-ORBITA-HIT-V1
+        u = {'conf': int(num(cf.get('conf'), 0, 0, 5)), 'espc': None,   # NUVEM-ORBITA-CONF-V1
+             'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,   # NUVEM-ORBITA-HIT-V1
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': False,   # NUVEM-ORBITA-TRAVA-V1: trava de lucro (% da meta)
              'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '', 't_lig': int(time.time()),
              'mks': mks, 'E': E, 'W': num(cf.get('W'), 0, 0, 1000000), 'L': L, 'modo': 'exata' if cf.get('modo') == 'exata' else 'mult',
