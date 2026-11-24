@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V3'   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
+VERSAO = 'NUVEM-VISAO-V3.1'  # V3.1: gale imediato, tempo de análise, tendência longa, gatilho MM9, laboratório ·   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
 VERSAO_V27 = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
 VERSAO_V26 = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
 VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
@@ -167,6 +167,213 @@ def analisa(cs):
     return {'V': V, 'u': u, 'd': d, 'dir': dr, 'n': max(u, d), 'conf': int(round(max(u, d) / 5.0 * 100)), 'forca': abs(tend),
             'rsi': round(rsi), 'pos': round(pos, 3), 'ti': cs[ih][0], 'tl': cs[il][0], 'hi': hi, 'lo': lo,
             'tc': cs[cruz][0] if cruz is not None else None, 'sl': sl, 'mot': mot, 'p': p}
+
+
+def _incl(ys):
+    n = len(ys)
+    mx, my = (n - 1) / 2.0, sum(ys) / float(n)
+    return sum((i - mx) * (y - my) for i, y in enumerate(ys)) / (sum((i - mx) ** 2 for i in range(n)) or 1e-9)
+
+
+def filtros(cs, a, u):
+    """NUVEM-VISAO-V3.1: filtros opcionais por cima da confluência.
+    lg = tendência longa: a inclinação das últimas ~150 velas (2h30) precisa apontar para o mesmo lado da entrada.
+    pb = gatilho na MM9: nas últimas 3 velas o preço voltou até a MM9 e agora está de novo do lado da entrada (fim da correção)."""
+    if not a:
+        return False
+    k = len(cs) - 1
+    if u.get('lg'):
+        ys = [v[4] for v in cs[-150:]]
+        if len(ys) < 60:
+            return False
+        if (_incl(ys) > 0) != (a['dir'] == 'u'):
+            return False
+    if u.get('pb'):
+        m9 = _mm(cs, 9)
+        p = cs[k][4]
+        if m9[k] is None or k < 4:
+            return False
+        if a['dir'] == 'u':
+            ok = p > m9[k] and any(m9[k - i] is not None and cs[k - i][3] <= m9[k - i] for i in range(1, 4))
+        else:
+            ok = p < m9[k] and any(m9[k - i] is not None and cs[k - i][2] >= m9[k - i] for i in range(1, 4))
+        if not ok:
+            return False
+    return True
+
+
+def _mm9x(cs):
+    """palpite do estilo da outra plataforma: o preço acabou de cruzar a MM9 (nas 2 últimas velas) e segue para esse lado"""
+    k = len(cs) - 1
+    m9 = _mm(cs, 9)
+    if k < 12 or None in (m9[k], m9[k - 2]):
+        return None
+    p, p2 = cs[k][4], cs[k - 2][4]
+    if p > m9[k] and p2 <= m9[k - 2]:
+        return 'u'
+    if p < m9[k] and p2 >= m9[k - 2]:
+        return 'd'
+    return None
+
+
+def laboratorio(mk, horas, prog=None):
+    """NUVEM-VISAO-LAB-V1: busca na Deriv as velas de 1 min e os ticks das últimas N horas de um mercado e confere,
+    vela a vela, o que cada jeito de analisar teria feito com Sobe/Desce de 5 ticks (entrada = 1º tick depois da decisão,
+    saída = 5 ticks depois, como a Deriv). Gale imediato = a próxima entrada no tick seguinte ao resultado, mesma direção."""
+    import websocket
+    import random as _rd
+    ws, ult = None, ''
+    for url in WS_URLS:
+        try:
+            ws = websocket.create_connection(url, timeout=20, origin='https://alphadolar.online', header=['User-Agent: Mozilla/5.0 (AlphaVisao lab)'])
+            break
+        except Exception as e:
+            ult = str(e)[:80]
+            ws = None
+    if ws is None:
+        raise RuntimeError('sem conexão com a Deriv (%s)' % ult)
+    rid = [0]
+
+    def req(o):
+        for chave in ('ticks_history', 'underlying_symbol'):
+            q = dict(o)
+            if chave == 'underlying_symbol':
+                q['underlying_symbol'] = o['ticks_history']
+            rid[0] += 1
+            q['req_id'] = rid[0]
+            ws.send(json.dumps(q))
+            fim = time.time() + 30
+            while time.time() < fim:
+                m = json.loads(ws.recv())
+                if m.get('req_id') == rid[0]:
+                    break
+            else:
+                raise RuntimeError('a Deriv não respondeu')
+            if not m.get('error'):
+                return m
+        raise RuntimeError((m.get('error') or {}).get('message') or 'erro da Deriv')
+
+    try:
+        nv = int(horas * 60) + 160
+        m = req({'ticks_history': mk, 'end': 'latest', 'count': min(5000, nv), 'style': 'candles', 'granularity': 60})
+        cs = [[int(c['epoch']), float(c['open']), float(c['high']), float(c['low']), float(c['close'])] for c in (m.get('candles') or [])]
+        if len(cs) < 200:
+            raise RuntimeError('poucas velas (%d)' % len(cs))
+        ini = cs[0][0] + 150 * 60
+        TT, PP, end = [], [], 'latest'
+        for volta in range(40):
+            m = req({'ticks_history': mk, 'end': end, 'count': 5000, 'style': 'ticks'})
+            h = m.get('history') or {}
+            ts, ps = [int(x) for x in (h.get('times') or [])], [float(x) for x in (h.get('prices') or [])]
+            if not ts:
+                break
+            TT, PP = ts + TT, ps + PP
+            if prog:
+                prog('baixando ticks: %d' % len(TT))
+            if ts[0] <= ini:
+                break
+            end = ts[0] - 1
+        # tira repetidos e garante a ordem
+        vis, T2, P2 = set(), [], []
+        for a_, b_ in zip(TT, PP):
+            if a_ not in vis:
+                vis.add(a_)
+                T2.append(a_)
+                P2.append(b_)
+        TT, PP = T2, P2
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
+    import bisect
+    VAR = [('v3', 'Visão atual (3 de 5)', {}), ('v3c4', 'Visão 4 de 5', {'cmin': 4}), ('lg', 'Visão + tendência longa', {'lg': 1}),
+           ('pb', 'Visão + gatilho MM9', {'pb': 1}), ('lgpb', 'Visão + tendência longa + MM9', {'lg': 1, 'pb': 1}),
+           ('mm9x', 'Cruzamento da MM9 (palpite do estilo deles)', None), ('contra', 'Contrário da Visão (teste)', None), ('moeda', 'Cara ou coroa (comparação)', None)]
+    R = {k: {'nome': nm, 'n': 0, 'w': 0, 'c1': [0, 0], 'c2': [0, 0], 'pl1': 0.0, 'pl2': 0.0} for k, nm, _ in VAR}
+    rnd = _rd.Random(7)
+    pay, M = PAY0, 2.2
+
+    def res(j, lado):   # entrada no tick j+1, saída no tick j+6
+        if j + 6 >= len(PP):
+            return None
+        e, s_ = PP[j + 1], PP[j + 6]
+        return s_ > e if lado == 'u' else s_ < e
+
+    ocupado = {k: 0 for k, _, _ in VAR}
+    for k in range(150, len(cs)):
+        tdec = cs[k][0] + 60   # vela k fechou
+        if tdec < ini - 60:
+            continue
+        j0 = bisect.bisect_right(TT, tdec)
+        if j0 + 20 >= len(TT):
+            break
+        janela = cs[max(0, k - 149):k + 1]
+        a = analisa(janela)
+        for key, nm, opt in VAR:
+            if tdec < ocupado[key]:
+                continue
+            if key in ('v3', 'v3c4', 'lg', 'pb', 'lgpb', 'contra'):
+                u = opt or {}
+                if not a or a['n'] < int(u.get('cmin') or 3) or not filtros(janela, a, u):
+                    continue
+                d = a['dir'] if key != 'contra' else ('d' if a['dir'] == 'u' else 'u')
+            elif key == 'mm9x':
+                d = _mm9x(janela)
+                if not d:
+                    continue
+            else:
+                d = 'u' if rnd.random() < .5 else 'd'
+            # confirmação do tick (como a V3 ao vivo): os 3 últimos ticks andando para o lado, em até 15 s
+            j = None
+            for jj in range(j0, min(len(TT) - 7, j0 + 30)):
+                if TT[jj] - tdec > 15:
+                    break
+                if jj >= 3 and ((PP[jj] - PP[jj - 3] > 0) if d == 'u' else (PP[jj] - PP[jj - 3] < 0)):
+                    j = jj
+                    break
+            if j is None and key != 'moeda':
+                continue
+            j = j if j is not None else j0
+            r1 = res(j, d)
+            if r1 is None:
+                continue
+            Q = R[key]
+            Q['n'] += 1
+            Q['w'] += 1 if r1 else 0
+            # ciclos com gale imediato (mesma direção, entrada no tick seguinte ao resultado)
+            seq, jj = [r1], j
+            for g in range(2):
+                jj = jj + 6
+                rr = res(jj, d)
+                if rr is None:
+                    break
+                seq.append(rr)
+            for G, ck, pk in ((1, 'c1', 'pl1'), (2, 'c2', 'pl2')):
+                if len(seq) < G + 1:
+                    continue
+                perda, ganho = 0.0, None
+                for g in range(G + 1):
+                    st = 1.0 * M ** g
+                    if seq[g]:
+                        ganho = st * pay - perda
+                        break
+                    perda += st
+                Q[ck][1] += 1
+                if ganho is not None:
+                    Q[ck][0] += 1
+                    Q[pk] += ganho
+                else:
+                    Q[pk] -= perda
+            ocupado[key] = TT[min(len(TT) - 1, j + 6)] + 1
+    out = []
+    for key, nm, _ in VAR:
+        Q = R[key]
+        out.append({'k': key, 'nome': nm, 'n': Q['n'], 'acerto': round(100.0 * Q['w'] / Q['n'], 1) if Q['n'] else None,
+                    'c1': round(100.0 * Q['c1'][0] / Q['c1'][1], 1) if Q['c1'][1] else None, 'nc1': Q['c1'][1], 'pl1': r2(Q['pl1']),
+                    'c2': round(100.0 * Q['c2'][0] / Q['c2'][1], 1) if Q['c2'][1] else None, 'nc2': Q['c2'][1], 'pl2': r2(Q['pl2'])})
+    return {'mk': mk, 'horas': horas, 'de': ini, 'ate': TT[-1] if TT else 0, 'velas': len(cs), 'ticks': len(TT), 'var': out, 'pay': pay, 'M': M,
+            'empate': round(100 / (1 + pay), 1)}
 
 
 class NuvemVisao(object):
@@ -451,7 +658,7 @@ class NuvemVisao(object):
                 sc[s] = [0, 0]
                 continue
             sc[s] = [a['u'], a['d']]
-            if a['n'] >= int(u.get('cmin') or 3) and (melhor is None or (a['n'], a['forca']) > (melhor[1]['n'], melhor[1]['forca'])):
+            if a['n'] >= int(u.get('cmin') or 3) and filtros(list(VELAS.get(s) or []), a, u) and (melhor is None or (a['n'], a['forca']) > (melhor[1]['n'], melhor[1]['forca'])):
                 melhor = (s, a)
         u['scan'] = sc
         return melhor
@@ -478,7 +685,7 @@ class NuvemVisao(object):
             u.pop('an_ate', None)
             mk = (u.get('an') or {}).get('mk')
             a = analisa(list(VELAS.get(mk) or [])) if mk else None
-            if not a or a['n'] < int(u.get('cmin') or 3):
+            if not a or a['n'] < int(u.get('cmin') or 3) or not filtros(list(VELAS.get(mk) or []), a, u):
                 u['fase'] = 'a confluência sumiu no último segundo: analisando de novo'
                 u['an'] = None
                 return True
@@ -541,7 +748,7 @@ class NuvemVisao(object):
         mk, a = melhor
         a['mk'] = mk
         a['t'] = int(time.time())
-        a['dur'] = T_ANALISE_GALE if g else T_ANALISE
+        a['dur'] = float(u.get('tan') or 0) or (T_ANALISE_GALE if g else T_ANALISE)   # NUVEM-VISAO-V3.1: tempo de análise escolhido
         u['an'] = a
         u['an_ate'] = time.time() + a['dur']
         u['fase'] = 'IA analisando o gráfico de %s%s' % (NOME[mk], (' · GALE %d' % g['nivel']) if g and g.get('nivel') else '')
@@ -740,6 +947,12 @@ class NuvemVisao(object):
                 fo.append(ab['mk'])
             if len([m for m in u['mks'] if m not in fo]):
                 self.op_log(conta, {'t': int(time.time()), 'aviso': '🔀 Saiu de %s depois do LOSS: a IA analisa os outros mercados para o gale.' % NOME[ab['mk']]})
+        if u.get('gim') and g['nivel'] % T:   # NUVEM-VISAO-V3.1: gale imediato, mesmo mercado e mesma direção (sem analisar de novo)
+            g['esp'] = False
+            u['ciclo'] = g
+            self.op_log(conta, {'t': int(time.time()), 'aviso': '⚡ GALE %d imediato: %s %s de novo' % (g['nivel'], 'Compra' if g['lado'] == 'CALL' else 'Venda', NOME[g['mk']])})
+            self.compra(conta, c, u)
+            return 'parou' if not self.ligado(conta) else 'ok'
         if g['nivel'] % T:   # ainda tem gale neste ciclo: a IA analisa de novo e entra já
             g['esp'] = True
             u['ciclo'] = g
@@ -872,6 +1085,7 @@ def register_nuvem_visao(app):
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': bool(u0.get('travaOn')) if continua else False,
              'qtd': int(num(cf.get('qtd'), 1, 0, 50)), 'pia': int(num(cf.get('pia'), 60, 0, 900)), 'rw': 0,
              'conf': int(num(cf.get('conf'), 0, 0, 5)),   # NUVEM-VISAO-CONF-V1
+             'gim': cf.get('gim') is True, 'tan': int(num(cf.get('tan'), 0, 0, 30)), 'lg': bool(cf.get('lg')), 'pb': bool(cf.get('pb')),   # NUVEM-VISAO-V3.1
              'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,
              'sess': u0['sess'] if continua else {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'cw': 0, 'cl': 0},
              't_sess': u0.get('t_sess') if continua else int(time.time()),
@@ -900,6 +1114,36 @@ def register_nuvem_visao(app):
             nv.op_log(conta, {'t': int(time.time()), 'aviso': '☁ NUVEM LIGADA na conta %s · entrada $%.2f · %s · meta %s · stop loss $%.2f' % (
                 info['tipo'].upper(), E, ('entrada única' if not G else '%s até G%d ×%s' % (modo, G, str(u['M']).replace('.', ','))), ('$%.2f' % W) if W else 'sem', L)})
         return jsonify({'ok': True, 'cfg': publico(u)})
+
+    @app.route('/api/nuvem-visao/lab', methods=['POST'])
+    def _nvi_lab():   # NUVEM-VISAO-LAB-V1
+        d = request.get_json(silent=True) or {}
+        info, err = dono(d)
+        if err:
+            return jsonify({'ok': False, 'erro': err}), 403
+        mk = d.get('mk') if d.get('mk') in MERC else 'R_100'
+        h = int(num(d.get('horas'), 12, 3, 48))
+        ch = P + 'lab:%s:%d' % (mk, h)
+        st = nv.kv.jget(ch) or {}
+        if st.get('st') == 'pronto' and time.time() - float(st.get('t') or 0) < 1800 and not d.get('novo'):
+            return jsonify({'ok': True, 'st': 'pronto', 'res': st.get('res'), 't': st.get('t')})
+        if st.get('st') == 'erro' and time.time() - float(st.get('t') or 0) < 60 and not d.get('novo'):
+            return jsonify({'ok': False, 'erro': 'o laboratório falhou: ' + str(st.get('msg') or '')})
+        if st.get('st') == 'rodando' and time.time() - float(st.get('t') or 0) < 300:
+            return jsonify({'ok': True, 'st': 'rodando', 'msg': st.get('msg') or 'começando'})
+
+        def roda():
+            def prog(m):
+                nv.kv.jset(ch, {'st': 'rodando', 't': time.time(), 'msg': m}, ex=600)
+            try:
+                prog('baixando as velas')
+                r = laboratorio(mk, h, prog)
+                nv.kv.jset(ch, {'st': 'pronto', 't': time.time(), 'res': r}, ex=86400)
+            except Exception as e:
+                nv.kv.jset(ch, {'st': 'erro', 't': time.time(), 'msg': str(e)[:200]}, ex=600)
+        nv.kv.jset(ch, {'st': 'rodando', 't': time.time(), 'msg': 'começando'}, ex=600)
+        threading.Thread(target=roda, daemon=True).start()
+        return jsonify({'ok': True, 'st': 'rodando', 'msg': 'começando'})
 
     @app.route('/api/nuvem-visao/desligar', methods=['POST'])
     def _nvi_desligar():
