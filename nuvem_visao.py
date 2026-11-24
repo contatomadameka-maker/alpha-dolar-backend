@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V3.1'  # V3.1: gale imediato, tempo de análise, tendência longa, gatilho MM9, laboratório ·   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
+VERSAO = 'NUVEM-VISAO-V3.2'  # V3.2: mostra qual filtro segurou a entrada ·   # V3.1: gale imediato, tempo de análise, tendência longa, gatilho MM9, laboratório ·   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
 VERSAO_V27 = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
 VERSAO_V26 = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
 VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
@@ -200,6 +200,32 @@ def filtros(cs, a, u):
         if not ok:
             return False
     return True
+
+
+def porque(cs, a, u):
+    """NUVEM-VISAO-V3.2: diz qual filtro segurou a entrada (vazio = liberado)"""
+    if not a:
+        return 'sem velas suficientes'
+    k = len(cs) - 1
+    lado = 'ALTA' if a['dir'] == 'u' else 'BAIXA'
+    if u.get('lg'):
+        ys = [v[4] for v in cs[-150:]]
+        if len(ys) < 60:
+            return 'juntando velas para a tendência longa'
+        if (_incl(ys) > 0) != (a['dir'] == 'u'):
+            return 'a tendência longa (2h30) está para %s' % ('ALTA' if a['dir'] == 'd' else 'BAIXA')
+    if u.get('pb'):
+        m9 = _mm(cs, 9)
+        if m9[k] is None or k < 4:
+            return 'juntando velas para a MM9'
+        p = cs[k][4]
+        if a['dir'] == 'u':
+            ok = p > m9[k] and any(m9[k - i] is not None and cs[k - i][3] <= m9[k - i] for i in range(1, 4))
+        else:
+            ok = p < m9[k] and any(m9[k - i] is not None and cs[k - i][2] >= m9[k - i] for i in range(1, 4))
+        if not ok:
+            return 'falta o preço voltar na MM9 e retomar a %s' % lado
+    return ''
 
 
 def _mm9x(cs):
@@ -651,16 +677,21 @@ class NuvemVisao(object):
             self.salva(conta, u)
 
     def varre(self, u, so=None):
-        sc, melhor = {}, None
+        sc, melhor, bloq = {}, None, {}
         for s in (so or u['mks']):
             a = analisa(list(VELAS.get(s) or []))
             if not a:
                 sc[s] = [0, 0]
                 continue
             sc[s] = [a['u'], a['d']]
+            if a['n'] >= int(u.get('cmin') or 3) and (u.get('lg') or u.get('pb')):   # NUVEM-VISAO-V3.2: guarda o motivo do filtro
+                pq = porque(list(VELAS.get(s) or []), a, u)
+                if pq:
+                    bloq[s] = '%s tem %d de 5 para %s, mas %s' % (NOME[s], a['n'], 'ALTA' if a['dir'] == 'u' else 'BAIXA', pq)
             if a['n'] >= int(u.get('cmin') or 3) and filtros(list(VELAS.get(s) or []), a, u) and (melhor is None or (a['n'], a['forca']) > (melhor[1]['n'], melhor[1]['forca'])):
                 melhor = (s, a)
         u['scan'] = sc
+        u['bloq'] = bloq
         return melhor
 
     def passo(self, conta, c, u):
@@ -738,11 +769,17 @@ class NuvemVisao(object):
             espera = int(time.time() - float(u.get('t_busca') or time.time()))
             u.setdefault('t_busca', time.time())
             top = max(u['scan'], key=lambda m: max(u['scan'][m])) if u.get('scan') else None
-            u['fase'] = 'IA analisando %d mercados · nenhum com %d de 5 indicadores a favor agora%s' % (
-                len(u['mks']), int(u.get('cmin') or 3), (' · mais perto: %s %d/5' % (NOME[top], max(u['scan'][top]))) if top else '')
+            bq = list((u.get('bloq') or {}).values())
+            if bq:
+                u['fase'] = 'IA esperando: ' + bq[0]
+            else:
+                u['fase'] = 'IA analisando %d mercados · nenhum com %d de 5 indicadores a favor agora%s' % (
+                    len(u['mks']), int(u.get('cmin') or 3), (' · mais perto: %s %d/5' % (NOME[top], max(u['scan'][top]))) if top else '')
             u['an'] = None
-            if op == 'ia' and not g and espera > 180:
-                self.para(conta, u, 'SEM CONFLUÊNCIA: em 3 minutos nenhum mercado teve %d de 5 indicadores a favor. Nada foi operado; tente de novo.' % int(u.get('cmin') or 3))
+            lim = 900 if (u.get('lg') or u.get('pb')) else 180   # NUVEM-VISAO-V3.2: com filtros a espera é maior
+            if op == 'ia' and not g and espera > lim:
+                self.para(conta, u, ('SEM ENTRADA em %d minutos: %s. Nada foi operado; os filtros (tendência longa / MM9) deixam a entrada rara.' % (lim // 60, bq[0])) if bq else
+                          'SEM CONFLUÊNCIA: em %d minutos nenhum mercado teve %d de 5 indicadores a favor. Nada foi operado; tente de novo.' % (lim // 60, int(u.get('cmin') or 3)))
             return True
         u.pop('t_busca', None)
         mk, a = melhor
