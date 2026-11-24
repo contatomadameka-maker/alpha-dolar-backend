@@ -3700,7 +3700,7 @@ def admin_ao_vivo():
     try:   # AOVIVO-NUVEM2-V1: Alpha Double e Alpha Clique ligados na nuvem aparecem no "Ao vivo" mesmo esperando o sinal
         import redis as _redis3
         r3_ = _redis3.from_url(os.environ.get('REDIS_URL', ''), decode_responses=True, socket_timeout=3)
-        for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)'), ('nuvem_pls:', 'Alpha Pulso (nuvem)'), ('nuvem_aut:', 'Alpha Automação (nuvem)'), ('nuvem_orb:', 'Alpha Órbita (nuvem)'), ('nuvem_vis:', 'Alpha Visão (nuvem)')):
+        for _pfx, _nome in (('nuvem_dbl:', 'Alpha Double (nuvem)'), ('nuvem_clq:', 'Alpha Clique (nuvem)'), ('nuvem_pls:', 'Alpha Pulso (nuvem)'), ('nuvem_aut:', 'Alpha Automação (nuvem)'), ('nuvem_orb:', 'Alpha Órbita (nuvem)'), ('nuvem_cl2:', 'Alpha Clique 2.0 (nuvem)'), ('nuvem_vis:', 'Alpha Visão (nuvem)')):
             _nl3 = [c for c in (_j.loads(r3_.get(_pfx + 'lista') or '[]') or []) if r3_.get(_pfx + 'on:' + c) == '1']
             _nb3 = {}
             if _nl3:   # AOVIVO-NUVEM2-V2: nome do robô (bot) de cada conta, senão cai em "sem bot"
@@ -4085,6 +4085,13 @@ try:
     register_nuvem_visao(app)
 except Exception as _e_nvi:
     print('[Nuvem Visao] nao registrou:', _e_nvi)
+
+# NUVEM-CLIQUE2-V1: Alpha Clique 2.0 (AUTO na nuvem)
+try:
+    from nuvem_clique2 import register_nuvem_clique2
+    register_nuvem_clique2(app)
+except Exception as _e_ncl2:
+    print('[Nuvem Clique2] nao registrou:', _e_ncl2)
 
 # NUVEM-ORBITA-V1: Alpha Orbita (agente Sobe/Desce na nuvem)
 try:
