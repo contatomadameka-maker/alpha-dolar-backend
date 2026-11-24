@@ -248,7 +248,7 @@ class NuvemOrbita(object):
                 if self.sou_lider():
                     for conta in self.lista():
                         t = self.trab.get(conta)
-                        if self.ligado(conta) and (t is None or not t.is_alive()):
+                        if (self.ligado(conta) or self.cfg(conta).get('ab')) and (t is None or not t.is_alive()):   # NUVEM-ORBITA-AB-V1: termina o contrato aberto mesmo depois de encerrar
                             t = threading.Thread(target=self.trabalha, args=(conta,), daemon=True)
                             self.trab[conta] = t
                             t.start()
@@ -267,7 +267,7 @@ class NuvemOrbita(object):
     def trabalha(self, conta):
         c, hb, sb, ult, tf = None, 0, 0, 0, 0
         u = self.cfg(conta)
-        while self.ligado(conta) and not EST['pausa'] and self.lider:
+        while (self.ligado(conta) or u.get('ab')) and not EST['pausa'] and self.lider:
             try:
                 if not u:
                     return
@@ -294,7 +294,7 @@ class NuvemOrbita(object):
                         mudou = True
                         if fim == 'parou':
                             return
-                else:
+                elif self.ligado(conta):
                     t = max([TICKS[s][-1][0] for s in u['mks'] if TICKS.get(s)] or [0])
                     if t > ult:
                         ult = t
@@ -305,7 +305,7 @@ class NuvemOrbita(object):
                     self.salva(conta, u)
                 else:
                     time.sleep(0.1)
-                if not self.ligado(conta):
+                if not self.ligado(conta) and not u.get('ab'):
                     break
             except PermissionError:
                 return self.para(conta, u, 'SUA SESSÃO NA DERIV EXPIROU: abra o Alpha Órbita e ligue de novo')
@@ -564,8 +564,17 @@ def register_nuvem_orbita(app):
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
         conta, cf = str(d['conta']), d.get('cfg') or {}
-        if nv.ligado(conta) or nv.cfg(conta).get('ab'):
+        u0 = nv.cfg(conta); ab0 = u0.get('ab')   # NUVEM-ORBITA-AB-V1
+        if ab0 and not nv.ligado(conta) and time.time() - float(ab0.get('t') or 0) > 300:
+            u0.pop('ab', None)
+            u0['ciclo'] = None
+            nv.salva(conta, u0)
+            nv.op_log(conta, {'t': int(time.time()), 'aviso': 'o contrato %s ficou sem resultado depois de encerrar: confira no histórico da Deriv' % ab0.get('cid')})
+            ab0 = None
+        if nv.ligado(conta):
             return jsonify({'ok': False, 'erro': 'o Órbita já está ligado nesta conta (encerre antes)'}), 400
+        if ab0:
+            return jsonify({'ok': False, 'erro': 'o Órbita está terminando o último contrato (%s). Espere cerca de 1 minuto e ligue de novo.' % NOME.get(ab0.get('mk'), '')}), 400
         if str(info.get('tipo')) == 'real':
             nvp = _nivel_plano(str(d.get('token') or ''))
             if nvp is None:
@@ -616,6 +625,23 @@ def register_nuvem_orbita(app):
             u['parado'], u['t_parou'], u['fase'] = mot, int(time.time()), 'parado'
             nv.salva(conta, u)
         nv.op_log(conta, {'t': int(time.time()), 'aviso': 'ÓRBITA ENCERRADO por você'})
+        return jsonify({'ok': True})
+
+    @app.route('/api/nuvem-orbita/limpar', methods=['POST'])
+    def _nor_limpar():   # NUVEM-ORBITA-LIMPAR-V1: lixeira das últimas ações e dos últimos 7 dias
+        d = request.get_json(silent=True) or {}
+        info, err = dono(d)
+        if err:
+            return jsonify({'ok': False, 'erro': err}), 403
+        conta, o = str(d['conta']), d.get('o')
+        if o == 'ops':
+            nv.kv.jset(P + 'ops:' + conta, [], ex=86400 * 30)
+        elif o == 'dias':
+            hoje = datetime.now(BRT).date()
+            for i in range(10):
+                nv.kv.set(P + 'dia:' + conta + ':' + (hoje - timedelta(days=i)).strftime('%Y-%m-%d'), '0', ex=86400 * 10)
+        else:
+            return jsonify({'ok': False, 'erro': 'opção inválida'}), 400
         return jsonify({'ok': True})
 
     @app.route('/api/nuvem-orbita/estado', methods=['POST'])
