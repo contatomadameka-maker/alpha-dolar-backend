@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1'
+VERSAO = 'NUVEM-CLIQUE2-V1.1'  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -268,6 +268,9 @@ class NuvemClique2(object):
                 if c is None or c.tok != u.get('tok'):
                     c = Conexao(u.get('tok', ''), conta)
                 mudou = False
+                if self.kv.get(P + 'zerar:' + conta) == '1':   # NUVEM-CLIQUE2-ZERAR-V1: a pessoa zerou a sessão com o robô ligado
+                    self.kv.set(P + 'zerar:' + conta, '0', ex=60)
+                    u['sess'], u['travaOn'], mudou = {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0}, False, True
                 if time.time() - hb > 5:
                     hb = time.time()
                     self.kv.set(P + 'hb:' + conta, str(int(hb)), ex=600)
@@ -618,6 +621,25 @@ def register_nuvem_clique2(app):
             u['parado'], u['t_parou'], u['fase'], u['esp'] = mot, int(time.time()), 'parado', None
             nv.salva(conta, u)
         nv.op_log(conta, {'t': int(time.time()), 'aviso': mot})
+        return jsonify({'ok': True})
+
+    @app.route('/api/nuvem-clique2/zerar', methods=['POST'])
+    def _ncl2_zerar():   # NUVEM-CLIQUE2-ZERAR-V1
+        d = request.get_json(silent=True) or {}
+        info, err = dono(d)
+        if err:
+            return jsonify({'ok': False, 'erro': err}), 403
+        conta = str(d['conta'])
+        u = nv.cfg(conta)
+        if u.get('ab') or (u.get('G_') or {}).get('passo'):
+            return jsonify({'ok': False, 'erro': 'espere a entrada ou a recuperação (gale/ciclo) em andamento terminar para zerar'}), 400
+        nv.kv.jset(P + 'ops:' + conta, [], ex=86400 * 30)
+        if nv.ligado(conta):
+            nv.kv.set(P + 'zerar:' + conta, '1', ex=60)
+        elif u:
+            u['sess'], u['travaOn'] = {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0}, False
+            nv.salva(conta, u)
+        nv.op_log(conta, {'t': int(time.time()), 'aviso': '🗑 Sessão zerada por você' + (' (o AUTO continua ligado: meta e stop contam a partir de agora)' if nv.ligado(conta) else '')})
         return jsonify({'ok': True})
 
     @app.route('/api/nuvem-clique2/estado', methods=['POST'])
