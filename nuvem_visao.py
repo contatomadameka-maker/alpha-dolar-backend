@@ -19,7 +19,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-VISAO-V3.2'  # V3.2: mostra qual filtro segurou a entrada ·   # V3.1: gale imediato, tempo de análise, tendência longa, gatilho MM9, laboratório ·   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
+VERSAO = 'NUVEM-VISAO-V3.3'  # V3.3: 300 velas (5 h) + laboratório 12/24/48 h com a linha de 2h30 ·  # V3.2: mostra qual filtro segurou a entrada ·   # V3.1: gale imediato, tempo de análise, tendência longa, gatilho MM9, laboratório ·   # V3: indicadores alinhados (todos a favor da tendência, quase sem NEUTRO) + entrada só no tick a favor + placar novo
 VERSAO_V27 = 'NUVEM-VISAO-V2.7'   # V2.7: a trava só arma quando o lucro cobre uma entrada (não para no negativo) e confere de novo antes de parar
 VERSAO_V26 = 'NUVEM-VISAO-V2.6'   # V2.6: encerrar com o robô já parado não apaga o motivo (a trava não volta na sessão nova)
 VERSAO_V25 = 'NUVEM-VISAO-V2.5'   # V2.5: lixeira do histórico
@@ -34,7 +34,7 @@ WS_URLS = [u for u in [os.environ.get('SALA_WS_URL', '').strip(),
                        'wss://ws.derivws.com/websockets/v3?app_id=1089'] if u]
 P = 'nuvem_vis:'
 K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
-NV = 150                                   # velas de 1 minuto guardadas por mercado
+NV = 300                                   # velas de 1 minuto guardadas por mercado
 VELAS = {s: deque(maxlen=NV) for s in MERC}   # [t, o, h, l, c]
 TICKS = {s: deque(maxlen=60) for s in MERC}   # (epoch, preço)
 LTK = {}
@@ -280,12 +280,12 @@ def laboratorio(mk, horas, prog=None):
         raise RuntimeError((m.get('error') or {}).get('message') or 'erro da Deriv')
 
     try:
-        nv = int(horas * 60) + 160
+        nv = int(horas * 60) + 310
         m = req({'ticks_history': mk, 'end': 'latest', 'count': min(5000, nv), 'style': 'candles', 'granularity': 60})
         cs = [[int(c['epoch']), float(c['open']), float(c['high']), float(c['low']), float(c['close'])] for c in (m.get('candles') or [])]
-        if len(cs) < 200:
+        if len(cs) < 350:
             raise RuntimeError('poucas velas (%d)' % len(cs))
-        ini = cs[0][0] + 150 * 60
+        ini = cs[0][0] + 300 * 60
         TT, PP, end = [], [], 'latest'
         for volta in range(40):
             m = req({'ticks_history': mk, 'end': end, 'count': 5000, 'style': 'ticks'})
@@ -313,7 +313,7 @@ def laboratorio(mk, horas, prog=None):
         except Exception:
             pass
     import bisect
-    VAR = [('v3', 'Visão atual (3 de 5)', {}), ('v3c4', 'Visão 4 de 5', {'cmin': 4}), ('lg', 'Visão + tendência longa', {'lg': 1}),
+    VAR = [('v3', 'Visão atual (3 de 5) · 5 h de velas', {}), ('v150', 'Visão com 2h30 de velas (como era)', {}), ('v3c4', 'Visão 4 de 5', {'cmin': 4}), ('lg', 'Visão + tendência longa', {'lg': 1}),
            ('pb', 'Visão + gatilho MM9', {'pb': 1}), ('lgpb', 'Visão + tendência longa + MM9', {'lg': 1, 'pb': 1}),
            ('mm9x', 'Cruzamento da MM9 (palpite do estilo deles)', None), ('contra', 'Contrário da Visão (teste)', None), ('moeda', 'Cara ou coroa (comparação)', None)]
     R = {k: {'nome': nm, 'n': 0, 'w': 0, 'c1': [0, 0], 'c2': [0, 0], 'pl1': 0.0, 'pl2': 0.0} for k, nm, _ in VAR}
@@ -327,19 +327,24 @@ def laboratorio(mk, horas, prog=None):
         return s_ > e if lado == 'u' else s_ < e
 
     ocupado = {k: 0 for k, _, _ in VAR}
-    for k in range(150, len(cs)):
+    for k in range(300, len(cs)):
         tdec = cs[k][0] + 60   # vela k fechou
         if tdec < ini - 60:
             continue
         j0 = bisect.bisect_right(TT, tdec)
         if j0 + 20 >= len(TT):
             break
-        janela = cs[max(0, k - 149):k + 1]
+        janela = cs[max(0, k - 299):k + 1]
         a = analisa(janela)
+        a150 = analisa(cs[max(0, k - 149):k + 1])
         for key, nm, opt in VAR:
             if tdec < ocupado[key]:
                 continue
-            if key in ('v3', 'v3c4', 'lg', 'pb', 'lgpb', 'contra'):
+            if key == 'v150':
+                if not a150 or a150['n'] < 3:
+                    continue
+                d = a150['dir']
+            elif key in ('v3', 'v3c4', 'lg', 'pb', 'lgpb', 'contra'):
                 u = opt or {}
                 if not a or a['n'] < int(u.get('cmin') or 3) or not filtros(janela, a, u):
                     continue
