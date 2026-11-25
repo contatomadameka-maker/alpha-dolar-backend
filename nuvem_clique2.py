@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.2'  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.3'  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -389,7 +389,11 @@ class NuvemClique2(object):
         if agora < u['an_t']:
             return False
         u['an_t'] = 0
-        J = analisa(self.kv.jget(P + 'fam') or FAM0)
+        fg = dict(FAM0)
+        fg.update(self.kv.jget(P + 'fam') or {})
+        fu = u.get('fu') or {}   # NUVEM-CLIQUE2-V1.3: tipos de ficha que a pessoa escolheu (dentro dos que o admin liberou)
+        fm = {k: bool(fg.get(k, True)) and fu.get(k, True) is not False for k in FAM0}
+        J = analisa(fm if any(fm.values()) else fg)
         if len(J) < 3:
             u['fase'] = 'juntando os dígitos dos mercados…'
             u['prox'] = agora + 3
@@ -618,6 +622,7 @@ def register_nuvem_clique2(app):
              'G': int(num(cf.get('G'), 2, 0, 4)), 'gm': cf.get('gm') if cf.get('gm') in ('off', 'mesmo', 'nova') else 'nova',
              'met': 'seq' if cf.get('met') == 'seq' else 'trad', 'f': num(cf.get('f'), 0, 0, 5),
              'C': int(num(cf.get('C'), 1, 1, 10)), 'Cp': int(num(cf.get('Cp'), 0, 0, 900)), 'Cf': 'parar' if cf.get('Cf') == 'parar' else 'reset',
+             'fu': {k: (cf.get('fu') or {}).get(k, True) is not False for k in FAM0},
              'pm': nv.cfg(conta).get('pm') or {}, 'sess': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0}, 'travaOn': False, 'prox': 0, 'erros': 0,
              'esp': None, 'an_t': 0, 'fase': 'ligando', 'saldo': float(info['saldo']) if info.get('saldo') is not None else None}
         nv.zera(u)
