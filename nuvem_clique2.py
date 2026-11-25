@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.1'  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.2'  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -34,12 +34,25 @@ P = 'nuvem_cl2:'
 K_LISTA, K_LIDER, K_MOTOR = P + 'lista', P + 'lider', P + 'motor'
 TICKS = {s: deque(maxlen=200) for s in MERC}   # (epoch, dígito)
 LTK = {}
+ULTQ = {}
 EST = {'pausa': False, 'ws': '', 'ticks': 0}
 BRT = timezone(timedelta(hours=-3))
 # contratos: nome, tipo, barreira, chance
 CT = [('OVER %d' % b, 'DIGITOVER', b, (9 - b) / 10.0) for b in (1, 2, 3, 4)] + \
      [('UNDER %d' % b, 'DIGITUNDER', b, b / 10.0) for b in (5, 6, 7, 8)] + \
-     [('PAR', 'DIGITEVEN', None, .5), ('ÍMPAR', 'DIGITODD', None, .5)]
+     [('PAR', 'DIGITEVEN', None, .5), ('ÍMPAR', 'DIGITODD', None, .5)] + \
+     [('SOBE', 'CALL', None, .5), ('DESCE', 'PUT', None, .5)]   # NUVEM-CLIQUE2-V1.2: Sobe/Desce de 1 tick
+FAM0 = {'pi': True, 'ou': True, 'alta': True, 'sd': True}   # famílias que aparecem (o admin liga/desliga)
+
+
+def familia(n):
+    if n in ('PAR', 'ÍMPAR'):
+        return 'pi'
+    if n in ('SOBE', 'DESCE'):
+        return 'sd'
+    if n in ('OVER 4', 'UNDER 5'):
+        return 'ou'
+    return 'alta'
 
 
 def log(*a):
@@ -54,7 +67,11 @@ def ceil2(v):
     return math.ceil(float(v) * 100 - 1e-6) / 100.0
 
 
-def ok(ct, bar, d):
+def ok(ct, bar, d, up=None):
+    if ct == 'CALL':
+        return up == 1
+    if ct == 'PUT':
+        return up == 0
     if ct == 'DIGITOVER':
         return d > bar
     if ct == 'DIGITUNDER':
@@ -82,17 +99,21 @@ def _extrato(conta, tipo, cid, sym, stake, pl, tp):
         log('extrato', str(e)[:120])
 
 
-def analisa():
+def analisa(fam=None):
     L = []
+    fam = fam or FAM0
     for s in MERC:
-        d = [x[1] for x in list(TICKS[s])[-30:]]
-        if len(d) < 20:
+        tt = list(TICKS[s])[-30:]
+        if len(tt) < 20:
             continue
         for (n, ct, bar, p) in CT:
-            f = sum(1 for x in d if ok(ct, bar, x)) / float(len(d))
+            if not fam.get(familia(n), True):
+                continue
+            xs = [(x[1], x[2] if len(x) > 2 else None) for x in tt]
+            f = sum(1 for (dd, uu) in xs if ok(ct, bar, dd, uu)) / float(len(xs))
             sq = 0
-            for x in reversed(d):
-                if ok(ct, bar, x):
+            for (dd, uu) in reversed(xs):
+                if ok(ct, bar, dd, uu):
                     break
                 sq += 1
             L.append({'mk': s, 'm': NOME[s], 'c': n, 'ct': ct, 'bar': bar, 'p': p, 'f': round(f, 3), 'sc': (f - p) + min(sq, 3) * .02 + random.random() * .01})
@@ -215,7 +236,10 @@ class NuvemClique2(object):
                     if T and T[-1][0] >= ep:
                         continue
                     dec = int(t.get('pip_size') or 2)
-                    T.append((ep, int(('%.*f' % (dec, float(t['quote'])))[-1])))
+                    q = float(t['quote'])
+                    q0 = ULTQ.get(sym)
+                    ULTQ[sym] = q
+                    T.append((ep, int(('%.*f' % (dec, q))[-1]), None if q0 is None else (1 if q > q0 else 0 if q < q0 else -1)))
                     EST['ticks'] += 1
                     LTK[sym] = time.time()
                     EST.setdefault('vistos', set()).add(sym)
@@ -341,11 +365,12 @@ class NuvemClique2(object):
             T = [x for x in list(TICKS[e['mk']]) if x[0] > e['ep']]
             if not T:
                 return False
-            for (ep, d) in T:
+            for x in T:
+                ep, d, up = x[0], x[1], (x[2] if len(x) > 2 else None)
                 e['ep'] = ep
-                w = ok(e['ct'], e['bar'], d)
+                w = ok(e['ct'], e['bar'], d, up)
                 e['n'] = 0 if w else e['n'] + 1
-                e['v'] = (e.get('v') or [])[-7:] + [[d, 1 if w else 0]]
+                e['v'] = (e.get('v') or [])[-7:] + [[('▲' if up == 1 else '▼' if up == 0 else '=') if e['ct'] in ('CALL', 'PUT') else d, 1 if w else 0]]
             u['fase'] = '👻 HIT %d/%d em %s · %s' % (e['n'], e['k'], e['c'], NOME[e['mk']])
             if e['n'] >= e['k']:
                 j = e['j']
@@ -364,7 +389,7 @@ class NuvemClique2(object):
         if agora < u['an_t']:
             return False
         u['an_t'] = 0
-        J = analisa()
+        J = analisa(self.kv.jget(P + 'fam') or FAM0)
         if len(J) < 3:
             u['fase'] = 'juntando os dígitos dos mercados…'
             u['prox'] = agora + 3
@@ -461,6 +486,8 @@ class NuvemClique2(object):
         dg = None
         try:
             dg = int(str(q.get('exit_tick_display_value') or q.get('exit_tick') or '')[-1])
+            if j.get('ct') in ('CALL', 'PUT'):
+                dg = '▲' if (pl > 0) == (j['ct'] == 'CALL') else '▼'
         except Exception:
             pass
         C = max(1, int(u.get('C') or 1))
@@ -622,6 +649,23 @@ def register_nuvem_clique2(app):
             nv.salva(conta, u)
         nv.op_log(conta, {'t': int(time.time()), 'aviso': mot})
         return jsonify({'ok': True})
+
+    @app.route('/api/nuvem-clique2/familias', methods=['GET', 'POST'])
+    def _ncl2_fam():   # NUVEM-CLIQUE2-V1.2: quais tipos de ficha aparecem (o admin liga/desliga sem reinstalar a página)
+        if request.method == 'GET':
+            f = dict(FAM0)
+            f.update(nv.kv.jget(P + 'fam') or {})
+            return jsonify({'ok': True, 'fam': f})
+        s = os.environ.get('ADMIN_SENHA', '')
+        if not s or request.headers.get('X-Admin-Token') != s:
+            return jsonify({'ok': False, 'erro': 'senha do admin errada'}), 403
+        d = request.get_json(silent=True) or {}
+        f = {k: bool((d.get('fam') or {}).get(k, True)) for k in FAM0}
+        if not any(f.values()):
+            return jsonify({'ok': False, 'erro': 'deixe pelo menos um tipo ligado'}), 400
+        nv.kv.jset(P + 'fam', f)
+        log('familias', f)
+        return jsonify({'ok': True, 'fam': f})
 
     @app.route('/api/nuvem-clique2/zerar', methods=['POST'])
     def _ncl2_zerar():   # NUVEM-CLIQUE2-ZERAR-V1
