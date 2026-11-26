@@ -21,7 +21,7 @@ Rotas:
 """
 import os, re, sys, json, time, base64, hashlib, threading, queue
 
-VERSAO = 'PUSH-ALPHA-V1.2'  # V1.2: placar da sessão atualizado (lê a sessão viva do robô) ·  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
+VERSAO = 'PUSH-ALPHA-V1.3'  # V1.3: aviso da operação mostra o valor da entrada e o gale ·  # V1.2: placar da sessão atualizado (lê a sessão viva do robô) ·  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
 K_SUBS, K_VAPID = 'push:subs', 'push:vapid'
 CONTATO = os.environ.get('VAPID_SUB', 'mailto:suporte@alphadolar.online')
 # módulo, classe, id, nome, página
@@ -327,8 +327,17 @@ def _gancho_robo(cls, rid, nome, url):
             if isinstance(reg, dict) and reg.get('pl') is not None and not reg.get('virt') and not reg.get('aviso'):
                 pl = float(reg['pl'])
                 ok = pl > 0
-                oque = ' · '.join(str(x) for x in [reg.get('tipo') or reg.get('nome') or reg.get('lado') or reg.get('c'),
-                                                    reg.get('sym') or reg.get('mk')] if x)
+                gl = reg.get('g') if reg.get('g') is not None else reg.get('nivel')
+                try:
+                    gl = int(gl or 0)
+                except Exception:
+                    gl = 0
+                stk = reg.get('stake') if reg.get('stake') is not None else reg.get('st')
+                lado = reg.get('tipo') or reg.get('nome') or reg.get('lado') or reg.get('c')
+                if rid == 'digitos' and reg.get('lado'):
+                    lado = 'PAR' if str(reg['lado']).lower() == 'par' else 'ÍMPAR'
+                oque = ' · '.join(str(x) for x in [lado, reg.get('sym') or reg.get('mk'), ('G%d' % gl) if gl else None,
+                                                    ('entrada $%.2f' % float(stk)) if stk is not None else None] if x)   # V1.3: valor da entrada e o gale
                 tot = ''
                 try:
                     # V1.2: o robô guarda a sessão na memória e só grava no Redis depois -> lê a sessão viva de quem chamou
