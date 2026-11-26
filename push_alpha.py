@@ -21,7 +21,7 @@ Rotas:
 """
 import os, re, sys, json, time, base64, hashlib, threading, queue
 
-VERSAO = 'PUSH-ALPHA-V1'
+VERSAO = 'PUSH-ALPHA-V1.1'  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
 K_SUBS, K_VAPID = 'push:subs', 'push:vapid'
 CONTATO = os.environ.get('VAPID_SUB', 'mailto:suporte@alphadolar.online')
 # módulo, classe, id, nome, página
@@ -59,6 +59,9 @@ class _Mem(object):
 
     def hgetall(self, k):
         return dict(self.h.get(k, {}))
+
+    def hget(self, k, f):
+        return self.h.get(k, {}).get(f)
 
     def hlen(self, k):
         return len(self.h.get(k, {}))
@@ -172,7 +175,24 @@ def _garante_worker():
     threading.Thread(target=_loop, name='push-alpha', daemon=True).start()
 
 
+def _ult(d, payload, st):   # V1.1: últimos 8 avisos de cada aparelho (para o diagnóstico do Testar)
+    try:
+        i = d.get('_id') or sid(d['sub'].get('endpoint'))
+        r = db()
+        L = json.loads(r.hget('push:ult', i) or '[]') if hasattr(r, 'hget') else []
+        L.insert(0, {'t': int(time.time()), 'tit': str(payload.get('t') or '')[:60], 'st': st})
+        r.hset('push:ult', i, json.dumps(L[:8], ensure_ascii=False))
+    except Exception:
+        pass
+
+
 def _manda(d, payload, ttl, urg):
+    st, err = _manda0(d, payload, ttl, urg)
+    _ult(d, payload, st)
+    return st, err
+
+
+def _manda0(d, payload, ttl, urg):
     from pywebpush import webpush, WebPushException
     v, _ = vapid()
     try:
@@ -443,10 +463,22 @@ def register_push(app):
         s = json.loads(raw)
         s['_id'] = i
         es = s.get('lang') == 'es'
-        st, err = _manda(s, {'t': '🔔 Alpha Dolar', 'b': ('¡Listo! Los avisos llegan a este dispositivo.' if es else
-                                                         'Pronto! Os avisos chegam neste aparelho.'), 'u': '/', 'tag': 'teste',
-                             'ts': int(time.time() * 1000)}, 120, 'high')
-        return jsonify({'ok': st in (200, 201), 'status': st, 'erro': err})
+        try:
+            atraso = max(0, min(60, int(d.get('atraso') or 0)))
+        except Exception:
+            atraso = 0
+        p = {'t': '🔔 Alpha Dolar', 'b': ('¡Listo! Los avisos llegan a este dispositivo.' if es else
+                                          'Pronto! Os avisos chegam neste aparelho.'), 'u': '/', 'tag': 'teste', 'ts': int(time.time() * 1000)}
+        try:
+            ult = json.loads(db().hget('push:ult', i) or '[]')
+        except Exception:
+            ult = []
+        diag = {'contas': len(s.get('contas') or []), 'top': s.get('top'), 'ganchos': EST['ganchos'], 'ult': ult[:6], 'versao': VERSAO}
+        if atraso:
+            threading.Timer(atraso, lambda: _manda(s, dict(p, ts=int(time.time() * 1000)), 300, 'high')).start()
+            return jsonify({'ok': True, 'status': 0, 'atraso': atraso, 'diag': diag})
+        st, err = _manda(s, p, 120, 'high')
+        return jsonify({'ok': st in (200, 201), 'status': st, 'erro': err, 'diag': diag})
 
     @app.route('/api/admin/push', methods=['GET'])
     def _push_admin():

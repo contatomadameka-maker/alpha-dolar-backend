@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.3'  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.4'  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -292,9 +292,13 @@ class NuvemClique2(object):
                 if c is None or c.tok != u.get('tok'):
                     c = Conexao(u.get('tok', ''), conta)
                 mudou = False
-                if self.kv.get(P + 'zerar:' + conta) == '1':   # NUVEM-CLIQUE2-ZERAR-V1: a pessoa zerou a sessão com o robô ligado
+                zf = self.kv.get(P + 'zerar:' + conta)
+                if zf == '1' or (zf == 'pend' and not u.get('ab') and not (u.get('G_') or {}).get('passo')):   # NUVEM-CLIQUE2-ZERAR-V2: zera agora ou quando a recuperação terminar
                     self.kv.set(P + 'zerar:' + conta, '0', ex=60)
                     u['sess'], u['travaOn'], mudou = {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0}, False, True
+                    if zf == 'pend':
+                        self.kv.jset(P + 'ops:' + conta, [], ex=86400 * 30)
+                        self.op_log(conta, {'t': int(time.time()), 'aviso': '🗑 Sessão zerada (a recuperação terminou): meta e stop contam a partir de agora'})
                 if time.time() - hb > 5:
                     hb = time.time()
                     self.kv.set(P + 'hb:' + conta, str(int(hb)), ex=600)
@@ -681,7 +685,11 @@ def register_nuvem_clique2(app):
         conta = str(d['conta'])
         u = nv.cfg(conta)
         if u.get('ab') or (u.get('G_') or {}).get('passo'):
-            return jsonify({'ok': False, 'erro': 'espere a entrada ou a recuperação (gale/ciclo) em andamento terminar para zerar'}), 400
+            if nv.ligado(conta):   # NUVEM-CLIQUE2-ZERAR-V2: não recusa mais; zera sozinho quando a recuperação terminar
+                nv.kv.set(P + 'zerar:' + conta, 'pend', ex=6 * 3600)
+                nv.op_log(conta, {'t': int(time.time()), 'aviso': '⏳ Zerar pedido: a sessão zera sozinha assim que a entrada/recuperação em andamento terminar'})
+                return jsonify({'ok': True, 'pend': True, 'msg': 'A sessão zera sozinha assim que a recuperação em andamento terminar'})
+            return jsonify({'ok': False, 'erro': 'espere a entrada em andamento terminar para zerar'}), 400
         nv.kv.jset(P + 'ops:' + conta, [], ex=86400 * 30)
         if nv.ligado(conta):
             nv.kv.set(P + 'zerar:' + conta, '1', ex=60)
