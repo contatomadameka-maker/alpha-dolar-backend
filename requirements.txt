@@ -9,3 +9,4 @@ pytz
 redis
 psutil
 supabase>=2.20,<3
+pywebpush==1.14.1

@@ -4155,3 +4155,10 @@ try:
     register_trava_diag(app)
 except Exception as _e_td:
     print('[TravaDiag] nao registrou:', _e_td)
+
+# PUSH-ALPHA-V1: avisos no celular (Web Push) + ganchos nos robos na nuvem e na Sala (fica no FIM: precisa dos robos ja carregados)
+try:
+    from push_alpha import register_push
+    register_push(app)
+except Exception as _e_push:
+    print('[Push] nao registrou:', _e_push)
