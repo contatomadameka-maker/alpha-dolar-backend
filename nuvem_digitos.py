@@ -20,7 +20,7 @@ import os, json, time, math, queue, hashlib, threading, atexit, traceback
 import urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 
-VERSAO = 'NUVEM-DIGITOS-V1.10'  # V1.10 NUVEM-PLANO-V1: conta real so com plano ·  # V1.9 NUVEM-GALES-V1: até 20 gales (continua nos próximos sinais), esperar N LOSS da sala, placar da sala ·  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
+VERSAO = 'NUVEM-DIGITOS-V1.11'  # V1.11 NUVEM-DIGITOS-CICLOS-V1: ciclos de gale (o ciclo novo continua o gale) + pausa entre ciclos + se perder tudo: volta à entrada ou para ·  # V1.10 NUVEM-PLANO-V1: conta real so com plano ·  # V1.9 NUVEM-GALES-V1: até 20 gales (continua nos próximos sinais), esperar N LOSS da sala, placar da sala ·  # V1.8: hora do tick = a do tick de saída (não a do último preço consultado) · V1.7 V1.7: entrada da nuvem vai pro Robô x Sala pela rota /api/sala-digitos/robo · V1.6 V1.6: diagnóstico vale para todos os processos (fica no Redis) · V1.5 V1.5: grava no Robô x Sala pelo mesmo armazenamento que a sala usa · V1.4 V1.4: dígito = o tick que a sala julgou (o seguinte ao sinal) + entradas da nuvem no Robô x Sala do admin · V1.3 V1.3: dígito de saída certo (texto da Deriv, casas do mercado ou o tick que a sala viu) · V1.2 V1.2: estado traz a situação da sala (ligada/viva) · V1.1  # V1.1: sinal do motor marcado no próprio tick (gunicorn preload) + cada contrato conta 1 vez só
 API = 'https://api.derivws.com/trading/v1/options'
 APP_ID = os.environ.get('DERIV_OAUTH_APP_ID', '34lv1PuWzjElEuwWcDLyr')
 BRT = timezone(timedelta(hours=-3))
@@ -390,12 +390,29 @@ class Pessoa(object):
                 except Exception as _e_nop:
                     log('NUVEM-OPERACOES', _e_nop)
             cc = u2.get('ciclo') or {}                                      # NUVEM-GALES-V1
+            fimc = None
             for p, pl, dg, ex, chv in fechados:
                 if pl is not None and p.get('k') == cc.get('k') and p.get('g') == cc.get('g'):
                     cc['perdeu'] = pl <= 0
                     cc['t'] = time.time()
+                    cc['pulou'] = 0
+                    gm, CC = int(u2.get('gales', 3)), max(1, int(u2.get('C') or 1))   # NUVEM-DIGITOS-CICLOS-V1
+                    nn = int(cc.get('n', cc.get('g', 0)) or 0)
+                    if pl <= 0 and CC > 1 and (nn + 1) % (gm + 1) == 0:
+                        cic = (nn + 1) // (gm + 1)
+                        perda = r2(float(cc.get('perda', 0)) + float(cc.get('ult', 0)))
+                        if cic < CC:
+                            fimc = '🔁 Ciclo %d de %d perdido (−$%.2f): a recuperação continua no ciclo %d' % (cic, CC, perda, cic + 1)
+                        else:
+                            fimc = 'PERDEU OS %d CICLOS (−$%.2f)' % (CC, perda)
+                            if u2.get('cFim') == 'parar':
+                                cc['parar'] = True
             u2['ciclo'] = cc
             self.salva(u2)
+            if fimc:
+                self.nv.op_log(self.conta, {'t': int(time.time()), 'aviso': fimc + ('' if fimc.startswith('🔁') else ' · ' + ('o robô parou, como você escolheu' if cc.get('parar') else 'volta para a entrada inicial'))})
+                if cc.get('parar') and self.nv.ligado(self.conta):
+                    self.nv.para(self.conta, 'PAROU: perdeu os %d ciclos de gale, como você escolheu · resultado %s$%.2f' % (max(1, int(u2.get('C') or 1)), '+' if s.get('pl', 0) >= 0 else '−', abs(float(s.get('pl', 0)))))
         if self.nv.ligado(self.conta) and u2.get('tp') and s.get('pl', 0) >= u2['tp'] and not u2['abertos']:
             self.nv.para(self.conta, 'META ATINGIDA (+$%.2f)' % s['pl'])
         mx = int(u2.get('max_ent') or 0)                      # NUVEM-MAX-ENT-V1
@@ -495,6 +512,19 @@ class Nuvem(object):
             except Exception:
                 pass
         return L
+
+    def pausa_ok(self, u, ciclo):   # NUVEM-DIGITOS-CICLOS-V1: pode começar o ciclo novo?
+        cp, tl = str(u.get('cp') or 'n0'), float(ciclo.get('t') or 0)
+        if cp.startswith('s'):   # pular N sinais da sala
+            ciclo['pulou'] = int(ciclo.get('pulou') or 0) + 1
+            return ciclo['pulou'] > int(cp[1:] or 0), 'pulando sinais da sala (%d de %s)' % (min(ciclo['pulou'], int(cp[1:] or 0)), cp[1:])
+        if cp == 'l1':   # esperar a sala dar 1 LOSS depois do ciclo perdido
+            ok = any(x.get('res') == 'loss' and float(x.get('t') or 0) > tl + 5 for x in self.ciclos_sala(1)[:30])
+            return ok, 'esperando a sala dar 1 LOSS'
+        if cp.startswith('m'):   # pausa em minutos
+            falta = tl + int(cp[1:] or 0) * 60 - time.time()
+            return falta <= 0, 'pausa: falta %d s' % max(0, int(falta))
+        return True, ''
 
     def seq_loss(self):
         c = getattr(self, '_seq_c', None)
@@ -613,10 +643,19 @@ class Nuvem(object):
         u = self.cfg(conta)
         ciclo = u.get('ciclo') or {}
         gmax = int(u.get('gales', 3))                                     # NUVEM-GALES-V1
+        CC = max(1, int(u.get('C') or 1))                                  # NUVEM-DIGITOS-CICLOS-V1
+        NT = (gmax + 1) * CC - 1                                           # última entrada do último ciclo
         cont = False
         if g == 0:
             n0 = int(ciclo.get('n', ciclo.get('g', 0)) or 0)
-            cont = bool(ciclo.get('perdeu')) and n0 < gmax and time.time() - float(ciclo.get('t') or 0) < 3 * 3600
+            cont = bool(ciclo.get('perdeu')) and n0 < NT and time.time() - float(ciclo.get('t') or 0) < 3 * 3600
+            if cont and CC > 1 and (n0 + 1) % (gmax + 1) == 0:   # ciclo novo: respeita a pausa escolhida
+                ok, porque = self.pausa_ok(u, ciclo)
+                if not ok:
+                    u['ciclo'] = ciclo
+                    u['fase_ciclo'] = 'ciclo %d de %d · %s' % ((n0 + 1) // (gmax + 1) + 1, CC, porque)
+                    self.salva(conta, u)
+                    return
             if cont:   # perdeu o último sinal e ainda tem gale: recupera no próximo sinal da sala
                 n, perda = n0 + 1, r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
             else:
@@ -625,12 +664,15 @@ class Nuvem(object):
                 if esp > 0 and self.seq_loss() < esp:
                     return                 # espera a sala dar N LOSS seguidos antes de começar
             ciclo = {'k': k, 'perda': perda, 'g': 0, 'n': n}
+            u['fase_ciclo'] = ''
         elif ciclo.get('k') != k or ciclo.get('g') != g - 1:
             return                         # ligou no meio do ciclo: não entra direto num gale
         else:
             n = int(ciclo.get('n', ciclo.get('g', 0)) or 0) + 1
             perda = r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
-        if n > gmax:
+            if CC > 1 and n % (gmax + 1) == 0:
+                return                     # NUVEM-DIGITOS-CICLOS-V1: o ciclo acabou no meio do sinal: o próximo ciclo espera um sinal novo
+        if n > NT:
             return
         base = float(u.get('base', 0.35))
         pct = float(u.get('base_pct') or 0)                     # NUVEM-PORCENTO-V1: entrada = % da banca
@@ -911,6 +953,10 @@ def register_nuvem_digitos(app):
                   'tp': num(cf.get('tp'), 5, 0, 100000), 'max_ent': int(num(cf.get('max_ent'), 0, 0, 500)),   # NUVEM-MAX-ENT-V1
                   'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
+        u['C'] = int(num(cf.get('C'), 1, 1, 10))                # NUVEM-DIGITOS-CICLOS-V1
+        u['cp'] = str(cf.get('cp') or 'n0') if str(cf.get('cp') or 'n0') in ('n0', 's1', 's2', 's3', 'l1', 'm1', 'm3', 'm5', 'm10') else 'n0'
+        u['cFim'] = 'parar' if cf.get('cFim') == 'parar' else 'reset'
+        u['fase_ciclo'] = ''
         u['base_pct'] = num(cf.get('base_pct'), 0, 0, 20)      # NUVEM-PORCENTO-V1
         u['base_max'] = num(cf.get('base_max'), 0, 0, 100000)
         u['base_atual'] = None
