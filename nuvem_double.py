@@ -24,7 +24,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, digito_saida, log as _log   # noqa
 
-VERSAO = 'NUVEM-DOUBLE-V1.3'  # V1.3: gales seguidos dentro do ciclo; ciclo novo espera o padrão; sinal novo só depois da operação
+VERSAO = 'NUVEM-DOUBLE-V1.4'  # V1.4: modo WIN conta até os gales no virtual (ou só de primeira) ·   # V1.3: gales seguidos dentro do ciclo; ciclo novo espera o padrão; sinal novo só depois da operação
 VERSAO_V12 = 'NUVEM-DOUBLE-V1.2'  # V1.2: I.A entra toda rodada no lado mais forte (força mínima opcional); gale da I.A na rodada seguinte; já começa com 3000 ticks de histórico
 VERSAO_ANT = 'NUVEM-DOUBLE-V1.1'  # V1.1: rodadas (uma pedra a cada R s, 2º tick depois da virada), decide na virada
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
@@ -469,17 +469,20 @@ class NuvemDouble(object):
                 won = par(d) == vab.get('lado')
                 niv = int((vc or {}).get('nivel') or 0)
                 lado_tx = 'PAR' if vab.get('lado') == 'par' else 'ÍMPAR'
-                if u.get('HITm') == 'win':   # DOUBLE-HIT-WIN-V1: conta WIN seguidos (sem gale no virtual)
+                if u.get('HITm') == 'win' and u.get('HITg') != 'mao' and not won and niv < T - 1:   # DOUBLE-HIT-WIN-GALE-V1: WIN conta até os gales
+                    vc = {'nivel': niv + 1, 'lado': vab.get('lado'), 'nome': vab.get('nome')}
+                    tx = 'LOSS · vai para o gale %d (virtual)' % (niv + 1)
+                elif u.get('HITm') == 'win':   # DOUBLE-HIT-WIN-V1: conta WIN seguidos
                     vc, fim_b = None, int(vab['rb'])
                     if won:
                         sb['k'] = int(sb.get('k') or 0) + 1
-                        tx = 'WIN %d de %d' % (sb['k'], need)
+                        tx = 'WIN' + (' no gale %d' % niv if niv else '') + ' · %d de %d' % (sb['k'], need)
                         if sb['k'] >= need:
                             sb = {'v': False, 'k': 0}
                             tx += ' · a próxima entrada vai na conta de verdade'
                     else:
                         sb['k'] = 0
-                        tx = 'LOSS · zera a contagem de wins'
+                        tx = ('LOSS · zera a contagem de wins' if u.get('HITg') == 'mao' or T <= 1 else 'LOSS do ciclo (perdeu a mão e os gales) · zera a contagem de wins')
                 elif won:
                     sb['k'] = 0
                     vc, fim_b = None, int(vab['rb'])
@@ -751,7 +754,7 @@ def register_nuvem_double(app):
              'sym': cf.get('sym') if cf.get('sym') in MERC else 'R_100', 'ia': ia, 'ests': ests,
              'E': num(cf.get('E'), 1, 0.35, 5000), 'W': num(cf.get('W'), 0, 0, 1000000), 'L': num(cf.get('L'), 0, 0, 1000000),
              'M': M, 'T': int(num(cf.get('T'), 1, 1, 13)), 'C': int(num(cf.get('C'), 1, 1, 10)), 'P': int(num(cf.get('P'), 0, 0, 600)),
-             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)), 'HIT': int(num(cf.get('HIT'), 0, 0, 5)), 'HITm': 'win' if cf.get('HITm') == 'win' else 'loss', 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None,
+             'F': 'parar' if cf.get('F') == 'parar' else 'reset', 'R': int(num(cf.get('R'), 22, 5, 120)), 'IAf': int(num(cf.get('IAf'), 0, 0, 20)), 'HIT': int(num(cf.get('HIT'), 0, 0, 5)), 'HITm': 'win' if cf.get('HITm') == 'win' else 'loss', 'HITg': 'mao' if cf.get('HITg') == 'mao' else 'gale', 'sb': {'v': True, 'k': 0}, 'vab': None, 'vc': None,
              'pm': u.get('pm') or {}, 'erros': 0, 'ciclo': None, 'fase': 'ligando',
              'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ini': int(time.time())}}
         nv.salva(conta, u)
