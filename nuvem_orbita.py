@@ -17,7 +17,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-ORBITA-V1'
+VERSAO = 'NUVEM-ORBITA-V1.1'  # V1.1 NUVEM-ORBITA-GALE-NOVA-V1: opção de gale com nova análise + placar imediato x nova análise
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -365,6 +365,19 @@ class NuvemOrbita(object):
         if time.time() < float(u.get('prox') or 0):
             u['fase'] = 'pausa depois do ciclo: volta a varrer em %d s' % max(1, int(float(u['prox']) - time.time()))
             return True
+        gn = u.get('ciclo')
+        if gn and gn.get('espg'):   # NUVEM-ORBITA-GALE-NOVA-V1
+            if not melhor:
+                top = max(fz, key=fz.get) if fz else None
+                u['alvo'] = None
+                u['fase'] = 'gale %d ($%.2f a recuperar): esperando nova análise · %d s' % (gn['nivel'], gn['perda'], int(time.time() - float(gn.get('tg') or time.time()))) + (' · mais perto: %s %d%%' % (NOME[top], fz[top]) if top else '')
+                return True
+            f, s, lado, tx = melhor
+            gn.update({'mk': s, 'lado': lado, 'espg': False})
+            u['alvo'], u['sinal'] = s, '%s %s' % (NOME[s], tx)
+            self.op_log(conta, {'t': int(time.time()), 'aviso': '🛰 Gale %d com nova análise: sinal em %s (%s) → %s' % (gn['nivel'], NOME[s], tx, 'Aumento' if lado == 'CALL' else 'Queda')})
+            self.compra(conta, c, u)
+            return True
         if not melhor:
             top = max(fz, key=fz.get) if fz else None
             u['fase'] = 'varrendo %d mercados · aguardando sinal' % len(u['mks']) + (' · mais perto: %s %d%%' % (NOME[top], fz[top]) if top else '')
@@ -415,6 +428,17 @@ class NuvemOrbita(object):
         u['ciclo'] = {'nivel': 0, 'perda': 0.0, 'base': self.base(u), 'mk': s, 'lado': lado, 'cic': 1, 'esp': False}
         self.compra(conta, c, u)
         return True
+
+    def gcmp(self, conta, u, rec, pl):   # NUVEM-ORBITA-GALE-NOVA-V1: placar dos gales (imediato x nova análise)
+        try:
+            k = P + 'gcmp:' + conta
+            d = self.kv.jget(k, {}) or {}
+            m = d.setdefault('nova' if u.get('gan') == 'nova' else 'imediato', {'rec': 0, 'perd': 0, 'pl': 0.0})
+            m['rec' if rec else 'perd'] += 1
+            m['pl'] = r2(float(m['pl']) + pl)
+            self.kv.jset(k, d, ex=86400 * 90)
+        except Exception:
+            pass
 
     def base(self, u):
         return r2(max(0.35, float(u['E'])))
@@ -508,6 +532,8 @@ class NuvemOrbita(object):
         _extrato(conta, u.get('tipo'), ab['cid'], ab['mk'], ab['st'], pl, tipo + (' G%d' % ab['nivel'] if ab.get('nivel') else ''))
         _, _, pausa = SENS.get(u.get('sens')) or SENS['equilibrado']
         W, L = float(u.get('W') or 0), float(u.get('L') or 0)
+        if won and int(g.get('nivel') or 0) > 0:
+            self.gcmp(conta, u, True, pl - float(g.get('perda') or 0))
         if won:
             s['w'] += 1
             s['cw'] += 1
@@ -527,7 +553,12 @@ class NuvemOrbita(object):
             T, C = int(u.get('G') or 0) + 1, max(1, int(u.get('C') or 1))
             g['nivel'] = int(g['nivel']) + 1
             g.setdefault('cic', 1)
-            if g['nivel'] % T:   # ainda tem gale neste ciclo: entra já, no mesmo mercado
+            if g['nivel'] % T and u.get('gan') == 'nova':   # NUVEM-ORBITA-GALE-NOVA-V1: espera o radar confirmar um sinal de novo
+                g.update({'espg': True, 'tg': time.time()})
+                u['ciclo'] = g
+                u['fase'] = 'gale %d ($%.2f a recuperar): esperando nova análise do radar' % (g['nivel'], g['perda'])
+                self.op_log(conta, {'t': int(time.time()), 'aviso': '🔎 LOSS em %s: o gale %d espera o radar achar um sinal de novo (nova análise)' % (NOME[ab['mk']], g['nivel'])})
+            elif g['nivel'] % T:   # ainda tem gale neste ciclo: entra já, no mesmo mercado
                 if u.get('inv', True):
                     g['lado'] = 'PUT' if g['lado'] == 'CALL' else 'CALL'
                 u['ciclo'] = g
@@ -541,6 +572,8 @@ class NuvemOrbita(object):
                 self.op_log(conta, {'t': int(time.time()), 'aviso': '🔁 Ciclo %d perdido em %s (−$%.2f): a recuperação continua no ciclo %d de %d, com sinal novo em outro mercado.' % (g['cic'] - 1, NOME[ab['mk']], g['perda'], g['cic'], C)})
             else:
                 s['cl'] += 1
+                if int(g.get('nivel') or 0) > 1 or T > 1:
+                    self.gcmp(conta, u, False, -float(g.get('perda') or 0))
                 u['ciclo'], u['prox'] = None, time.time() + pausa
                 u['fase'] = 'LOSS: perdeu %s · −$%.2f' % (('os %d ciclos' % C) if C > 1 else 'o ciclo', g['perda'])
                 if u.get('cFim') == 'parar' and C > 1:
@@ -644,6 +677,7 @@ def register_nuvem_orbita(app):
         if L < E:
             return jsonify({'ok': False, 'erro': 'a perda máxima precisa ser pelo menos o valor da entrada'}), 400
         u = {'conf': int(num(cf.get('conf'), 0, 0, 5)), 'espc': None,   # NUVEM-ORBITA-CONF-V1
+             'gan': 'nova' if cf.get('gan') == 'nova' else 'imediato',   # NUVEM-ORBITA-GALE-NOVA-V1
              'hit': int(num(cf.get('hit'), 0, 0, 5)), 'hitm': 'win' if cf.get('hitm') == 'win' else 'loss', 'hseq': 0, 'vab': None,   # NUVEM-ORBITA-HIT-V1
              'trava': int(num(cf.get('trava'), 0, 0, 90)), 'travaOn': False,   # NUVEM-ORBITA-TRAVA-V1: trava de lucro (% da meta)
              'conta': conta, 'tok': str(d['token']).strip(), 'tipo': info['tipo'], 'moeda': info['moeda'], 'parado': '', 't_lig': int(time.time()),
@@ -715,7 +749,8 @@ def register_nuvem_orbita(app):
         h = nv.kv.get(P + 'hb:' + conta)
         return jsonify({'ok': True, 'versao': VERSAO, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget(P + 'ops:' + conta, []) or [])[:int(num(d.get('n'), 60, 1, 200))],
                         'dias': nv.dias(conta), 'px': nv.kv.jget(P + 'px', {}) or {}, 'motor': time.time() - mt < 60,
-                        'robo_idade': int(time.time() - float(h)) if h else None, 'saldo': info.get('saldo')})
+                        'robo_idade': int(time.time() - float(h)) if h else None, 'saldo': info.get('saldo'),
+                        'gcmp': nv.kv.jget(P + 'gcmp:' + conta, {}) or {}})
 
     @app.route('/api/admin/nuvem-orbita', methods=['GET'])
     def _nor_admin():
