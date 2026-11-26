@@ -21,7 +21,7 @@ Rotas:
 """
 import os, re, sys, json, time, base64, hashlib, threading, queue
 
-VERSAO = 'PUSH-ALPHA-V1.1'  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
+VERSAO = 'PUSH-ALPHA-V1.2'  # V1.2: placar da sessão atualizado (lê a sessão viva do robô) ·  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
 K_SUBS, K_VAPID = 'push:subs', 'push:vapid'
 CONTATO = os.environ.get('VAPID_SUB', 'mailto:suporte@alphadolar.online')
 # módulo, classe, id, nome, página
@@ -331,10 +331,20 @@ def _gancho_robo(cls, rid, nome, url):
                                                     reg.get('sym') or reg.get('mk')] if x)
                 tot = ''
                 try:
-                    u = self.cfg(conta) if hasattr(self, 'cfg') else None
-                    s = (u or {}).get('sess') or (u or {}).get('s') or {}
+                    # V1.2: o robô guarda a sessão na memória e só grava no Redis depois -> lê a sessão viva de quem chamou
+                    s, fl = None, sys._getframe(1).f_locals
+                    for k in ('s', 'sess'):
+                        if isinstance(fl.get(k), dict) and fl[k].get('pl') is not None:
+                            s = fl[k]; break
+                    if s is None and isinstance(fl.get('u'), dict):
+                        s = fl['u'].get('sess') or fl['u'].get('sessao')
+                    if not (isinstance(s, dict) and s.get('pl') is not None):
+                        u = self.cfg(conta) if hasattr(self, 'cfg') else None
+                        s = (u or {}).get('sess') or (u or {}).get('sessao') or (u or {}).get('s') or {}
                     if isinstance(s, dict) and s.get('pl') is not None:
                         tot = '\nSessão: %s' % _f2(s['pl'])
+                        if s.get('w') is not None and s.get('l') is not None:
+                            tot += ' · %dW %dL' % (int(s['w']), int(s['l']))
                 except Exception:
                     pass
                 tit = ('✅ WIN %s' if ok else '❌ LOSS %s') % _f2(pl)
