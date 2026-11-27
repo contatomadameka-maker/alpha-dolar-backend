@@ -1014,7 +1014,7 @@ def register_nuvem_digitos(app):
         except Exception:
             vivo = False
         sala = {'ligada': (on == '1') if on is not None else None, 'vivo': vivo or time.time() - motor < 60}
-        return jsonify({'ok': True, 'versao': VERSAO, 'sala': sala, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget('nuvem_dig:ops:' + conta, []) or [])[:40],
+        return jsonify({'ok': True, 'versao': VERSAO, 'sala': sala, 'cfg': publico(u) if u else None, 'ops': (nv.kv.jget('nuvem_dig:ops:' + conta, []) or [])[:max(1, min(300, int(d.get('n') or 40) if str(d.get('n') or '40').isdigit() else 40))],   # NUVEM-DIGITOS-OPS-V1
                         'motor': time.time() - motor < 60, 'saldo': info.get('saldo')})
 
     @app.route('/api/admin/nuvem-digitos', methods=['GET'])
