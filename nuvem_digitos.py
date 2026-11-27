@@ -69,6 +69,26 @@ def r2(v):
     return round(float(v) + 1e-9, 2)
 
 
+def _gr(u, gmax):   # NUVEM-DIGITOS-GR-TRAVA-V1: gales de cada ciclo de recuperação (-1 = iguais aos do sinal)
+    try:
+        v = int(u.get('Gr', -1))
+    except Exception:
+        v = -1
+    return gmax if v < 0 else min(v, 30)
+
+
+def _ini_rec(n, gmax, gr):   # a entrada n é a 1ª de um ciclo de recuperação?
+    return n > gmax and (n - gmax - 1) % (gr + 1) == 0
+
+
+def _num_rec(n, gmax, gr):   # em qual recuperação está a entrada n (0 = ciclo normal)
+    return 0 if n <= gmax else (n - gmax - 1) // (gr + 1) + 1
+
+
+def _fim_ciclo(n, gmax, gr):   # a entrada n é a última do ciclo dela?
+    return n == gmax or (n > gmax and (n - gmax) % (gr + 1) == 0)
+
+
 def stake_gale(modo, base, fator, nivel, perda, pm):
     """mesma conta do robô do navegador (bot-digitos.html stakeGale)"""
     if nivel <= 0:
@@ -380,6 +400,12 @@ class Pessoa(object):
                 s['pl'] = r2(s['pl'] + pl)
                 s['n'] += 1
                 s['w' if pl > 0 else 'l'] += 1
+                tv, tp0 = int(u2.get('trava') or 0), float(u2.get('tp') or 0)   # NUVEM-DIGITOS-GR-TRAVA-V1: trava de lucro
+                if tv and tp0 > 0 and not u2.get('travaOn') and s['pl'] >= max(tp0 * tv / 100.0, float(u2.get('base') or 0.35)) - 1e-9:
+                    u2['travaOn'] = True
+                    self.nv.op_log(self.conta, {'t': int(time.time()), 'aviso': '🔒 Trava de lucro ligada: passou de %d%% da meta (+$%.2f). Se vier um LOSS, o robô para e segura o lucro.' % (tv, s['pl'])})
+                elif pl <= 0 and u2.get('travaOn'):
+                    u2['travaBateu'] = True
                 reg = {'t': int(time.time()), 'sym': p['sym'], 'lado': p['lado'], 'g': p['g'], 'stake': p['stake'], 'pl': pl, 'dig': dg, 'ex': ex, 'cid': p.get('cid')}
                 if chv:
                     reg['chaves'] = chv      # V1.4: para descobrir o campo do dígito se a Deriv mudar de novo
@@ -398,8 +424,9 @@ class Pessoa(object):
                     cc['pulou'] = 0
                     gm, CC = int(u2.get('gales', 3)), max(1, int(u2.get('C') or 1))   # NUVEM-DIGITOS-CICLOS-V1
                     nn = int(cc.get('n', cc.get('g', 0)) or 0)
-                    if pl <= 0 and CC > 1 and (nn + 1) % (gm + 1) == 0:
-                        cic = (nn + 1) // (gm + 1)
+                    grr = _gr(u2, gm)
+                    if pl <= 0 and CC > 1 and _fim_ciclo(nn, gm, grr):
+                        cic = _num_rec(nn, gm, grr) + 1
                         perda = r2(float(cc.get('perda', 0)) + float(cc.get('ult', 0)))
                         if cic < CC:
                             fimc = '🔁 Ciclo %d de %d perdido (−$%.2f): a recuperação continua no ciclo %d' % (cic, CC, perda, cic + 1)
@@ -407,6 +434,13 @@ class Pessoa(object):
                             fimc = 'PERDEU OS %d CICLOS (−$%.2f)' % (CC, perda)
                             if u2.get('cFim') == 'parar':
                                 cc['parar'] = True
+            if u2.pop('travaBateu', None):
+                u2['ciclo'] = {}
+                u2['travaOn'] = False
+                self.salva(u2)
+                if self.nv.ligado(self.conta):
+                    self.nv.para(self.conta, 'TRAVA DE LUCRO: perdeu depois de passar de %d%% da meta · resultado %s$%.2f' % (int(u2.get('trava') or 0), '+' if s.get('pl', 0) >= 0 else '−', abs(float(s.get('pl', 0)))))
+                return
             u2['ciclo'] = cc
             self.salva(u2)
             if fimc:
@@ -648,25 +682,26 @@ class Nuvem(object):
         ciclo = u.get('ciclo') or {}
         gmax = int(u.get('gales', 3))                                     # NUVEM-GALES-V1
         CC = max(1, int(u.get('C') or 1))                                  # NUVEM-DIGITOS-CICLOS-V1
-        NT = (gmax + 1) * CC - 1                                           # última entrada do último ciclo
+        gr = _gr(u, gmax)                                                   # NUVEM-DIGITOS-GR-TRAVA-V1
+        NT = gmax + (CC - 1) * (gr + 1)                                    # última entrada do último ciclo
         cont = False
         if g == 0:
             n0 = int(ciclo.get('n', ciclo.get('g', 0)) or 0)
             cont = bool(ciclo.get('perdeu')) and n0 < NT and time.time() - float(ciclo.get('t') or 0) < 3 * 3600
-            if cont and CC > 1 and (n0 + 1) % (gmax + 1) == 0:   # ciclo novo: respeita a pausa escolhida
+            if cont and CC > 1 and _ini_rec(n0 + 1, gmax, gr):   # ciclo novo: respeita a pausa escolhida
                 ok, porque = self.pausa_ok(u, ciclo)
                 hr = datetime.now(BRT).strftime('%H:%M:%S')   # NUVEM-DIGITOS-PULO-LOG-V1: deixa escrito no registro o que pulou e onde a recuperação entrou
                 if not ok:
                     if str(u.get('cp') or '').startswith('s'):
                         self.op_log(conta, {'t': int(time.time()), 'aviso': '⏭ Pulou o sinal inteiro de %s das %s · pulo %d de %d antes de recuperar' % ({'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100'}.get(sym, sym), hr, min(int(ciclo.get('pulou') or 0) + 1, int(str(u.get('cp'))[1:] or 1)), int(str(u.get('cp'))[1:] or 1))})
                     u['ciclo'] = ciclo
-                    u['fase_ciclo'] = 'ciclo %d de %d · %s' % ((n0 + 1) // (gmax + 1) + 1, CC, porque)
+                    u['fase_ciclo'] = 'ciclo %d de %d · %s' % (_num_rec(n0 + 1, gmax, gr) + 1, CC, porque)
                     self.salva(conta, u)
                     return
             if cont:   # perdeu o último sinal e ainda tem gale: recupera no próximo sinal da sala
                 n, perda = n0 + 1, r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
-                if CC > 1 and n % (gmax + 1) == 0:
-                    self.op_log(conta, {'t': int(time.time()), 'aviso': '🔁 Recuperação %d de %d: entra no sinal de %s das %s (recupera $%.2f)' % (n // (gmax + 1), CC - 1, {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100'}.get(sym, sym), datetime.now(BRT).strftime('%H:%M:%S'), perda)})
+                if CC > 1 and _ini_rec(n, gmax, gr):
+                    self.op_log(conta, {'t': int(time.time()), 'aviso': '🔁 Recuperação %d de %d: entra no sinal de %s das %s (recupera $%.2f)' % (_num_rec(n, gmax, gr), CC - 1, {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100'}.get(sym, sym), datetime.now(BRT).strftime('%H:%M:%S'), perda)})
             else:
                 n, perda = 0, 0.0
                 esp = int(u.get('espera') or 0)
@@ -679,7 +714,7 @@ class Nuvem(object):
         else:
             n = int(ciclo.get('n', ciclo.get('g', 0)) or 0) + 1
             perda = r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
-            if CC > 1 and n % (gmax + 1) == 0:
+            if CC > 1 and _ini_rec(n, gmax, gr):
                 return                     # NUVEM-DIGITOS-CICLOS-V1: o ciclo acabou no meio do sinal: o próximo ciclo espera um sinal novo
         if n > NT:
             return
@@ -963,6 +998,9 @@ def register_nuvem_digitos(app):
                   'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
         u['C'] = int(num(cf.get('C'), 1, 1, 10))                # NUVEM-DIGITOS-CICLOS-V1
+        u['Gr'] = int(num(cf.get('Gr'), -1, -1, 3))             # NUVEM-DIGITOS-GR-TRAVA-V1: gales nas recuperações (-1 = iguais)
+        u['trava'] = int(num(cf.get('trava'), 0, 0, 90))
+        u['travaOn'] = False
         u['cp'] = str(cf.get('cp') or 'n0') if str(cf.get('cp') or 'n0') in ('n0', 's1', 's2', 's3', 's4', 's5', 'l1', 'l2', 'l3', 'm1', 'm3', 'm5', 'm10') else 'n0'
         u['cFim'] = 'parar' if cf.get('cFim') == 'parar' else 'reset'
         u['fase_ciclo'] = ''
