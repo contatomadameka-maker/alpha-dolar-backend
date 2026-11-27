@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.4'  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.5'  # V1.5: destrava o ligar quando ficou uma entrada antiga sem resultado ·  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -613,8 +613,16 @@ def register_nuvem_clique2(app):
         if err:
             return jsonify({'ok': False, 'erro': err}), 403
         conta, cf = str(d['conta']), d.get('cfg') or {}
-        if nv.ligado(conta) or nv.cfg(conta).get('ab'):
+        if nv.ligado(conta):
             return jsonify({'ok': False, 'erro': 'o AUTO já está ligado na nuvem nesta conta'}), 400
+        ab0 = nv.cfg(conta).get('ab')
+        if ab0:   # NUVEM-CLIQUE2-DESTRAVA-V1: entrada de uma sessão antiga ficou "aberta" (o AUTO foi desligado antes do resultado) e travava o ligar para sempre
+            if time.time() - float(ab0.get('t') or 0) < 120:
+                return jsonify({'ok': False, 'erro': 'a última entrada ainda está terminando; tente de novo em 1 minuto'}), 400
+            u0 = nv.cfg(conta)
+            u0.pop('ab', None)
+            nv.salva(conta, u0)
+            nv.op_log(conta, {'t': int(time.time()), 'aviso': '🧹 Uma entrada antiga (contrato %s) ficou sem resultado conferido: confira no histórico da Deriv. Liberado para ligar de novo.' % ab0.get('cid')})
         E = num(cf.get('E'), .35, 0.35, 5000)
         W, L = num(cf.get('W'), 0, 0, 1000000), num(cf.get('L'), 0, 0, 1000000)
         if not (W > 0 and L > 0):
