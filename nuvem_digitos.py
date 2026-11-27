@@ -997,6 +997,26 @@ def register_nuvem_digitos(app):
         nv.para(conta, 'desligado por você')
         return jsonify({'ok': True})
 
+    @app.route('/api/nuvem-digitos/limpar', methods=['POST'])
+    def _nd_limpar():   # NUVEM-DIGITOS-LIMPAR-V1: o lixinho do registro de operações
+        d = request.get_json(silent=True) or {}
+        info, err = dono(d)
+        if err:
+            return jsonify({'ok': False, 'erro': err}), 403
+        conta = str(d['conta'])
+        nv.kv.jset('nuvem_dig:ops:' + conta, [], ex=86400 * 30)
+        on = nv.ligado(conta)
+        if not on:
+            with nv.trava(conta):
+                u = nv.cfg(conta)
+                if u:
+                    s = u.get('sessao') or {}
+                    u['sessao'] = {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}
+                    u['parado'] = ''
+                    nv.salva(conta, u)
+        nv.op_log(conta, {'t': int(time.time()), 'aviso': '🗑 Registro apagado por você' + (' (o robô continua ligado: meta e limite seguem contando a sessão atual)' if on else '')})
+        return jsonify({'ok': True, 'ligado': on})
+
     @app.route('/api/nuvem-digitos/estado', methods=['POST'])
     def _nd_estado():
         d = request.get_json(silent=True) or {}
