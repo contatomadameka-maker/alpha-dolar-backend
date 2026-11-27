@@ -521,9 +521,10 @@ class Nuvem(object):
             feitos = [x for x in self.ciclos_sala(1)[:60] if x.get('res') in ('win', 'loss') and float(x.get('conf') or x.get('t') or 0) > te + 2]
             ciclo['pulou'] = len(feitos)
             return len(feitos) >= need, 'pulando sinais inteiros da sala (%d de %d)' % (min(len(feitos), need), need)
-        if cp == 'l1':   # esperar a sala dar 1 LOSS depois do ciclo perdido
-            ok = any(x.get('res') == 'loss' and float(x.get('t') or 0) > tl + 5 for x in self.ciclos_sala(1)[:30])
-            return ok, 'esperando a sala dar 1 LOSS'
+        if cp in ('l1', 'l2', 'l3'):   # NUVEM-DIGITOS-LOSSN-V1: esperar a sala dar N LOSS (sinais inteiros que começaram depois da entrada perdida)
+            need, te = int(cp[1:]), float(ciclo.get('te') or ciclo.get('t') or 0)
+            n = len([x for x in self.ciclos_sala(1)[:60] if x.get('res') == 'loss' and float(x.get('conf') or x.get('t') or 0) > te + 2])
+            return n >= need, 'esperando a sala dar %d LOSS (%d de %d)' % (need, min(n, need), need)
         if cp.startswith('m'):   # pausa em minutos
             falta = tl + int(cp[1:] or 0) * 60 - time.time()
             return falta <= 0, 'pausa: falta %d s' % max(0, int(falta))
@@ -962,7 +963,7 @@ def register_nuvem_digitos(app):
                   'sessao': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0, 'ciclos': 0, 'ini': int(time.time())}, 'ciclo': {}, 'erros': 0,
                   'abertos': [], 'pm': u.get('pm', 0.95)})
         u['C'] = int(num(cf.get('C'), 1, 1, 10))                # NUVEM-DIGITOS-CICLOS-V1
-        u['cp'] = str(cf.get('cp') or 'n0') if str(cf.get('cp') or 'n0') in ('n0', 's1', 's2', 's3', 'l1', 'm1', 'm3', 'm5', 'm10') else 'n0'
+        u['cp'] = str(cf.get('cp') or 'n0') if str(cf.get('cp') or 'n0') in ('n0', 's1', 's2', 's3', 's4', 's5', 'l1', 'l2', 'l3', 'm1', 'm3', 'm5', 'm10') else 'n0'
         u['cFim'] = 'parar' if cf.get('cFim') == 'parar' else 'reset'
         u['fase_ciclo'] = ''
         u['base_pct'] = num(cf.get('base_pct'), 0, 0, 20)      # NUVEM-PORCENTO-V1
