@@ -515,9 +515,12 @@ class Nuvem(object):
 
     def pausa_ok(self, u, ciclo):   # NUVEM-DIGITOS-CICLOS-V1: pode começar o ciclo novo?
         cp, tl = str(u.get('cp') or 'n0'), float(ciclo.get('t') or 0)
-        if cp.startswith('s'):   # pular N sinais da sala
-            ciclo['pulou'] = int(ciclo.get('pulou') or 0) + 1
-            return ciclo['pulou'] > int(cp[1:] or 0), 'pulando sinais da sala (%d de %s)' % (min(ciclo['pulou'], int(cp[1:] or 0)), cp[1:])
+        if cp.startswith('s'):   # NUVEM-DIGITOS-PULO-V2: pular N sinais INTEIROS da sala que COMEÇARAM depois da entrada perdida
+            # (o resto do sinal em que o robô perdeu — G2/G3 que ele não faz — nunca conta como pulo)
+            need, te = int(cp[1:] or 0), float(ciclo.get('te') or ciclo.get('t') or 0)
+            feitos = [x for x in self.ciclos_sala(1)[:60] if x.get('res') in ('win', 'loss') and float(x.get('conf') or x.get('t') or 0) > te + 2]
+            ciclo['pulou'] = len(feitos)
+            return len(feitos) >= need, 'pulando sinais inteiros da sala (%d de %d)' % (min(len(feitos), need), need)
         if cp == 'l1':   # esperar a sala dar 1 LOSS depois do ciclo perdido
             ok = any(x.get('res') == 'loss' and float(x.get('t') or 0) > tl + 5 for x in self.ciclos_sala(1)[:30])
             return ok, 'esperando a sala dar 1 LOSS'
@@ -651,13 +654,18 @@ class Nuvem(object):
             cont = bool(ciclo.get('perdeu')) and n0 < NT and time.time() - float(ciclo.get('t') or 0) < 3 * 3600
             if cont and CC > 1 and (n0 + 1) % (gmax + 1) == 0:   # ciclo novo: respeita a pausa escolhida
                 ok, porque = self.pausa_ok(u, ciclo)
+                hr = datetime.now(BRT).strftime('%H:%M:%S')   # NUVEM-DIGITOS-PULO-LOG-V1: deixa escrito no registro o que pulou e onde a recuperação entrou
                 if not ok:
+                    if str(u.get('cp') or '').startswith('s'):
+                        self.op_log(conta, {'t': int(time.time()), 'aviso': '⏭ Pulou o sinal inteiro de %s das %s · pulo %d de %d antes de recuperar' % ({'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100'}.get(sym, sym), hr, min(int(ciclo.get('pulou') or 0) + 1, int(str(u.get('cp'))[1:] or 1)), int(str(u.get('cp'))[1:] or 1))})
                     u['ciclo'] = ciclo
                     u['fase_ciclo'] = 'ciclo %d de %d · %s' % ((n0 + 1) // (gmax + 1) + 1, CC, porque)
                     self.salva(conta, u)
                     return
             if cont:   # perdeu o último sinal e ainda tem gale: recupera no próximo sinal da sala
                 n, perda = n0 + 1, r2(float(ciclo.get('perda', 0)) + float(ciclo.get('ult', 0)))
+                if CC > 1 and n % (gmax + 1) == 0:
+                    self.op_log(conta, {'t': int(time.time()), 'aviso': '🔁 Recuperação %d de %d: entra no sinal de %s das %s (recupera $%.2f)' % (n // (gmax + 1), CC - 1, {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100'}.get(sym, sym), datetime.now(BRT).strftime('%H:%M:%S'), perda)})
             else:
                 n, perda = 0, 0.0
                 esp = int(u.get('espera') or 0)
@@ -708,7 +716,7 @@ class Nuvem(object):
         if g == 0 and not cont and mx > 0:
             s['ciclos'] = int(s.get('ciclos', 0)) + 1
             u['sessao'] = s
-        ciclo.update({'k': k, 'g': g, 'n': n, 'ult': stake, 'perda': perda, 'perdeu': False, 't': time.time()})
+        ciclo.update({'k': k, 'g': g, 'n': n, 'ult': stake, 'perda': perda, 'perdeu': False, 't': time.time(), 'te': time.time()})   # NUVEM-DIGITOS-PULO-V2: 'te' = hora da entrada
         u['ciclo'] = ciclo
         self.salva(conta, u)
         p = self.pessoas.get(conta)
