@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.5'  # V1.5: destrava o ligar quando ficou uma entrada antiga sem resultado ·  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.6'  # V1.6: opera a estrategia escolhida no catalogador (ficha + mercado + gatilho) · NUVEM-CLIQUE2-FIXA-V1 · V1.5: destrava o ligar quando ficou uma entrada antiga sem resultado ·  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -127,6 +127,13 @@ def analisa(fam=None):
         if len(out) >= 8:
             break
     return out
+
+
+def fixa_j(fx):   # NUVEM-CLIQUE2-FIXA-V1: a jogada fixa escolhida no catalogador
+    mk, ct, bar = fx['mk'], fx['ct'], fx.get('bar')
+    tt = list(TICKS[mk])[-30:]
+    f = (sum(1 for x in tt if ok(ct, bar, x[1], x[2] if len(x) > 2 else None)) / float(len(tt))) if tt else 0.0
+    return {'mk': mk, 'm': NOME[mk], 'c': fx['c'], 'ct': ct, 'bar': bar, 'p': fx['p'], 'f': round(f, 3), 'sc': 0.0}
 
 
 class NuvemClique2(object):
@@ -381,14 +388,14 @@ class NuvemClique2(object):
                 u['esp'] = None
                 self.op_log(conta, {'t': int(time.time()), 'aviso': '✔ HIT completo: %d LOSS virtual(is) seguido(s) em %s · %s → entrando' % (e['k'], j['c'], j['m'])})
                 return self.compra(conta, c, u, j) or True
-            if not g['passo'] and time.time() - e['t0'] > 90:   # entrada normal: 90 s sem HIT → analisa de novo
+            if not g['passo'] and not u.get('fx') and time.time() - e['t0'] > 90:   # entrada normal: 90 s sem HIT → analisa de novo
                 u['esp'] = None
                 u['fase'] = 'o HIT não veio em 90 s · nova análise'
             return True
         # análise (pede 2 s de "analisando" para todos verem a troca)
         if not u.get('an_t'):
             u['an_t'] = agora + 2.0
-            u['fase'] = '🧠 analisando os 10 mercados…'
+            u['fase'] = ('🎯 estratégia do catalogador: %s · %s' % (u['fx']['c'], u['fx']['m'])) if u.get('fx') else '🧠 analisando os 10 mercados…'
             return True
         if agora < u['an_t']:
             return False
@@ -397,8 +404,9 @@ class NuvemClique2(object):
         fg.update(self.kv.jget(P + 'fam') or {})
         fu = u.get('fu') or {}   # NUVEM-CLIQUE2-V1.3: tipos de ficha que a pessoa escolheu (dentro dos que o admin liberou)
         fm = {k: bool(fg.get(k, True)) and fu.get(k, True) is not False for k in FAM0}
-        J = analisa(fm if any(fm.values()) else fg)
-        if len(J) < 3:
+        fx = u.get('fx')
+        J = ([fixa_j(fx)] if TICKS[fx['mk']] else []) if fx else analisa(fm if any(fm.values()) else fg)
+        if len(J) < (1 if fx else 3):
             u['fase'] = 'juntando os dígitos dos mercados…'
             u['prox'] = agora + 3
             return True
@@ -637,6 +645,19 @@ def register_nuvem_clique2(app):
              'fu': {k: (cf.get('fu') or {}).get(k, True) is not False for k in FAM0},
              'pm': nv.cfg(conta).get('pm') or {}, 'sess': {'pl': 0.0, 'n': 0, 'w': 0, 'l': 0}, 'travaOn': False, 'prox': 0, 'erros': 0,
              'esp': None, 'an_t': 0, 'fase': 'ligando', 'saldo': float(info['saldo']) if info.get('saldo') is not None else None}
+        x = cf.get('fx')
+        if isinstance(x, dict) and x.get('mk') in MERC and x.get('ct') in ('DIGITOVER', 'DIGITUNDER', 'DIGITEVEN', 'DIGITODD'):
+            ct, bar = x['ct'], None
+            if ct == 'DIGITOVER':
+                bar = int(num(x.get('bar'), 3, 0, 8)); p, cn = (9 - bar) / 10.0, 'OVER %d' % bar
+            elif ct == 'DIGITUNDER':
+                bar = int(num(x.get('bar'), 6, 1, 9)); p, cn = bar / 10.0, 'UNDER %d' % bar
+            else:
+                p, cn = .5, 'PAR' if ct == 'DIGITEVEN' else 'ÍMPAR'
+            u['fx'] = {'mk': x['mk'], 'm': NOME[x['mk']], 'ct': ct, 'bar': bar, 'p': p, 'c': cn, 'k': int(num(x.get('k'), 0, 0, 6))}
+            u['k'], u['kg'] = u['fx']['k'], False   # igual ao catalogador: espera os ticks contra so na entrada; o gale vai no tick seguinte
+            if u['gm'] == 'nova':
+                u['gm'] = 'mesmo'
         nv.zera(u)
         nv.salva(conta, u)
         nv.kv.set(P + 'pmot:' + conta, '', ex=60)
@@ -648,6 +669,9 @@ def register_nuvem_clique2(app):
         nv.garante()
         nv.op_log(conta, {'t': int(time.time()), 'aviso': '🤖 AUTO LIGADO NA NUVEM · conta %s · entrada $%.2f · %s · meta $%.2f · stop $%.2f' % (
             info['tipo'].upper(), E, ('sem gale' if u['gm'] == 'off' or not u['G'] else '%d gale(s)%s' % (u['G'], (' · %d ciclos' % u['C']) if u['C'] > 1 else '')), W, L)})
+        if u.get('fx'):
+            fx = u['fx']
+            nv.op_log(conta, {'t': int(time.time()), 'aviso': '🎯 Estratégia do catalogador: %s · %s · %s' % (fx['c'], fx['m'], 'entra sempre' if not fx['k'] else 'depois de %d tick(s) contra seguidos' % fx['k'])})
         return jsonify({'ok': True, 'cfg': publico(u)})
 
     @app.route('/api/nuvem-clique2/desligar', methods=['POST'])
