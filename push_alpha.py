@@ -21,7 +21,7 @@ Rotas:
 """
 import os, re, sys, json, time, base64, hashlib, threading, queue
 
-VERSAO = 'PUSH-ALPHA-V1.3'  # V1.3: aviso da operação mostra o valor da entrada e o gale ·  # V1.2: placar da sessão atualizado (lê a sessão viva do robô) ·  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
+VERSAO = 'PUSH-ALPHA-V1.5'  # V1.5: valores em dólar e logo em seguida em real (cotação do dia) ·  # V1.4: envio em paralelo (um aparelho lento não atrasa os outros), conexão reaproveitada, Urgency high sempre, recibo de chegada (mede o atraso de cada aparelho) ·  # V1.3: aviso da operação mostra o valor da entrada e o gale ·  # V1.2: placar da sessão atualizado (lê a sessão viva do robô) ·  # V1.1: registro dos últimos avisos por aparelho, teste com atraso (app fechado), diagnóstico no Testar
 K_SUBS, K_VAPID = 'push:subs', 'push:vapid'
 CONTATO = os.environ.get('VAPID_SUB', 'mailto:suporte@alphadolar.online')
 # módulo, classe, id, nome, página
@@ -180,13 +180,28 @@ def _ult(d, payload, st):   # V1.1: últimos 8 avisos de cada aparelho (para o d
         i = d.get('_id') or sid(d['sub'].get('endpoint'))
         r = db()
         L = json.loads(r.hget('push:ult', i) or '[]') if hasattr(r, 'hget') else []
-        L.insert(0, {'t': int(time.time()), 'tit': str(payload.get('t') or '')[:60], 'st': st})
+        L.insert(0, {'t': int(time.time()), 'tit': str(payload.get('t') or '')[:60], 'st': st, 'id': payload.get('id'),
+                     'fila': round(max(0, time.time() - float(payload.get('ts') or 0) / 1000.0), 1) if payload.get('ts') else None})
         r.hset('push:ult', i, json.dumps(L[:8], ensure_ascii=False))
     except Exception:
         pass
 
 
+_TL = threading.local()
+
+
+def _sess():   # V1.4: uma conexão por thread, reaproveitada (sem abrir TLS a cada aviso)
+    s = getattr(_TL, 's', None)
+    if s is None:
+        import requests
+        s = requests.Session()
+        _TL.s = s
+    return s
+
+
 def _manda(d, payload, ttl, urg):
+    payload = dict(payload)
+    payload.setdefault('id', os.urandom(5).hex())
     st, err = _manda0(d, payload, ttl, urg)
     _ult(d, payload, st)
     return st, err
@@ -197,7 +212,7 @@ def _manda0(d, payload, ttl, urg):
     v, _ = vapid()
     try:
         webpush(subscription_info=d['sub'], data=json.dumps(payload, ensure_ascii=False), vapid_private_key=v,
-                vapid_claims={'sub': CONTATO}, ttl=ttl, headers={'Urgency': urg}, timeout=10)
+                vapid_claims={'sub': CONTATO}, ttl=ttl, headers={'Urgency': 'high'}, timeout=8, requests_session=_sess())
         EST['ok'] += 1
         return 201, ''
     except WebPushException as e:
@@ -213,6 +228,16 @@ def _manda0(d, payload, ttl, urg):
         return 500, str(e)[:200]
 
 
+_PL = {}
+
+
+def _POOL():
+    if _PL.get('pid') != os.getpid():
+        from concurrent.futures import ThreadPoolExecutor
+        _PL.update(pid=os.getpid(), p=ThreadPoolExecutor(max_workers=12, thread_name_prefix='push-envio'))
+    return _PL['p']
+
+
 def _loop():
     while True:
         try:
@@ -222,7 +247,7 @@ def _loop():
                 if d.get('lang') == 'es' and payload.get('es'):
                     p = dict(payload, **payload['es'])
                 p = {k: v for k, v in p.items() if k != 'es'}
-                _manda(d, p, ttl, urg)
+                _POOL().submit(_manda, d, p, ttl, urg)   # V1.4: em paralelo
         except Exception as e:
             log('loop:', e)
             time.sleep(1)
@@ -292,6 +317,38 @@ def avisar_sala(tipo, titulo, corpo, tag, chave=None):
 
 
 # ---------------- ganchos nos robôs ----------------
+_COT = {'v': 0.0, 't': 0}
+
+
+def cotacao():   # V1.5: dólar → real (AwesomeAPI, a mesma do site), guardada 30 min
+    if _COT['v'] and time.time() - _COT['t'] < 1800:
+        return _COT['v']
+    import urllib.request
+    for url, ler in (('https://economia.awesomeapi.com.br/json/last/USD-BRL', lambda j: j['USDBRL']['bid']),
+                     ('https://open.er-api.com/v6/latest/USD', lambda j: j['rates']['BRL'])):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'AlphaDolar-Push'}), timeout=6) as r:
+                v = float(ler(json.loads(r.read().decode())))
+                if 2 < v < 20:
+                    _COT.update(v=v, t=time.time())
+                    return v
+        except Exception:
+            pass
+    _COT['t'] = time.time() - 1500   # tenta de novo em 5 min
+    return _COT['v'] or 0.0
+
+
+def _rs(v):
+    c = cotacao()
+    if not c:
+        return ''
+    x = abs(float(v)) * c
+    s = ('%.2f' % x).replace('.', ',')
+    i, d = s.split(',')
+    i = '{:,}'.format(int(i)).replace(',', '.')
+    return ' (≈ R$ %s%s,%s)' % ('−' if float(v) < 0 else '+' if float(v) > 0 else '', i, d)
+
+
 def _f2(v):
     try:
         v = float(v)
@@ -316,6 +373,17 @@ def _gancho_robo(cls, rid, nome, url):
                 tit = '📊 %s · resultado' % nome
             else:
                 tit = '⛔ %s parou' % nome
+            try:   # V1.5: o valor em real do resultado citado no motivo (o último $ do texto)
+                import re as _re
+                vs = _re.findall(r'([+\-−]?)\$\s?(\d+(?:[.,]\d+)?)', m)
+                if vs:
+                    sg, num = vs[-1]
+                    v = float(num.replace(',', '.')) * (-1 if sg in ('-', '−') else 1)
+                    if 'STOP' in m.upper() or 'PERDA' in m.upper() and sg == '':
+                        v = -abs(v)
+                    m = m + (_rs(v).replace(' (', '\n').rstrip(')') if _rs(v) else '')
+            except Exception:
+                pass
             avisar_conta(conta, 'fim', rid, tit, m, url, 'fim-%s' % rid, chave='fim|%s|%s|%s' % (rid, conta, m))
         except Exception as e:
             log('gancho para %s:' % rid, e)
@@ -351,12 +419,12 @@ def _gancho_robo(cls, rid, nome, url):
                         u = self.cfg(conta) if hasattr(self, 'cfg') else None
                         s = (u or {}).get('sess') or (u or {}).get('sessao') or (u or {}).get('s') or {}
                     if isinstance(s, dict) and s.get('pl') is not None:
-                        tot = '\nSessão: %s' % _f2(s['pl'])
+                        tot = '\nSessão: %s%s' % (_f2(s['pl']), _rs(s['pl']))
                         if s.get('w') is not None and s.get('l') is not None:
                             tot += ' · %dW %dL' % (int(s['w']), int(s['l']))
                 except Exception:
                     pass
-                tit = ('✅ WIN %s' if ok else '❌ LOSS %s') % _f2(pl)
+                tit = ('✅ WIN %s' if ok else '❌ LOSS %s') % (_f2(pl) + _rs(pl))
                 chave = 'res|%s|%s|%s|%s' % (rid, conta, reg.get('cid') or reg.get('t'), pl)
                 avisar_conta(conta, 'res', rid, tit + ' · ' + nome, (oque + tot).strip(), url, 'res-%s' % rid, chave=chave, seg=300)
         except Exception as e:
@@ -466,6 +534,26 @@ def register_push(app):
         _C['t'] = 0
         return jsonify({'ok': True, 'id': i, 'contas': len(contas), 'top': top})
 
+    @app.route('/api/push/recebi', methods=['POST'])
+    def _push_recebi():   # V1.4: o aparelho avisa que a notificação chegou (para medir o atraso)
+        d = request.get_json(silent=True) or {}
+        i, pid = sid(d.get('endpoint') or ''), str(d.get('id') or '')[:20]
+        try:
+            lat = max(0, min(86400, float(d.get('lat') or 0) / 1000.0))
+            r = db()
+            L = json.loads(r.hget('push:ult', i) or '[]')
+            for x in L:
+                if pid and x.get('id') == pid and x.get('chegou') is None:
+                    x['chegou'] = round(lat, 1)
+                    r.hset('push:ult', i, json.dumps(L, ensure_ascii=False))
+                    break
+            al = json.loads(r.get('push:lat') or '[]')   # últimos 200 atrasos (admin)
+            al.insert(0, [int(time.time()), 'ios' if 'apple' in str(d.get('endpoint')) else 'android' if 'fcm' in str(d.get('endpoint')) or 'google' in str(d.get('endpoint')) else 'outro', round(lat, 1)])
+            r.set('push:lat', json.dumps(al[:200]))
+        except Exception:
+            pass
+        return jsonify({'ok': True})
+
     @app.route('/api/push/sair', methods=['POST'])
     def _push_sair():
         d = request.get_json(silent=True) or {}
@@ -513,6 +601,14 @@ def register_push(app):
                 c[k] += 1 if t.get(k) else 0
             for r in t.get('res') or []:
                 c['res'][r] = c['res'].get(r, 0) + 1
-        return jsonify({'ok': True, 'versao': VERSAO, 'inscritos': c, 'envio': EST})
+        try:
+            al = json.loads(db().get('push:lat') or '[]')
+        except Exception:
+            al = []
+        lat = {}
+        for _, pf, s in al:
+            lat.setdefault(pf, []).append(s)
+        lat = {k: {'n': len(v), 'mediana_s': sorted(v)[len(v) // 2], 'max_s': max(v), 'acima_60s': sum(1 for x in v if x > 60)} for k, v in lat.items()}
+        return jsonify({'ok': True, 'versao': VERSAO, 'inscritos': c, 'envio': EST, 'atraso_ate_chegar': lat})
 
     instala_ganchos()
