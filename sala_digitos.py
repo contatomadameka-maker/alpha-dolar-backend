@@ -1500,6 +1500,66 @@ def register_sala_digitos(app, get_redis=None, parar_antigo=None):
         return jsonify({'ok': True, 'dia': dia, 'itens': out, 'certos': certos, 'comparaveis': comparaveis,
                         'total': len(out), 'lucro': round(sum(x.get('profit') or 0 for x in robo), 2)})
 
+    # ---------- SALA-ANALISE-V1: acerto por entrada por hora do dia, depois de LOSS da sala e por mercado ----------
+    @app.route('/api/admin/sala-digitos/analise', methods=['GET'])
+    def _sd_analise():
+        if not ok_admin():
+            return negado()
+        try:
+            n = max(1, min(90, int(request.args.get('dias', 30))))
+        except Exception:
+            n = 30
+        hoje = datetime.now(BRT).date()
+        cic = []
+        for i in range(n):
+            d = (hoje - timedelta(days=i)).strftime('%Y-%m-%d')
+            try:
+                h = json.loads(kv.get('sala_dig:dia:' + d) or 'null') or {}
+            except Exception:
+                h = {}
+            for c in h.get('ciclos') or []:
+                if c.get('res') in ('win', 'loss') and c.get('t'):
+                    cic.append(c)
+        cic.sort(key=lambda c: c['t'])
+
+        def novo():
+            return {'sinais': 0, 'win': 0, 'loss': 0, 'sg': 0, 'entradas': 0, 'acertos': 0}
+
+        def soma(b, c):
+            p = int(c.get('passo') or 0) if c['res'] == 'win' else max(3, int(c.get('passo') or 3))
+            b['sinais'] += 1
+            b['entradas'] += p + 1
+            if c['res'] == 'win':
+                b['win'] += 1
+                b['acertos'] += 1
+                if p == 0:
+                    b['sg'] += 1
+            else:
+                b['loss'] += 1
+
+        def fecha(b):
+            e = b['entradas']
+            b['pct'] = round(b['acertos'] * 100.0 / e, 1) if e else None
+            b['margem'] = round(196.0 * (0.25 / e) ** 0.5, 1) if e else None   # +/- em pontos (95%)
+            b['pct_sg'] = round(b['sg'] * 100.0 / b['sinais'], 1) if b['sinais'] else None
+            b['assert'] = round(b['win'] * 100.0 / b['sinais'], 1) if b['sinais'] else None
+            return b
+
+        hora = {('%02d' % k): novo() for k in range(24)}
+        depois = {'0': novo(), '1': novo(), '2': novo(), '3+': novo()}
+        merc, tot, seq = {}, novo(), 0
+        for c in cic:
+            hk = datetime.fromtimestamp(c['t'], BRT).strftime('%H')
+            soma(hora[hk], c)
+            soma(depois['3+' if seq >= 3 else str(seq)], c)
+            soma(merc.setdefault(str(c.get('sym')), novo()), c)
+            soma(tot, c)
+            seq = seq + 1 if c['res'] == 'loss' else 0
+        return jsonify({'ok': True, 'dias': n, 'total': fecha(tot),
+                        'hora': {k: fecha(v) for k, v in hora.items()},
+                        'depois_loss': {k: fecha(v) for k, v in depois.items()},
+                        'mercado': {k: fecha(v) for k, v in sorted(merc.items())}})
+
     @app.route('/api/sala-digitos/tg/codigo', methods=['POST'])
     def _sd_tg_codigo():
         p = _pessoa((request.get_json(silent=True) or {}).get('pessoa'))
