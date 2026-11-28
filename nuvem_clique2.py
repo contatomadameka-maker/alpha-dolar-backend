@@ -23,7 +23,7 @@ try:
 except Exception:   # pragma: no cover
     from backend.nuvem_digitos import KV, Conexao, contas_do_token, log as _log   # noqa
 
-VERSAO = 'NUVEM-CLIQUE2-V1.6'  # V1.6: opera a estrategia escolhida no catalogador (ficha + mercado + gatilho) · NUVEM-CLIQUE2-FIXA-V1 · V1.5: destrava o ligar quando ficou uma entrada antiga sem resultado ·  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
+VERSAO = 'NUVEM-CLIQUE2-V1.7'  # V1.7: confere o resultado mais rapido e o gale entra no tick seguinte possivel (NUVEM-CLIQUE2-RAPIDO-V1) · V1.6: opera a estrategia escolhida no catalogador (ficha + mercado + gatilho) · NUVEM-CLIQUE2-FIXA-V1 · V1.5: destrava o ligar quando ficou uma entrada antiga sem resultado ·  # V1.4: zerar com gale em andamento fica pendente e zera no fim da recuperação ·  # V1.3: cada pessoa escolhe os tipos de ficha ·  # V1.2: fichas Sobe/Desce de 1 tick + famílias ligadas pelo admin ·  # V1.1: zerar a sessão ·
 MERC = ['R_10', 'R_25', 'R_50', 'R_75', 'R_100', '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V']
 NOME = {'R_10': 'Vol 10', 'R_25': 'Vol 25', 'R_50': 'Vol 50', 'R_75': 'Vol 75', 'R_100': 'Vol 100', '1HZ10V': 'Vol 10 (1s)',
         '1HZ25V': 'Vol 25 (1s)', '1HZ50V': 'Vol 50 (1s)', '1HZ75V': 'Vol 75 (1s)', '1HZ100V': 'Vol 100 (1s)'}
@@ -393,11 +393,11 @@ class NuvemClique2(object):
                 u['fase'] = 'o HIT não veio em 90 s · nova análise'
             return True
         # análise (pede 2 s de "analisando" para todos verem a troca)
-        if not u.get('an_t'):
+        if not u.get('an_t') and not (g['passo'] or u.get('fx')):   # RAPIDO-V1: no gale e na estrategia do catalogador nao espera os 2 s de 'analisando'
             u['an_t'] = agora + 2.0
             u['fase'] = ('🎯 estratégia do catalogador: %s · %s' % (u['fx']['c'], u['fx']['m'])) if u.get('fx') else '🧠 analisando os 10 mercados…'
             return True
-        if agora < u['an_t']:
+        if agora < float(u.get('an_t') or 0):
             return False
         u['an_t'] = 0
         fg = dict(FAM0)
@@ -471,7 +471,7 @@ class NuvemClique2(object):
 
     def confere(self, conta, c, u):
         ab = u['ab']
-        if time.time() - float(ab['t']) < 1.8 or time.time() - float(ab.get('ult') or 0) < 0.8:
+        if time.time() - float(ab['t']) < 0.5 or time.time() - float(ab.get('ult') or 0) < 0.3:   # NUVEM-CLIQUE2-RAPIDO-V1: antes 1,8 s / 0,8 s
             return None
         ab['ult'] = time.time()
         try:
@@ -537,7 +537,7 @@ class NuvemClique2(object):
         if g['nivel'] < self.gef(u):
             g['nivel'] += 1
             u['fase'] = 'LOSS %s → %sGALE %d %s' % (f2(pl), ('CICLO %d · ' % g['ciclo']) if C > 1 else '', g['nivel'], 'com nova análise em outro mercado' if u.get('gm') == 'nova' else 'na mesma jogada')
-            u['prox'] = time.time() + 0.8
+            u['prox'] = 0   # RAPIDO-V1: o gale vai direto
             return 'ok'
         if g['ciclo'] < C:
             g['ciclo'] += 1
